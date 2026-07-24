@@ -3,11 +3,49 @@ import "./globals.css"; // Tutaj ładują się nasze nowe style z globals.css
 import { supabase } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
-export const dynamic = 'force-dynamic';
+// ISR: revalidate settings every 5 minutes instead of force-dynamic
+export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Dota2Inhouse.pl - Polska Społeczność Dota 2",
-  description: "Największa społeczność graczy Dota 2 w Polsce.",
+  metadataBase: new URL('https://dota2inhouse.pl'),
+  title: {
+    default: 'Polish Dota2 Inhouse | Główna Polska Społeczność Dota 2',
+    template: '%s | Polish Dota2 Inhouse',
+  },
+  description: 'Oficjalna strona polskiej społeczności Dota 2 istniejącej od 2022 roku. Turnieje, ranking MMR graczy, liga inhouse oraz aktualności.',
+  keywords: [
+    'Dota 2 Polska', 'Dota2.pl', 'turniej Dota 2', 'Dota2 turnieje',
+    'społeczność dota 2 w Polsce', 'polacy w dota 2', 'szukam graczy dota 2',
+    'jak grać inhouse dota 2', 'polska liga dota 2', 'PDL', 'dota2 discord',
+    'dota 2 inhouse', 'ranking graczy dota 2', 'dota 2 mmr ranking polska',
+  ],
+  authors: [{ name: 'Polish Dota2 Inhouse Team' }],
+  openGraph: {
+    title: 'Polish Dota2 Inhouse | Główna Polska Społeczność Dota 2',
+    description: 'Oficjalna strona polskiej społeczności Dota 2 istniejącej od 2022 roku. Dołącz do ligi inhouse, sprawdź ranking i bierz udział w turniejach!',
+    url: 'https://dota2inhouse.pl',
+    siteName: 'Polish Dota2 Inhouse',
+    locale: 'pl_PL',
+    type: 'website',
+    images: [
+      {
+        url: '/images/og-image.png',
+        width: 3840,
+        height: 2160,
+        alt: 'Polish Dota2 Inhouse Banner',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Polish Dota2 Inhouse | Polska Społeczność Dota 2',
+    description: 'Oficjalna strona polskiej społeczności Dota 2. Turnieje, rankingi, magazyn Basher i liga inhouse.',
+    images: ['/images/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 async function getSettings() {
@@ -61,6 +99,14 @@ export default async function RootLayout({
   return (
     <html lang="pl">
       <head>
+        {/* Preload critical hero font (Logik-SemiBold) for LCP text */}
+        <link
+          rel="preload"
+          href="/fonts/Logik-SemiBold.ttf"
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
+        />
         {isGoogleFont && (
           <>
             <link rel="preconnect" href="https://fonts.googleapis.com" />

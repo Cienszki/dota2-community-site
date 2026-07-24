@@ -43,7 +43,7 @@ export default function NewsPanel() {
   return (
     <section className="relative z-10 max-w-7xl mx-auto px-6">
       <div className="mb-12">
-        <h2 className="text-4xl font-extrabold tracking-tight mb-2">Newsy</h2>
+        <h1 className="text-4xl font-extrabold tracking-tight mb-2">Newsy</h1>
         <p className="text-slate-400 text-sm">Najnowsze wieści ze społeczności dota2inhouse.pl</p>
       </div>
 

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Users, Trophy, ShieldAlert, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ClientLightPillar from '@/components/ClientLightPillar';
@@ -5,6 +6,11 @@ import RankingControls from '@/components/RankingControls';
 import Navbar from '@/components/Navbar';
 import SteamLinkHandler from '@/components/SteamLinkHandler';
 import JoinSteamButton from '@/components/JoinSteamButton';
+
+export const metadata: Metadata = {
+  title: 'Ranking Polskich Graczy Dota 2',
+  description: 'Ranking polskich graczy Dota 2 otwarty dla każdego. Dołącz do społeczności i sprawdź swoją pozycję w zestawieniu MMR!',
+};
 
 
 export const revalidate = 259200;

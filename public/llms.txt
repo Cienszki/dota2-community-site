@@ -1,0 +1,21 @@
+# Polish Dota2 Inhouse
+
+> Polska społeczność Dota 2 — liga inhouse, ranking graczy, turnieje i magazyn Basher.
+
+Polish Dota2 Inhouse is the main Polish-language Dota 2 community and inhouse league platform, active since 2022. It provides player rankings, tournament history, community content, and a Discord hub for Polish Dota 2 players.
+
+## Główne sekcje
+
+- [Strona główna](https://dota2inhouse.pl): Wprowadzenie do społeczności i linki do Discorda
+- [Ranking](https://dota2inhouse.pl/ranking): Ranking graczy Dota 2 oparty o MMR, powiązany ze Steam
+- [Hall of Fame](https://dota2inhouse.pl/hall-of-fame): Historia zwycięzców turniejów społeczności
+- [Basher](https://dota2inhouse.pl/basher): Satyryczny magazyn społeczności
+- [Newsy](https://dota2inhouse.pl/newsy): Aktualności o turniejach i wydarzeniach
+- [Streamy](https://dota2inhouse.pl/streamy): Lista streamerów społeczności
+- [Rekrutacja](https://dota2inhouse.pl/rekrutacja): Dołącz do zespołu
+- [O nas](https://dota2inhouse.pl/o-nas): Historia społeczności
+- [Kontakt](https://dota2inhouse.pl/kontakt): Formularz kontaktowy
+
+## Linki zewnętrzne
+
+- [Discord](https://discord.gg/ZxgmF7Kr4t): Główny serwer społeczności

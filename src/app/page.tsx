@@ -37,7 +37,7 @@ export default function Home() {
     async function fetchAll() {
       try {
         const res = await fetch(
-          'https://discord.com/api/guilds/849440713947971595/widget.json'
+          'https://discord.com/api/guilds/947158056381337630/widget.json'
         );
         if (res.ok) {
           const data = await res.json();
@@ -98,18 +98,25 @@ export default function Home() {
         <img
           src="/images/ET.webp"
           alt="Elder Titan"
+          width={300}
+          height={600}
+          loading="lazy"
           className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0"
           style={{ left: 'calc(4% + 300px)' }}
         />
         <img
           src="/images/Zeus.webp"
           alt="Zeus"
+          width={300}
+          height={600}
+          loading="lazy"
           className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0"
           style={{ right: 'calc(4% + 300px)' }}
         />
 
         {/* ─── HERO SECTION ─── */}
         <section className="relative z-10 max-w-7xl mx-auto px-6 pt-[60px] pb-12 flex flex-col items-center text-center">
+          {/* Animated headings wrapper — only SplitText headings, NOT the LCP paragraph */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -120,7 +127,7 @@ export default function Home() {
               <SplitText
                 text="POLSKA"
                 tag="h1"
-                className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
+                className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
                 delay={40}
                 duration={0.6}
                 ease="power4.out"
@@ -130,7 +137,7 @@ export default function Home() {
                 <SplitText
                   text="SPOŁECZNOŚĆ"
                   tag="h1"
-                  className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
+                  className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
                   delay={60}
                   duration={0.6}
                   ease="power4.out"
@@ -139,7 +146,7 @@ export default function Home() {
                 <SplitText
                   text="DOTA 2"
                   tag="h1"
-                  className="text-4xl md:text-5xl font-black text-red-600 tracking-tighter uppercase"
+                  className="text-3xl sm:text-4xl md:text-5xl font-black text-red-600 tracking-tighter uppercase"
                   delay={70}
                   duration={0.6}
                   ease="power4.out"
@@ -148,38 +155,42 @@ export default function Home() {
                 <img
                   src="/images/dota2.png"
                   alt="Dota 2 logo"
-                  className="inline-block w-8 h-8 md:w-10 md:h-10 object-contain align-middle"
+                  width={40}
+                  height={40}
+                  fetchPriority="high"
+                  className="inline-block w-6 sm:w-8 md:w-10 h-6 sm:h-8 md:h-10 object-contain align-middle"
                 />
               </div>
             </div>
-            <p className="text-slate-300 text-lg md:text-lg max-w-3xl mx-auto leading-relaxed drop-shadow-md mb-12 mt-8">
-              Zorganizowana społeczność dla polskich graczy Dota 2. Regularne turnieje, liga drużynowa lub poprostu miejsce gdzie znajdziesz kompanów do gry. Dołącz do nas na Discordzie!
-            </p>
-
-            {/* ─── CALL-TO-ACTION BUTTONS ─── */}
-            <div className="flex flex-wrap justify-center gap-6 mt-12">
-              <div className="glow-container">
-                <a href="https://discord.com/invite/ZxgmF7Kr4t" target="_blank" rel="noopener noreferrer" className="btn-hero h-12 flex items-center px-8 gap-3 text-xl">
-                  <span>DOŁĄCZ DO NAS <img src="/images/discord_logo.png" alt="Discord" className="w-7 h-7 object-contain shrink-0" /></span>
-                </a>
-              </div>
-              <div className="glow-container">
-                <button className="btn-hero h-12 flex items-center px-8 text-xl">
-                  <span>ZOBACZ TURNIEJE</span>
-                </button>
-              </div>
-            </div>
           </motion.div>
+          {/* LCP paragraph — fully visible from server render, no opacity-0 delay */}
+          <p className="text-slate-300 text-lg md:text-lg max-w-3xl mx-auto leading-relaxed drop-shadow-md mb-12 mt-8">
+            Zorganizowana społeczność dla polskich graczy Dota 2. Regularne turnieje, liga drużynowa lub poprostu miejsce gdzie znajdziesz kompanów do gry. Dołącz do nas na Discordzie!
+          </p>
+
+          {/* ─── CALL-TO-ACTION BUTTONS ─── */}
+          <div className="flex flex-wrap justify-center gap-6 mt-12">
+            <div className="glow-container">
+              <a href="https://discord.com/invite/ZxgmF7Kr4t" target="_blank" rel="noopener noreferrer" className="btn-hero h-12 flex items-center px-8 gap-3 text-xl">
+                <span>DOŁĄCZ DO NAS <img src="/images/discord_logo.png" alt="Discord" className="w-7 h-7 object-contain shrink-0" /></span>
+              </a>
+            </div>
+            <div className="glow-container">
+              <button className="btn-hero h-12 flex items-center px-8 text-xl">
+                <span>ZOBACZ TURNIEJE</span>
+              </button>
+            </div>
+          </div>
         </section>
 
         {/* ─── SKEWED STATS BAR (12°) ─── */}
         <div className="relative mt-6 z-10 max-w-[1088px] mx-auto px-6">
-          <div className="bg-[#111]/60 border -skew-x-[12deg] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-white/10 stats-glow h-auto md:h-22">
+          <div className="bg-[#111]/60 border skew-x-0 md:-skew-x-[12deg] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-white/10 stats-glow h-auto md:h-22">
 
             {/* Stat 1: Discord */}
             <div className="hover:bg-white/[0.02] transition-colors flex">
-              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-[12deg] text-left">
-                <img src="/images/statsbar_1.png" alt="Społeczność Discord" className="h-11 w-11 object-contain flex-shrink-0" />
+              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-0 md:skew-x-[12deg] text-left">
+                <img src="/images/statsbar_1.png" alt="Społeczność Discord" width={44} height={44} className="h-11 w-11 object-contain flex-shrink-0" />
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white leading-none whitespace-nowrap">{discordCount}+</div>
                   <div className="text-[11px] font-bold tracking-wider text-slate-400 mt-1 uppercase whitespace-nowrap">
@@ -192,8 +203,8 @@ export default function Home() {
 
             {/* Stat 2: Tournaments */}
             <div className="hover:bg-white/[0.02] transition-colors flex">
-              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-[12deg] text-left">
-                <img src="/images/statsbar_2.png" alt="Turnieje" className="h-11 w-11 object-contain flex-shrink-0" />
+              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-0 md:skew-x-[12deg] text-left">
+                <img src="/images/statsbar_2.png" alt="Turnieje" width={44} height={44} className="h-11 w-11 object-contain flex-shrink-0" />
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white uppercase tracking-tight leading-none whitespace-nowrap">Regularne</div>
                   <div className="text-[11px] font-bold tracking-wider text-slate-400 mt-1 uppercase whitespace-nowrap">Turnieje dla <br /> każdego</div>
@@ -203,7 +214,7 @@ export default function Home() {
 
             {/* Stat 3: PDL */}
             <div className="hover:bg-white/[0.02] transition-colors flex">
-              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-[12deg] text-left">
+              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-0 md:skew-x-[12deg] text-left">
                 <img src="/images/statsbar_3.png" alt="PDL" className="h-11 w-11 object-contain flex-shrink-0" />
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white leading-none whitespace-nowrap">PDL</div>
@@ -214,8 +225,8 @@ export default function Home() {
 
             {/* Stat 4: LANs & offline events */}
             <div className="hover:bg-white/[0.02] transition-colors flex">
-              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-[12deg] text-left">
-                <img src="/images/statsbar_4.png" alt="LANy i wydarzenia offline" className="h-11 w-11 object-contain flex-shrink-0" />
+              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-0 md:skew-x-[12deg] text-left">
+                <img src="/images/statsbar_4.png" alt="LANy i wydarzenia offline" width={44} height={44} className="h-11 w-11 object-contain flex-shrink-0" />
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white uppercase tracking-tight leading-none whitespace-nowrap">LANy</div>
                   <div className="text-[11px] font-bold tracking-wider text-slate-400 mt-1 uppercase whitespace-nowrap">oraz wydarzenia <br /> offline</div>
@@ -225,7 +236,7 @@ export default function Home() {
 
             {/* Stat 5: Community */}
             <div className="hover:bg-white/[0.02] transition-colors flex">
-              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-[12deg] text-left">
+              <div className="flex-1 py-3 md:py-2 px-4 flex flex-row items-center justify-center gap-3 skew-x-0 md:skew-x-[12deg] text-left">
                 <img src="/images/statsbar_5.png" alt="Przyjazna społeczność" className="h-11 w-11 object-contain flex-shrink-0" />
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white uppercase tracking-tight leading-none whitespace-nowrap">Przyjazna</div>
@@ -239,7 +250,9 @@ export default function Home() {
       </div>
 
       {/* ─── WARD CLICKER ─── */}
-      <WardClicker />
+      <div className="mt-8 mb-6 md:mt-12 md:mb-8">
+        <WardClicker />
+      </div>
 
       {/* ─── TESTIMONIALS MARQUEE ─── */}
       <section className="relative z-10 w-full mt-12 mb-10 flex flex-col items-center">
@@ -257,7 +270,7 @@ export default function Home() {
             {[...testimonials, ...testimonials].map((review, idx) => (
               <BorderGlow
                 key={`${review.id}-${idx}`}
-                className="w-[340px] md:w-[400px] shrink-0"
+                className="w-[280px] md:w-[400px] shrink-0"
                 colors={["#ef4444", "#f59e0b", "#8b5cf6"]}
                 backgroundColor="#17181c"
                 borderRadius={16}

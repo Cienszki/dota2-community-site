@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
@@ -8,8 +10,32 @@ const PAGE_TITLES: Record<string, string> = {
   'polityka-prywatnosci': 'Polityka Prywatności',
 };
 
+const PAGE_DESCRIPTIONS: Record<string, string> = {
+  rekrutacja: 'Dołącz do ekipy Polish Dota2 Inhouse! Poszukujemy komentatorów, adminów, moderatorów, edytorów wideo oraz grafików.',
+  'o-nas': 'Poznaj historię Polish Dota2 Inhouse – polskiej ligi i społeczności graczy Dota 2 działającej od 2022 roku.',
+  'polityka-prywatnosci': 'Polityka prywatności serwisu dota2inhouse.pl.',
+};
+
+const PAGE_OG_TITLES: Record<string, string> = {
+  rekrutacja: 'Rekrutacja do Zespołu',
+  'o-nas': 'O Nas - Poznaj naszą społeczność',
+};
+
 interface Props {
   params: Promise<{ slug: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+
+  if (!PAGE_TITLES[slug]) {
+    notFound();
+  }
+
+  const title = PAGE_OG_TITLES[slug] || PAGE_TITLES[slug];
+  const description = PAGE_DESCRIPTIONS[slug] || '';
+
+  return { title, description } satisfies Metadata;
 }
 
 export default async function ContentPage({ params }: Props) {
@@ -29,6 +55,11 @@ export default async function ContentPage({ params }: Props) {
     }
   } catch {
     // Fall through to placeholder
+  }
+
+  // Trigger 404 for unknown slugs that aren't recognized content pages
+  if (!page && !PAGE_TITLES[slug]) {
+    notFound();
   }
 
   return (
@@ -68,7 +99,7 @@ export default async function ContentPage({ params }: Props) {
         ) : (
           <div className="text-center py-24">
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-4 text-slate-600">
-              {slug === 'rekrutacja' ? 'Rekrutacja' : slug === 'o-nas' ? 'O nas' : 'Polityka Prywatności'}
+              {PAGE_TITLES[slug]}
             </h1>
             <p className="text-slate-500 text-lg">
               Ta strona jest w trakcie konfiguracji.

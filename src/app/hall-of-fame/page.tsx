@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import LightRays from '@/components/ui/LightRays';
 import TrophyRoom, { type TournamentData, type PlayerInfo } from '@/components/TrophyRoom';
 import { supabase } from '@/lib/supabase';
+
+export const metadata: Metadata = {
+  title: 'Hall of Fame - Sala Chwały Turniejów',
+  description: 'Sala chwały i historia zwycięzców naszych turniejów Dota 2 od początku istnienia społeczności Polish Dota2 Inhouse (2022).',
+};
 
 // ---------------------------------------------------------------------------
 // Types

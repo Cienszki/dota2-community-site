@@ -207,17 +207,17 @@ export default function RankingControls({ players }: RankingControlsProps) {
       </div>
 
       <div className="bg-slate-900/20 border border-white/5 rounded-3xl backdrop-blur-md shadow-2xl overflow-x-auto">
-        <table className="w-full text-left border-collapse table-fixed text-base">
+        <table className="w-full text-left border-collapse table-fixed text-xs sm:text-sm">
           <thead>
-            <tr className="border-b border-white/5 text-slate-400 text-base font-bold uppercase tracking-wider bg-white/5">
-              <th className="py-2 px-4 text-right w-[10%]">Pozycja</th>
-              <th className="py-2 pl-8 pr-4 text-left w-[30%]">Gracz</th>
-              <th className="py-2 pl-8 pr-4 text-left w-[25%]">Ranga</th>
-              <th className="py-2 px-4 w-[15%] text-center whitespace-nowrap">
+            <tr className="border-b border-white/5 text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-wider bg-white/5">
+              <th className="py-1.5 px-1 sm:px-3 text-right w-[10%] whitespace-nowrap">Pozycja</th>
+              <th className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left w-[30%] whitespace-nowrap">Gracz</th>
+              <th className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left w-[25%] whitespace-nowrap">Ranga</th>
+              <th className="py-1.5 px-1 sm:px-3 w-[15%] text-center whitespace-nowrap hidden md:table-cell">
                 Winrate
                 <InfoTooltip text="Ostatnie 100 Meczów" />
               </th>
-              <th className="py-2 px-4 w-[20%] text-center whitespace-nowrap">
+              <th className="py-1.5 px-1 sm:px-3 w-[20%] text-center whitespace-nowrap hidden md:table-cell">
                 Forma
                 <InfoTooltip text="Ostatnie 7 dni" />
               </th>
@@ -230,20 +230,20 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   key={player.id}
                   className="border-b border-white/5 hover:bg-white/[0.03] transition-colors"
                 >
-                  <td className="py-2 px-4 text-center">
+                  <td className="py-1.5 px-1 sm:px-3 text-center">
                     <RankCell position={index + 1} />
                   </td>
                   
-                  <td className="py-1.5 pl-8 pr-4 text-left">
-                    <div className="flex items-center justify-start gap-3">
+                  <td className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left min-w-0">
+                    <div className="flex items-center justify-start gap-1.5 sm:gap-3">
                       <img
                         src={player.avatar}
                         alt=""
-                        className="w-8 h-8 rounded-lg border border-white/10 object-cover"
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/10 object-cover shrink-0"
                       />
-                      <div className="text-left min-w-0">
+                      <div className="text-left min-w-0 max-w-[100px] xs:max-w-[130px] sm:max-w-none">
                         {player.isOfficial ? (
-                          <span className="font-bold text-l text-slate-200 truncate block max-w-[120px] md:max-w-[180px]">
+                          <span className="font-bold text-xs sm:text-base text-slate-200 truncate block">
                             {player.name}
                           </span>
                         ) : (
@@ -251,20 +251,20 @@ export default function RankingControls({ players }: RankingControlsProps) {
                             href={`https://www.dotabuff.com/players/${player.steam_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group flex items-center gap-2 min-w-0"
+                            className="group flex items-center gap-1 sm:gap-2 min-w-0"
                           >
-                            <span className="font-bold text-base text-slate-200 group-hover:text-red-400 transition-colors truncate block max-w-[120px] md:max-w-[180px]">
+                            <span className="font-bold text-xs sm:text-base text-slate-200 group-hover:text-red-400 transition-colors truncate">
                               {player.name}
                             </span>
-                            <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500 group-hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
                           </a>
                         )}
                       </div>
                     </div>
                   </td>
 
-                  <td className="py-1.5 pl-8 pr-4 text-left">
-                    <div className="flex items-center justify-start gap-3">
+                  <td className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left">
+                    <div className="flex items-center justify-start gap-1.5 sm:gap-3">
                       <img
                         src={player.isOfficial ? '/ranks/immortal2.png' : `/ranks/${(() => {
                           if (player.rankTier === 0) return 'unranked';
@@ -273,23 +273,23 @@ export default function RankingControls({ players }: RankingControlsProps) {
                           return badges[idx] || 'unranked';
                         })()}.png`}
                         alt=""
-                        className="w-8 h-8 object-contain"
+                        className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0"
                       />
-                      <span className="text-slate-300 font-medium text-base text-left">
+                      <span className="text-slate-300 font-medium text-xs sm:text-base text-left truncate">
                         {getRankName(player.rankTier, player.leaderboardRank)}
                       </span>
                     </div>
                   </td>
 
-                  <td className="py-1.5 px-4 text-center font-mono font-bold text-lg text-emerald-400">
+                  <td className="py-1.5 px-1 sm:px-3 text-center font-mono font-bold text-xs sm:text-lg text-emerald-400 hidden md:table-cell">
                     {player.isOfficial ? (
-                      <span className="text-slate-500 text-lg">—</span>
+                      <span className="text-slate-500 text-xs sm:text-lg">—</span>
                     ) : (
                       player.winRate
                     )}
                   </td>
 
-                  <td className="py-1.5 px-4 text-center font-mono">
+                  <td className="py-1.5 px-1 sm:px-3 text-center font-mono hidden md:table-cell">
                     {player.isOfficial ? (
                       <span className="text-slate-500 text-lg">—</span>
                     ) : player.trend >= 5 ? (
@@ -317,9 +317,14 @@ export default function RankingControls({ players }: RankingControlsProps) {
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="py-10 text-center text-slate-400 font-medium">
-                  Brak graczy spełniających kryteria wyszukiwania.
-                </td>
+                <>
+                  <td colSpan={5} className="py-10 text-center text-slate-400 font-medium hidden md:table-cell">
+                    Brak graczy spełniających kryteria wyszukiwania.
+                  </td>
+                  <td colSpan={3} className="py-10 text-center text-slate-400 font-medium md:hidden">
+                    Brak graczy spełniających kryteria wyszukiwania.
+                  </td>
+                </>
               </tr>
             )}
           </tbody>

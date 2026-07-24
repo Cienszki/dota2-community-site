@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'api.opendota.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'gjodbqwhhxzbpaozodaf.supabase.co',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      },
     ],
   },
 };

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getWardClicks, incrementWardClicks } from '@/app/actions';
+import { getWardClicks } from '@/app/actions';
 
 export default function WardClicker() {
   const [clicks, setClicks] = useState<number | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const requestId = useRef(0);
+  const messageTimer = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     getWardClicks().then(setClicks);
@@ -14,16 +16,27 @@ export default function WardClicker() {
   const handleClick = async () => {
     const id = ++requestId.current;
     setClicks((c) => (c ?? 0) + 1);
-    const serverValue = await incrementWardClicks();
-    if (serverValue !== null) {
-      if (id === requestId.current) setClicks(serverValue);
-    } else {
+
+    try {
+      const res = await fetch('/api/ward-click', { method: 'POST' });
+      const data = await res.json();
+
+      if (res.ok) {
+        if (id === requestId.current) setClicks(data.value);
+        setMessage(null);
+      } else if (res.status === 429) {
+        if (id === requestId.current) setClicks(data.value);
+        setMessage(data.error);
+        if (messageTimer.current) clearTimeout(messageTimer.current);
+        messageTimer.current = setTimeout(() => setMessage(null), 3000);
+      }
+    } catch {
       setClicks(await getWardClicks());
     }
   };
 
   return (
-    <section className="relative z-10 w-full mt-12 mb-4 flex flex-col items-center">
+    <section className="relative z-10 w-full flex flex-col items-center">
       <button
         onClick={handleClick}
         className="cursor-pointer hover:scale-105 active:scale-95 transition-transform"
@@ -32,6 +45,9 @@ export default function WardClicker() {
         <img
           src="/images/ward.png"
           alt="Observer Ward"
+          width={160}
+          height={160}
+          loading="lazy"
           className="w-40 h-40 object-contain select-none drop-shadow-[0_0_12px_rgba(251,146,60,0.35)]"
           draggable={false}
         />
@@ -46,6 +62,11 @@ export default function WardClicker() {
         <span className="text-slate-400 text-sm font-bold uppercase tracking-widest">
           wardów!
         </span>
+        {message && (
+          <p className="mt-2 text-sm font-semibold text-red-400 transition-opacity">
+            {message}
+          </p>
+        )}
       </div>
     </section>
   );

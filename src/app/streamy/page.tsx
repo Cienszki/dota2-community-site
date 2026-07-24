@@ -1,9 +1,15 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BorderGlow from '@/components/ui/BorderGlow';
 import { supabase } from '@/lib/supabase';
 import { ExternalLink, Play } from 'lucide-react';
 import { getLiveChannels } from '@/lib/twitch';
+
+export const metadata: Metadata = {
+  title: 'Streamy Dota 2 Na Żywo',
+  description: 'Lista zaprzyjaźnionych streamerów Dota 2 oraz transmisje live z turniejów i meczów inhouse.',
+};
 
 interface Streamer {
   id: string;

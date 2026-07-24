@@ -25,3 +25,9 @@
 # supabase
 - Use the `ranking_leaderboard` table instead of the `players` table for all Supabase operations throughout the project. Confidence: 0.65
 
+# constants
+- Centralize duplicated hardcoded values (IDs, URLs, config) into a single exported constant/config file instead of duplicating them across files, to prevent mismatches. Confidence: 0.75
+
+# routing
+- Catch-all `[slug]` routes should validate the slug against a known set of page identifiers and call `notFound()` (from `next/navigation`) for any unrecognized slug, so that truly invalid URLs render the custom 404 page (`not-found.tsx`) instead of showing fallback/placeholder content. Confidence: 0.80
+

@@ -46,6 +46,9 @@ function Footer() {
           <img
             src="/images/pd2ih_footer.png"
             alt="Polish Dota 2 Inhouse"
+            width={56}
+            height={56}
+            loading="lazy"
             className="h-14 w-auto object-contain"
           />
         </div>

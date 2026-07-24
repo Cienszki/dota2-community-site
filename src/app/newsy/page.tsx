@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
 import NewsPanel from '@/components/NewsPanel';
+
+export const metadata: Metadata = {
+  title: 'Aktualności i Wydarzenia',
+  description: 'Aktualności o turniejach Dota 2, życiu polskiej społeczności oraz najważniejszych wydarzeniach ligowych.',
+};
 
 export default function NewsyPage() {
   return (

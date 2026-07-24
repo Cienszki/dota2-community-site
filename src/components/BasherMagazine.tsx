@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
 import ReactPageFlip from 'react-pageflip';
 import GlareHover from '@/components/ui/GlareHover';
 
@@ -64,12 +65,15 @@ function IssueCard({
         borderRadius="12px"
         glareColor="#ff0000"
         glareOpacity={0.35}
-        className="w-full aspect-[1/1.414]"
+        className="w-full aspect-[1/1.414] relative overflow-hidden rounded-[12px]"
       >
-        <img
+        <Image
           src={issue.pages[0] || '/pd2ih_logo.png'}
           alt={`Wydanie ${issue.issue_number}`}
-          className="w-full h-full object-cover rounded-[12px]"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 350px"
+          className="object-cover"
+          quality={75}
           draggable={false}
         />
       </GlareHover>
@@ -105,9 +109,15 @@ function IssueCard({
 
 export default function BasherMagazine({ issues, newestIssue }: Props) {
   const [selectedIssue, setSelectedIssue] = useState<BasherIssue | null>(null);
+  const [modalLoaded, setModalLoaded] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const flipRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Reset loading state whenever a new issue is opened
+  useEffect(() => {
+    if (selectedIssue) setModalLoaded(false);
+  }, [selectedIssue]);
 
   // ── Zoom / Pan state ──
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -314,6 +324,13 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                 onMouseLeave={handleMouseUp}
                 style={{ cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
               >
+                {/* Loading spinner while high-res images load */}
+                {!modalLoaded && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/80">
+                    <Loader2 className="w-10 h-10 text-red-500 animate-spin mb-3" />
+                    <p className="text-sm text-slate-400">Ładowanie wydania...</p>
+                  </div>
+                )}
                 <button
                   onClick={goPrev}
                   className="absolute left-3 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-black/60 text-white hover:bg-red-700/70 transition-all border border-white/10"
@@ -365,15 +382,19 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                   >
                     {selectedIssue.pages.map((pageUrl, i) => (
                       <div
-                        key={i}
+                        key={`${selectedIssue.id}-page-${i}`}
                         style={{ width: pageSize.width, height: pageSize.height }}
                         className="relative bg-slate-900 overflow-hidden"
                       >
-                        <img
+                        <Image
                           src={pageUrl}
                           alt={`Strona ${i + 1}`}
-                          className="w-full h-full object-contain"
+                          fill
+                          sizes={`${pageSize.width}px`}
+                          className="object-contain"
+                          quality={80}
                           draggable={false}
+                          onLoad={i === 0 ? () => setModalLoaded(true) : undefined}
                         />
                       </div>
                     ))}

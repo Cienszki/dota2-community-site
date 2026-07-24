@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Mail } from 'lucide-react';
+import { Users, Mail, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Navbar() {
   const [pdlLinked, setPdlLinked] = useState<boolean | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/status')
@@ -13,6 +14,16 @@ export default function Navbar() {
       .then((data) => setPdlLinked(data.linked === true))
       .catch(() => setPdlLinked(false));
   }, []);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
 
   const navLinks = [
     { href: '/newsy', label: 'Newsy' },
@@ -30,10 +41,14 @@ export default function Navbar() {
           <img 
             src="/pd2ih_logo.png" 
             alt="Dota 2 Inhouse Logo" 
+            width={56}
+            height={56}
+            fetchPriority="high"
             className="h-14 w-auto object-contain" 
           />
         </Link>
 
+        {/* ─── DESKTOP NAV ─── */}
         <div className="hidden md:flex items-stretch flex-1">
           <div className="flex w-full">
             {navLinks.map((link) =>
@@ -82,7 +97,83 @@ export default function Navbar() {
             )}
           </div>
         </div>
+
+        {/* ─── MOBILE HAMBURGER ─── */}
+        <button
+          onClick={() => setMobileOpen((v) => !v)}
+          className="md:hidden ml-auto p-2 text-white hover:text-red-400 transition-colors"
+          aria-label={mobileOpen ? 'Zamknij menu' : 'Otwórz menu'}
+        >
+          {mobileOpen ? <X className="w-7 h-7" /> : <Menu className="w-7 h-7" />}
+        </button>
       </div>
+
+      {/* ─── MOBILE DRAWER ─── */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            onClick={() => setMobileOpen(false)}
+          />
+          {/* Menu panel */}
+          <div className="absolute right-0 top-0 h-full w-72 max-w-[80vw] bg-[#111] border-l border-white/10 shadow-2xl flex flex-col py-6 px-6 overflow-y-auto">
+            <div className="flex flex-col gap-1 mt-4">
+              {navLinks.map((link) =>
+                link.label === 'Turnieje' ? (
+                  <div key={link.href} className="flex flex-col">
+                    <span className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic text-left w-full">
+                      TURNIEJE
+                    </span>
+                    <div className="flex flex-col pl-4 border-l border-white/10 ml-4 mt-1 mb-2">
+                      <a
+                        href="https://dota2inhouse.pl/wiosenna"
+                        className="px-4 py-2.5 text-base text-slate-300 hover:text-red-400 font-bold transition-colors"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        Wiosenna Furia
+                      </a>
+                      <a
+                        href="https://dota2inhouse.pl/pdl"
+                        className="px-4 py-2.5 text-base text-slate-300 hover:text-red-400 font-bold transition-colors"
+                        onClick={() => setMobileOpen(false)}
+                      >
+                        PDL #1
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                )
+              )}
+              <Link
+                href="/kontakt"
+                className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic flex items-center gap-2"
+                onClick={() => setMobileOpen(false)}
+              >
+                Kontakt <Mail className="w-4 h-4" />
+              </Link>
+              {pdlLinked === false && (
+                <Link
+                  href="/api/auth/steam"
+                  prefetch={false}
+                  className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic flex items-center gap-2"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Dołącz <Users className="w-4 h-4" />
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

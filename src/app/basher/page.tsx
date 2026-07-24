@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BasherMagazine from '@/components/BasherMagazine';
 import { supabase } from '@/lib/supabase';
+
+export const metadata: Metadata = {
+  title: 'Magazyn Basher - Satyryczny Kącik Społeczności',
+  description: 'Społecznościowy magazyn i gazetka Polish Dota2 Inhouse, przedstawiająca w satyryczny sposób wydarzenia i historie z życia naszej ligi.',
+};
 
 interface BasherIssue {
   id: string;

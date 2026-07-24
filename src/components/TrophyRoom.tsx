@@ -130,7 +130,7 @@ function TournamentImage({
   name: string;
 }) {
   return (
-    <div className="relative w-full flex-1 min-h-[300px] md:min-h-0">
+    <div className="relative w-full aspect-[16/9] md:min-h-0">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -165,7 +165,7 @@ function TeamBox({ teamName, players }: { teamName: string; players: PlayerInfo[
           <Trophy className="w-6 h-6 text-amber-400" />
           {teamName}
         </h3>
-        <div className="flex flex-nowrap gap-6 justify-center items-start">
+        <div className="flex flex-wrap gap-4 md:gap-6 justify-center items-start">
           {mainPlayers.map((player, i) => (
             <PlayerAvatar key={player.friendId ?? `player-${i}`} player={player} compact />
           ))}
@@ -183,9 +183,9 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
   return (
     <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
 
-      {/* ── Laser timeline spine ── */}
+      {/* ── Laser timeline spine (hidden on mobile) ── */}
       <div
-        className="absolute top-0 bottom-0 left-8 w-16 md:left-[calc(50%-2rem)] pointer-events-none z-10"
+        className="absolute top-0 bottom-0 left-8 w-16 md:left-[calc(50%-2rem)] pointer-events-none z-10 hidden md:block"
         aria-hidden="true"
       >
         <LaserFlow
@@ -215,14 +215,14 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 0.6, delay: index * 0.1 }}
           >
-            {/* ── Year node (2x bigger) ── */}
-            <div className="absolute top-0 left-8 md:left-1/2 md:-translate-x-1/2 z-30">
-              <div className="w-20 h-20 rounded-full border-2 border-amber-500 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20">
-                <span className="text-amber-400 font-bold text-xl">{year}</span>
+            {/* ── Year node ── */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-30">
+              <div className="w-14 h-14 md:w-20 md:h-20 rounded-full border-2 border-amber-500 bg-slate-950 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <span className="text-amber-400 font-bold text-lg md:text-xl">{year}</span>
               </div>
             </div>
 
-            {/* ── Horizontal connector lines (3px thick) ── */}
+            {/* ── Horizontal connector lines (hidden on mobile) ── */}
             {isEven ? (
               <div
                 aria-hidden="true"
@@ -247,8 +247,17 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
               />
             )}
 
-            {/* ── Content grid ── */}
-            <div className="pl-24 md:pl-0 pt-16 md:pt-20 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+            {/* ── Mobile: vertical stack (header → team → image) ── */}
+            <div className="flex flex-col gap-6 md:hidden pt-20">
+              <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} />
+              <TeamBox teamName={tournament.teamName} players={tournament.players} />
+              {tournament.imageUrl ? (
+                <TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} />
+              ) : null}
+            </div>
+
+            {/* ── Desktop: side-by-side timeline grid ── */}
+            <div className="hidden md:grid md:grid-cols-2 gap-6 md:gap-8 pt-20">
               {/* Left column */}
               <div className="md:pr-10">
                 {isEven ? (
