@@ -28,6 +28,16 @@
 # constants
 - Centralize duplicated hardcoded values (IDs, URLs, config) into a single exported constant/config file instead of duplicating them across files, to prevent mismatches. Confidence: 0.75
 
+# ui-feedback
+- Use the `sonner` library (`toast.success()` / `toast.error()`) for user-facing success/error feedback instead of `alert()` or inline-only messages, with a dark-themed `<Toaster>` positioned bottom-right. Confidence: 0.85
+
+# code-organization
+- When making UI/style-only changes (Tailwind CSS, layout, visual polish), strictly preserve 100% of existing business logic, database queries, routing, state management, form handlers, and API calls — never refactor functional code during a visual overhaul. Confidence: 0.90
+
+# css
+- Style form inputs, textareas, and selects with dark backgrounds (`bg-[#181a20]`), colored focus rings (`focus:ring-2 focus:ring-{color}-600 focus:border-transparent`), and subtle border defaults for a sleek dark theme. Confidence: 0.70
+- Use subtle glow effects (`shadow-[0_0_Xpx_rgba(...)]`) on status badges to visually distinguish states (published vs draft). Confidence: 0.65
+
 # routing
 - Catch-all `[slug]` routes should validate the slug against a known set of page identifiers and call `notFound()` (from `next/navigation`) for any unrecognized slug, so that truly invalid URLs render the custom 404 page (`not-found.tsx`) instead of showing fallback/placeholder content. Confidence: 0.80
 

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "powershell",
-      "Shell(npx next build 2 >& 1)"
+      "Shell(npx next build 2 >& 1)",
+      "Shell(npm:*)"
     ],
     "deny": [],
     "defaultMode": "default"

@@ -16,7 +16,7 @@ export default function AdminLogoutButton() {
   return (
     <button
       onClick={handleLogout}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 text-sm font-medium transition-all"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 text-sm font-medium transition-all border border-transparent hover:border-red-500/20"
     >
       <LogOut className="w-4 h-4" />
       Wyloguj

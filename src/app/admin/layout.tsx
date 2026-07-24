@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import AdminLogoutButton from './AdminLogoutButton';
 import Link from 'next/link';
+import { Toaster } from 'sonner';
 
 const ALLOWED_ADMIN_EMAILS = ['voocash.s@gmail.com', 'wilq.wdz@gmail.com'];
 
@@ -52,11 +53,11 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-[#050505]">
       {/* Admin header bar */}
-      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-zinc-900/80 backdrop-blur-md">
+      <header className="sticky top-0 z-50 border-b border-zinc-800 bg-[#0d0e12]/95 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-white tracking-tight">Panel Admina</span>
-            <span className="text-[10px] uppercase tracking-widest text-zinc-600 font-medium border border-zinc-700/50 rounded-md px-2 py-0.5">
+            <span className="text-sm font-bold text-white tracking-tight">Panel Admina</span>
+            <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium border border-zinc-700/50 rounded-md px-2 py-0.5">
               {user.email}
             </span>
           </div>
@@ -65,6 +66,16 @@ export default async function AdminLayout({
       </header>
 
       <main>{children}</main>
+      <Toaster
+        position="bottom-right"
+        toastOptions={{
+          style: {
+            background: '#181a20',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: '#e2e8f0',
+          },
+        }}
+      />
     </div>
   );
 }

@@ -8,9 +8,10 @@ import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
 import {
   Trash2, Edit2, Plus, Save, X, Newspaper, ChevronDown,
-  Settings, Upload, Trophy, BookOpen, Check, Users, Radio, MessageSquare, Star, FileText,
+  Settings, Upload, Trophy, BookOpen, Check, Users, Radio, MessageSquare, Star, FileText, GripVertical,
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
+import { toast } from 'sonner';
 import { addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions, getRankPlayers, deleteRankPlayer, getContentPage, upsertContentPage, deleteContentPage, uploadNewsImage } from './actions';
 
 
@@ -72,13 +73,13 @@ const initialPlayers = () =>
 function StatusBadge({ status }: { status: string }) {
   if (status === 'published') {
     return (
-      <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border font-sans text-emerald-400 bg-emerald-500/10 border-emerald-500/30">
+      <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border font-sans text-emerald-400 bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_10px_rgba(52,211,153,0.15)]">
         Opublikowano
       </span>
     );
   }
   return (
-    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full border font-sans text-amber-400 bg-amber-500/10 border-amber-500/30">
+    <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border font-sans text-amber-400 bg-amber-500/10 border-amber-500/30 shadow-[0_0_8px_rgba(251,191,36,0.12)]">
       Szkic
     </span>
   );
@@ -269,10 +270,12 @@ export default function AdminPage() {
       const result = await upsertContentPage(slug, content);
       if (!result.success) throw new Error(result.error);
       setPagesSuccess(`Strona "${slug}" została zaktualizowana.`);
+      toast.success(`Strona "${slug}" została zaktualizowana.`);
       setTimeout(() => setPagesSuccess(null), 3000);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisu strony.';
       setPagesError(errorMsg);
+      toast.error(errorMsg);
       setTimeout(() => setPagesError(null), 3000);
     }
     setPagesSaving(false);
@@ -299,6 +302,7 @@ export default function AdminPage() {
           .eq('id', testimonialEditingId);
         if (error) throw error;
         setTestimonialSuccess('Opinia została zaktualizowana.');
+        toast.success('Opinia została zaktualizowana.');
       } else {
         const { error } = await supabase
           .from('testimonials')
@@ -311,6 +315,7 @@ export default function AdminPage() {
           });
         if (error) throw error;
         setTestimonialSuccess('Opinia została dodana.');
+        toast.success('Opinia została dodana.');
       }
       resetTestimonialForm();
       setDirty(false);
@@ -318,6 +323,7 @@ export default function AdminPage() {
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd.';
       setTestimonialError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setTestimonialSaving(false);
     }
@@ -330,7 +336,9 @@ export default function AdminPage() {
     const { error } = await supabase.from('testimonials').delete().eq('id', id);
     if (error) {
       setTestimonialError(error.message);
+      toast.error(error.message);
     } else {
+      toast.success('Opinia została usunięta.');
       await fetchTestimonials();
     }
     setTestimonialDeleting(null);
@@ -419,12 +427,14 @@ export default function AdminPage() {
       if (!result.success) throw new Error(result.error);
       setRankPlayers((prev) => prev.filter((p) => p.steam_id !== id));
       setRankSuccess('Gracz został usunięty z rankingu.');
+      toast.success('Gracz został usunięty z rankingu.');
       router.refresh();
       setTimeout(() => setRankSuccess(null), 3000);
     } catch (err: unknown) {
       console.error('Błąd usuwania gracza:', err);
       const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd podczas usuwania gracza.';
       setRankError(errorMsg);
+      toast.error(errorMsg);
       setTimeout(() => setRankError(null), 3000);
     }
     setRankDeleting(null);
@@ -461,10 +471,12 @@ export default function AdminPage() {
       if (!result.success) {
         console.error('Błąd aktualizacji streamera:', result.error);
         setStreamerError(result.error);
+        toast.error(result.error);
         setStreamerSaving(false);
         return;
       }
       setStreamerSuccess('Streamer został zaktualizowany!');
+      toast.success('Streamer został zaktualizowany!');
     } else {
       const result = await addStreamer({
         ...data,
@@ -473,10 +485,12 @@ export default function AdminPage() {
       if (!result.success) {
         console.error('Błąd zapisu streamera:', result.error);
         setStreamerError(result.error);
+        toast.error(result.error);
         setStreamerSaving(false);
         return;
       }
       setStreamerSuccess('Streamer został dodany!');
+      toast.success('Streamer został dodany!');
     }
 
     setDirty(false);
@@ -540,10 +554,10 @@ export default function AdminPage() {
     setStreamers(syncedStreamers);
 
     setDirty(false);
-    alert('Kolejność została pomyślnie zapisana!');
+    toast.success('Kolejność została pomyślnie zapisana!');
   } catch (err) {
     console.error('Błąd zapisu kolejności:', err);
-    alert('Wystąpił błąd podczas zapisywania do bazy.');
+    toast.error('Wystąpił błąd podczas zapisywania do bazy.');
   } finally {
     setIsSavingPositions(false);
   }
@@ -691,11 +705,14 @@ export default function AdminPage() {
       }
 
       setSaveSettingsSuccess(true);
+      toast.success('Ustawienia zostały zapisane!');
       setDirty(false);
       setTimeout(() => setSaveSettingsSuccess(false), 3000);
     } catch (err: unknown) {
       console.error('Błąd zapisu ustawień:', err);
-      setSaveSettingsError(err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania do bazy danych.');
+      const msg = err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania do bazy danych.';
+      setSaveSettingsError(msg);
+      toast.error(msg);
     }
   };
 
@@ -821,13 +838,16 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(json.error);
 
       setHofSuccess(true);
+      toast.success(hofEditingId ? 'Turniej został zaktualizowany!' : 'Turniej został zapisany jako szkic!');
       setDirty(false);
       setTimeout(() => setHofSuccess(false), 3000);
       resetHofForm();
       fetchHofTournaments();
     } catch (err: unknown) {
       console.error('Błąd zapisu turnieju:', err);
-      setHofError(err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania.');
+      const msg = err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania.';
+      setHofError(msg);
+      toast.error(msg);
     } finally {
       setHofSaving(false);
       setIsUploading(false);
@@ -909,8 +929,9 @@ export default function AdminPage() {
 
     try {
       const issueNumber = Number(basherIssueNumber.trim());
-      if (!issueNumber || issueNumber < 1) {
+      if (issueNumber < 1) {
         setBasherError('Numer wydania musi być liczbą dodatnią.');
+        toast.error('Numer wydania musi być liczbą dodatnią.');
         setBasherSaving(false);
         return;
       }
@@ -926,6 +947,7 @@ export default function AdminPage() {
 
         if (existingIssue) {
           setBasherError('Magazyn z tym numerem wydania został już dodany!');
+          toast.error('Magazyn z tym numerem wydania został już dodany!');
           setBasherSaving(false);
           return;
         }
@@ -968,6 +990,7 @@ export default function AdminPage() {
 
       if (pagesArray.length === 0) {
         setBasherError('Dodaj przynajmniej jedną stronę (plik graficzny).');
+        toast.error('Dodaj przynajmniej jedną stronę (plik graficzny).');
         setBasherSaving(false);
         return;
       }
@@ -996,13 +1019,16 @@ export default function AdminPage() {
       }
 
       setBasherSuccess(wasEditing ? 'updated' : 'inserted');
+      toast.success(wasEditing ? 'Wydanie zostało zaktualizowane!' : 'Wydanie zostało zapisane jako szkic!');
       setDirty(false);
       setTimeout(() => setBasherSuccess(false), 3000);
       resetBasherForm();
       fetchBasherIssues();
     } catch (err: unknown) {
       console.error('Błąd zapisania magazynu:', err);
-      setBasherError(err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania.');
+      const msg = err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania.';
+      setBasherError(msg);
+      toast.error(msg);
     } finally {
       setBasherSaving(false);
     }
@@ -1087,12 +1113,18 @@ export default function AdminPage() {
 
   // ── Render ──
 
-  const btnClass = (isActive: boolean) =>
-    `inline-flex items-center gap-2 px-5 py-3 rounded-xl font-bold text-sm transition-all border ${
-      isActive
-        ? 'bg-red-600/20 border-red-500/40 text-red-400'
-        : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-800 hover:border-slate-600'
-    }`;
+  const sidebarItems: { tab: ActiveTab; icon: typeof Newspaper; label: string; plus?: boolean }[] = [
+    { tab: 'news', icon: Newspaper, label: 'Newsy' },
+    { tab: 'settings', icon: Settings, label: 'Ustawienia' },
+    { tab: 'hof', icon: Trophy, label: 'Hall of Fame' },
+    { tab: 'basher', icon: BookOpen, label: 'Basher' },
+    { tab: 'ranking', icon: Users, label: 'Ranking' },
+    { tab: 'streamers', icon: Radio, label: 'Streamerzy' },
+    { tab: 'testimonials', icon: MessageSquare, label: 'Opinie' },
+    { tab: 'rekrutacja', icon: FileText, label: 'Rekrutacja' },
+    { tab: 'o-nas', icon: FileText, label: 'O nas' },
+    { tab: 'polityka', icon: FileText, label: 'Polityka' },
+  ];
 
   return (
     <main className="relative min-h-screen bg-[#050505] text-slate-100 overflow-x-hidden">
@@ -1109,119 +1141,54 @@ export default function AdminPage() {
 
       <Navbar />
 
-      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-10 pb-20">
-        <div className="flex gap-6 items-start">
+      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-8 pb-20">
+        <div className="flex gap-8 items-start">
           {/* ── Sidebar ── */}
           <aside className="w-56 shrink-0 sticky top-6">
-            <div className="mb-6">
-              <h1 className="text-4xl font-extrabold tracking-tight mb-1">Panel Admina</h1>
-              <p className="text-slate-500 text-sm">
-                Zarządzaj treścią i ustawieniami serwisu dota2inhouse.pl
+            <div className="mb-6 pl-3">
+              <h1 className="text-3xl font-extrabold tracking-tight mb-1 text-white">Admin</h1>
+              <p className="text-slate-600 text-xs leading-relaxed">
+                Zarządzaj treścią i ustawieniami
               </p>
             </div>
-            <nav className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (activeTab === 'news' && !editingId) {
-                    switchTab(null);
-                  } else {
-                    switchTab('news');
-                    if (editingId) {
-                      setEditingId(null);
-                      setTitle('');
-                      setCategory('Turniej');
-                      setContent('');
-                    }
-                  }
-                }}
-                className={`w-full justify-start ${btnClass(activeTab === 'news')}`}
-              >
-                <Newspaper className="w-4 h-4" />
-                {activeTab === 'news' && !editingId ? 'Anuluj' : 'Dodaj news'}
-                {activeTab !== 'news' && <Plus className="w-3.5 h-3.5 text-emerald-500" />}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('settings')}
-                className={`w-full justify-start ${btnClass(activeTab === 'settings')}`}
-              >
-                <Settings className="w-4 h-4" />
-                Inne (Ustawienia)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('hof')}
-                className={`w-full justify-start ${btnClass(activeTab === 'hof')}`}
-              >
-                <Trophy className="w-4 h-4" />
-                Dodaj zwycięzców
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('basher')}
-                className={`w-full justify-start ${btnClass(activeTab === 'basher')}`}
-              >
-                <BookOpen className="w-4 h-4" />
-                Dodaj Magazyn Basher
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('ranking')}
-                className={`w-full justify-start ${btnClass(activeTab === 'ranking')}`}
-              >
-                <Users className="w-4 h-4" />
-                Zarządzanie Rankingiem
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('streamers')}
-                className={`w-full justify-start ${btnClass(activeTab === 'streamers')}`}
-              >
-                <Radio className="w-4 h-4" />
-                Streamerzy
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('testimonials')}
-                className={`w-full justify-start ${btnClass(activeTab === 'testimonials')}`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                Opinie
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('rekrutacja')}
-                className={`w-full justify-start ${btnClass(activeTab === 'rekrutacja')}`}
-              >
-                <FileText className="w-4 h-4" />
-                Rekrutacja
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('o-nas')}
-                className={`w-full justify-start ${btnClass(activeTab === 'o-nas')}`}
-              >
-                <FileText className="w-4 h-4" />
-                O nas
-              </button>
-
-              <button
-                type="button"
-                onClick={() => switchTab('polityka')}
-                className={`w-full justify-start ${btnClass(activeTab === 'polityka')}`}
-              >
-                <FileText className="w-4 h-4" />
-                Polityka Prywatności
-              </button>
+            <nav className="flex flex-col gap-1">
+              {sidebarItems.map(({ tab, icon: Icon, label }) => {
+                const isActive = activeTab === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => {
+                      if (tab === 'news') {
+                        if (activeTab === 'news' && !editingId) {
+                          switchTab(null);
+                        } else {
+                          switchTab('news');
+                          if (editingId) {
+                            setEditingId(null);
+                            setTitle('');
+                            setCategory('Turniej');
+                            setContent('');
+                          }
+                        }
+                      } else {
+                        switchTab(tab);
+                      }
+                    }}
+                    className={`group relative flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 ${
+                      isActive
+                        ? 'bg-red-600/15 text-red-400 border border-red-500/25 shadow-[inset_0_1px_0_rgba(239,68,68,0.1)]'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] border border-transparent'
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                    <span className="truncate">{label}</span>
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.5)]" />
+                    )}
+                  </button>
+                );
+              })}
             </nav>
           </aside>
 
@@ -1255,7 +1222,7 @@ export default function AdminPage() {
                   type="url" required value={discordLink}
                   onChange={(e) => { setDiscordLink(e.target.value); setDirty(true); }}
                   placeholder="https://discord.gg/..."
-                  className="w-full max-w-xl bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full max-w-xl bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1267,7 +1234,7 @@ export default function AdminPage() {
                   type="url" value={partnerLink}
                   onChange={(e) => { setPartnerLink(e.target.value); setDirty(true); }}
                   placeholder="https://dreammachines.pl/..."
-                  className="w-full max-w-xl bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full max-w-xl bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1279,7 +1246,7 @@ export default function AdminPage() {
                   type="url" value={twitchLink}
                   onChange={(e) => { setTwitchLink(e.target.value); setDirty(true); }}
                   placeholder="https://www.twitch.tv/..."
-                  className="w-full max-w-xl bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full max-w-xl bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1291,7 +1258,7 @@ export default function AdminPage() {
                   type="url" value={youtubeLink}
                   onChange={(e) => { setYoutubeLink(e.target.value); setDirty(true); }}
                   placeholder="https://www.youtube.com/..."
-                  className="w-full max-w-xl bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full max-w-xl bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1303,7 +1270,7 @@ export default function AdminPage() {
                   type="url" value={instagramLink}
                   onChange={(e) => { setInstagramLink(e.target.value); setDirty(true); }}
                   placeholder="https://www.instagram.com/..."
-                  className="w-full max-w-xl bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full max-w-xl bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1318,7 +1285,7 @@ export default function AdminPage() {
                       <select
                         value={fontFamily}
                         onChange={(e) => { setFontFamily(e.target.value); setDirty(true); }}
-                        className="w-full appearance-none bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:border-red-500 outline-none transition-all pr-9"
+                        className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all pr-9"
                       >
                         <optgroup label="Podstawowe czcionki">
                           <option value="Logik">Logik (Domyślna)</option>
@@ -1350,9 +1317,9 @@ export default function AdminPage() {
                       type="text" value={fontNameInput}
                       onChange={(e) => { setFontNameInput(e.target.value); setDirty(true); }}
                       placeholder="Nazwa czcionki (np. MojaCzcionka)..."
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-3 py-2 text-slate-300 placeholder-slate-600 focus:border-red-500 outline-none transition-all text-sm mb-3"
+                      className="w-full bg-[#181a20] border border-white/10 rounded-xl px-3 py-2 text-slate-300 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all text-sm mb-3"
                     />
-                    <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-red-500/50 rounded-xl py-6 bg-slate-950/50 transition-colors cursor-pointer">
+                    <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-red-500/50 rounded-xl py-6 bg-[#181a20] transition-colors cursor-pointer">
                       <input
                         type="file" accept=".ttf,.woff,.woff2,.otf"
                         onChange={(e) => { handleFontUpload(e); setDirty(true); }}
@@ -1447,7 +1414,7 @@ export default function AdminPage() {
                     type="text" required value={hofTournamentName}
                     onChange={(e) => { setHofTournamentName(e.target.value); setDirty(true); }}
                     placeholder="PDL Season 1: Winter Classic 2024"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -1458,7 +1425,7 @@ export default function AdminPage() {
                     type="text" value={hofTeamName}
                     onChange={(e) => { setHofTeamName(e.target.value); setDirty(true); }}
                     placeholder="Team Liquid, OG, ..."
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -1471,7 +1438,7 @@ export default function AdminPage() {
                   <input
                     type="date" value={hofTournamentDate}
                     onChange={(e) => { setHofTournamentDate(e.target.value); setDirty(true); }}
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:border-amber-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -1482,7 +1449,7 @@ export default function AdminPage() {
                     type="text" value={hofTournamentId}
                     onChange={(e) => { setHofTournamentId(e.target.value); setDirty(true); }}
                     placeholder="np. 12345"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -1495,14 +1462,14 @@ export default function AdminPage() {
                   type="url" value={hofDotabuffLink}
                   onChange={(e) => { setHofDotabuffLink(e.target.value); setDirty(true); }}
                   placeholder="https://www.dotabuff.com/esports/tournaments/..."
-                  className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all"
+                  className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
               <div className="border-t border-white/[0.07] pt-6">
                 <h3 className="text-lg font-bold text-slate-300 mb-4">Baner turnieju</h3>
                 <div className="flex flex-wrap items-start gap-4">
-                  <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-amber-500/50 rounded-xl py-8 px-8 bg-slate-950/50 transition-colors cursor-pointer w-48 h-32">
+                  <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-amber-500/50 rounded-xl py-8 px-8 bg-[#181a20] transition-colors cursor-pointer w-48 h-32">
                     <input
                       type="file" accept="image/png"
                       onChange={(e) => {
@@ -1567,7 +1534,7 @@ export default function AdminPage() {
                           setDirty(true);
                         }}
                         placeholder="Nick"
-                        className="flex-1 bg-slate-950/50 border border-white/10 rounded-xl px-3 py-2.5 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all text-sm"
+                        className="flex-1 bg-[#181a20] border border-white/10 rounded-xl px-3 py-2.5 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all text-sm"
                       />
                       <input
                         type="text" value={player.friendId}
@@ -1576,7 +1543,7 @@ export default function AdminPage() {
                           setDirty(true);
                         }}
                         placeholder="Dota Friend ID (opcjonalne)"
-                        className="flex-1 bg-slate-950/50 border border-white/10 rounded-xl px-3 py-2.5 text-slate-200 placeholder-slate-600 focus:border-amber-500 outline-none transition-all text-sm"
+                        className="flex-1 bg-[#181a20] border border-white/10 rounded-xl px-3 py-2.5 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none transition-all text-sm"
                       />
                     </div>
                   ))}
@@ -1732,7 +1699,7 @@ export default function AdminPage() {
                     type="number" required min={1} value={basherIssueNumber}
                     onChange={(e) => { setBasherIssueNumber(e.target.value); setDirty(true); }}
                     placeholder="np. 1"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -1743,7 +1710,7 @@ export default function AdminPage() {
                     type="text" required value={basherTitle}
                     onChange={(e) => { setBasherTitle(e.target.value); setDirty(true); }}
                     placeholder="Nazwa wydania"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -1753,7 +1720,7 @@ export default function AdminPage() {
                   <input
                     type="date" value={basherPublishDate}
                     onChange={(e) => { setBasherPublishDate(e.target.value); setDirty(true); }}
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:border-red-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -1766,7 +1733,7 @@ export default function AdminPage() {
                   type="url" value={basherLinkUrl}
                   onChange={(e) => { setBasherLinkUrl(e.target.value); setDirty(true); }}
                   placeholder="https://example.com"
-                  className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                  className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -1993,7 +1960,7 @@ export default function AdminPage() {
                 value={rankSearch}
                 onChange={(e) => setRankSearch(e.target.value)}
                 placeholder="Szukaj gracza po Steam ID..."
-                className="w-full max-w-md bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                className="w-full max-w-md bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
               />
             </div>
 
@@ -2098,7 +2065,7 @@ export default function AdminPage() {
                   type="text" required value={streamerNick}
                   onChange={(e) => { setStreamerNick(e.target.value); setDirty(true); }}
                   placeholder="np. Gorgc"
-                  className="w-full max-w-md bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-purple-500 outline-none transition-all"
+                  className="w-full max-w-md bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -2111,7 +2078,7 @@ export default function AdminPage() {
                   onChange={(e) => { setStreamerMotto(e.target.value); setDirty(true); }}
                   placeholder="Krótki opis streamera..."
                   rows={3}
-                  className="w-full max-w-lg bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-purple-500 outline-none transition-all resize-none"
+                  className="w-full max-w-lg bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                 />
                 <p className="text-xs text-slate-500 mt-1">{streamerMotto.length}/250</p>
               </div>
@@ -2124,7 +2091,7 @@ export default function AdminPage() {
                   type="url" required value={streamerUrl}
                   onChange={(e) => { setStreamerUrl(e.target.value); setDirty(true); }}
                   placeholder="https://www.twitch.tv/kanal"
-                  className="w-full max-w-md bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-purple-500 outline-none transition-all"
+                  className="w-full max-w-md bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -2280,7 +2247,7 @@ export default function AdminPage() {
                     type="text" required value={testimonialNick}
                     onChange={(e) => { setTestimonialNick(e.target.value); setDirty(true); }}
                     placeholder="np. Kamil"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-yellow-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -2291,7 +2258,7 @@ export default function AdminPage() {
                     type="url" value={testimonialAvatarUrl}
                     onChange={(e) => { setTestimonialAvatarUrl(e.target.value); setDirty(true); }}
                     placeholder="https://example.com/avatar.png"
-                    className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-yellow-500 outline-none transition-all"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
                   />
                 </div>
               </div>
@@ -2304,7 +2271,7 @@ export default function AdminPage() {
                   type="text" required value={testimonialHeadline}
                   onChange={(e) => { setTestimonialHeadline(e.target.value); setDirty(true); }}
                   placeholder="np. Najlepsze inhouse'y w Polsce"
-                  className="w-full max-w-lg bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-yellow-500 outline-none transition-all"
+                  className="w-full max-w-lg bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all"
                 />
               </div>
 
@@ -2317,7 +2284,7 @@ export default function AdminPage() {
                   onChange={(e) => { setTestimonialText(e.target.value); setDirty(true); }}
                   placeholder="Treść opinii..."
                   rows={3}
-                  className="w-full max-w-lg bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-yellow-500 outline-none transition-all resize-none"
+                  className="w-full max-w-lg bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all resize-none"
                 />
               </div>
 
@@ -2329,7 +2296,7 @@ export default function AdminPage() {
                   <select
                     value={testimonialRating}
                     onChange={(e) => { setTestimonialRating(Number(e.target.value)); setDirty(true); }}
-                    className="w-full appearance-none bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:border-yellow-500 outline-none transition-all pr-9"
+                    className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-yellow-500 focus:border-transparent outline-none transition-all pr-9"
                   >
                     {[1,2,3,4,5].map((n) => (
                       <option key={n} value={n}>{n}</option>
@@ -2534,7 +2501,7 @@ export default function AdminPage() {
                       type="text" required value={title}
                       onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
                       placeholder="Wpisz tytuł newsa…"
-                      className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-red-500 outline-none transition-all"
+                      className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
                     />
                   </div>
                   <div>
@@ -2545,7 +2512,7 @@ export default function AdminPage() {
                       <select
                         value={category}
                         onChange={(e) => { setCategory(e.target.value); setDirty(true); }}
-                        className="w-full appearance-none bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:border-red-500 outline-none transition-all pr-9"
+                        className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all pr-9"
                       >
                         <option value="Turniej">Turniej</option>
                         <option value="PDL">PDL</option>
