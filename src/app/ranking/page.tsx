@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 
-export const revalidate = 86400;
+export const revalidate = 0;
 
 interface PlayerData {
   id: number;
