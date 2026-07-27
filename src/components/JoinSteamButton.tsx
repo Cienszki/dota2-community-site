@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { LogIn, ShieldCheck } from 'lucide-react';
 
 export default function JoinSteamButton() {
   const [hidden, setHidden] = useState(true);
@@ -16,17 +17,28 @@ export default function JoinSteamButton() {
   if (hidden) return null;
 
   return (
-    <Link
-      href="/api/auth/steam"
-      prefetch={false}
-      className="inline-flex flex-col items-center gap-3 bg-gradient-to-r from-white/[0.03] to-white/[0.08] border border-white/10 hover:border-red-500/30 hover:from-red-950/20 hover:to-red-900/10 px-6 py-4 rounded-2xl text-base font-bold transition-all group backdrop-blur-sm shadow-xl"
-    >
-      <span className="text-slate-200 group-hover:text-white transition-colors">Dołącz do rankingu</span>
-      <img
-        src="https://community.cloudflare.steamstatic.com/public/images/signinthroughsteam/sits_01.png"
-        alt="Steam"
-        className="h-10 w-auto group-hover:scale-105 transition-transform"
-      />
-    </Link>
+    <div className="inline-flex flex-col items-start sm:items-end gap-2">
+      <Link
+        href="/api/auth/steam"
+        prefetch={false}
+        className="inline-flex drop-shadow-[0_0_8px_rgba(220,38,38,0.25)] hover:drop-shadow-[0_0_15px_rgba(220,38,38,0.45)] transition-[filter] duration-300"
+      >
+        <span className="flex items-center gap-2.5 h-12 px-7 bg-transparent border-[1.5px] border-[#E7000B] text-white font-extrabold text-sm uppercase tracking-wide -skew-x-[12deg] transition-colors duration-300 hover:bg-[#E7000B]/15">
+          <span className="flex items-center gap-2 skew-x-[12deg] whitespace-nowrap">
+            <LogIn className="w-[18px] h-[18px]" />
+            Zaloguj przez Steam
+          </span>
+        </span>
+      </Link>
+      <p className="flex items-start gap-1.5 text-xs text-slate-500 max-w-[260px] sm:text-right">
+        <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-500" />
+        <span>
+          Logowanie jest bezpieczne — sprawdzamy tylko Twój SteamID, więcej w {' '}
+          <Link href="/polityka-prywatnosci" className="underline hover:text-slate-300 transition-colors">
+            Polityka prywatności
+          </Link>
+        </span>
+      </p>
+    </div>
   );
 }

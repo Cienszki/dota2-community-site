@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
+import { Newspaper } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BasherMagazine from '@/components/BasherMagazine';
@@ -55,18 +57,30 @@ export default async function BasherPage() {
       <Navbar />
 
       <section className="relative z-10 max-w-7xl mx-auto px-6 pb-20">
-        <div className="text-center mb-12 pt-[30px]">
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-4 drop-shadow-lg">
-            Basher
-          </h1>
-          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-            Magazyn społeczności Dota 2 Inhouse
-          </p>
+        <div className="flex items-center gap-4 pt-[30px] mb-12">
+          <Image
+            src="/images/basher.png"
+            alt="Basher"
+            width={251}
+            height={295}
+            className="h-20 w-auto shrink-0 drop-shadow-[0_0_14px_rgba(239,68,68,0.35)]"
+            priority
+          />
+          <div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white">Basher</h1>
+            <p className="text-slate-400 text-lg mt-0.5">Magazyn społeczności Dota 2 Inhouse.</p>
+          </div>
         </div>
 
         {allIssues.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-slate-500 text-lg">Brak wydań magazynu Basher. Wróć później.</p>
+          <div className="bg-slate-900/20 border border-white/5 rounded-3xl p-16 text-center backdrop-blur-md">
+            <div className="w-16 h-16 mx-auto mb-5 bg-red-600/10 rounded-full flex items-center justify-center text-red-400 border border-red-500/25">
+              <Newspaper className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-200 mb-2">Brak wydań magazynu Basher</h3>
+            <p className="text-slate-500 text-sm max-w-sm mx-auto">
+              Pierwszy numer pojawi się tutaj zaraz po publikacji w panelu admina.
+            </p>
           </div>
         ) : (
           <BasherMagazine

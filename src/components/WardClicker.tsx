@@ -36,30 +36,15 @@ export default function WardClicker() {
   };
 
   return (
-    <section className="relative z-10 w-full flex flex-col items-center">
-      <button
-        onClick={handleClick}
-        className="cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-        aria-label="Postaw warda"
-      >
-        <img
-          src="/images/ward.png"
-          alt="Observer Ward"
-          width={160}
-          height={160}
-          loading="lazy"
-          className="w-40 h-40 object-contain select-none drop-shadow-[0_0_12px_rgba(251,146,60,0.35)]"
-          draggable={false}
-        />
-      </button>
-      <div className="mt-4 flex flex-col items-center">
-        <span className="text-slate-400 text-sm font-bold uppercase tracking-widest">
+    <section className="relative z-10 w-full flex items-center justify-center gap-4 sm:gap-7">
+      <div className="flex flex-col items-end text-right">
+        <span className="text-slate-300 text-sm sm:text-base font-bold uppercase tracking-widest">
           Postawiono już
         </span>
-        <div className="font-mono text-4xl font-black text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.5)]">
+        <div className="font-mono text-4xl sm:text-5xl font-black text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.5)]">
           {clicks === null ? '…' : clicks.toLocaleString('pl-PL')}
         </div>
-        <span className="text-slate-400 text-sm font-bold uppercase tracking-widest">
+        <span className="text-slate-300 text-sm sm:text-base font-bold uppercase tracking-widest">
           wardów!
         </span>
         {message && (
@@ -68,6 +53,21 @@ export default function WardClicker() {
           </p>
         )}
       </div>
+      <button
+        onClick={handleClick}
+        className="cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0"
+        aria-label="Postaw warda"
+      >
+        <img
+          src="/images/ward.png"
+          alt="Observer Ward"
+          width={192}
+          height={192}
+          loading="lazy"
+          className="w-32 h-32 sm:w-48 sm:h-48 object-contain select-none drop-shadow-[0_0_12px_rgba(251,146,60,0.35)]"
+          draggable={false}
+        />
+      </button>
     </section>
   );
 }

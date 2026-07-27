@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 
-export const revalidate = 259200;
+export const revalidate = 86400;
 
 interface PlayerData {
   id: number;
@@ -22,21 +22,13 @@ interface PlayerData {
   avatar: string;
   rankTier: number;
   leaderboardRank: number | null;
-  winRate: string;
-  mmr: number;
-  trend: number;
+  winRate: string | null;
+  trend: number | null;
+  hasPublicMatches: boolean;
   isOfficial: boolean;
 }
 
-const estimateMmrFromTier = (tier: number): number => {
-  if (!tier || tier === 0) return 0;
-  const baseRank = Math.floor(tier / 10);
-  const stars = tier % 10;
-  if (baseRank === 8) return 5600;
-  const baseMmr = (baseRank - 1) * 760;
-  const starsMmr = stars * 150;
-  return baseMmr + starsMmr;
-};
+const FALLBACK_AVATAR = 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
 
 export default async function RankingPage() {
   let players: PlayerData[] = [];
@@ -49,57 +41,40 @@ export default async function RankingPage() {
     if (!error && leaderboardEntries && leaderboardEntries.length > 0) {
       let officialIndex = 0;
 
-      const results = await Promise.all(
-        leaderboardEntries.map(async (entry) => {
-          if (entry.steam_id) {
-            // Registered player — fetch live stats from OpenDota
-            const id = parseInt(entry.steam_id, 10);
-
-            const profileRes = await fetch(`https://api.opendota.com/api/players/${id}`);
-            const profileData = await profileRes.json();
-
-            const wlRes = await fetch(`https://api.opendota.com/api/players/${id}/wl?limit=100`);
-            const wlData = await wlRes.json();
-            const totalMatches = wlData.win + wlData.lose;
-            const winRate = totalMatches > 0 ? ((wlData.win / totalMatches) * 100).toFixed(1) + '%' : '0%';
-
-            const wl7DaysRes = await fetch(`https://api.opendota.com/api/players/${id}/wl?date=7`);
-            const wl7DaysData = await wl7DaysRes.json();
-            const trend = (wl7DaysData.win || 0) - (wl7DaysData.lose || 0);
-
-            const openDotaEstimatedMmr = profileData.mmr_estimate?.estimate;
-            const finalMmr = openDotaEstimatedMmr || estimateMmrFromTier(profileData.rank_tier || 0);
-
-            return {
-              id,
-              steam_id: entry.steam_id,
-              name: profileData.profile?.personaname || entry.name,
-              avatar: profileData.profile?.avatarfull || 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
-              rankTier: profileData.rank_tier || 0,
-              leaderboardRank: entry.leaderboard_rank ?? (profileData.leaderboard_rank || null),
-              winRate,
-              mmr: finalMmr,
-              trend,
-              isOfficial: false,
-            };
-          }
-
-          // Official leaderboard entry (no steam_id) — use DB data as-is
-          officialIndex++;
+      // All stats below (mmr/rank_tier/win_rate/form) are pre-computed by the
+      // daily sync-player-stats cron job — no OpenDota calls at request time.
+      const results = leaderboardEntries.map((entry) => {
+        if (entry.steam_id) {
+          const hasPublicMatches = entry.has_public_matches ?? true;
           return {
-            id: -(officialIndex), // unique negative key
-            steam_id: entry.steam_id ?? '',
+            id: parseInt(entry.steam_id, 10),
+            steam_id: entry.steam_id,
             name: entry.name,
-            avatar: entry.avatar ?? 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg',
-            rankTier: 0,
+            avatar: entry.avatar ?? FALLBACK_AVATAR,
+            rankTier: entry.rank_tier ?? 0,
             leaderboardRank: entry.leaderboard_rank ?? null,
-            winRate: '0%',
-            mmr: 0,
-            trend: 0,
-            isOfficial: true,
+            winRate: hasPublicMatches && entry.win_rate !== null ? `${entry.win_rate}%` : null,
+            trend: hasPublicMatches ? (entry.form ?? null) : null,
+            hasPublicMatches,
+            isOfficial: false,
           };
-        })
-      );
+        }
+
+        // Official leaderboard entry (no steam_id) — use DB data as-is
+        officialIndex++;
+        return {
+          id: -(officialIndex), // unique negative key
+          steam_id: entry.steam_id ?? '',
+          name: entry.name,
+          avatar: entry.avatar ?? FALLBACK_AVATAR,
+          rankTier: 0,
+          leaderboardRank: entry.leaderboard_rank ?? null,
+          winRate: null,
+          trend: null,
+          hasPublicMatches: false,
+          isOfficial: true,
+        };
+      });
 
       // Sort: leaderboardRank ASC first, then rankTier DESC for non-leaderboard
       players = results.sort((a, b) => {

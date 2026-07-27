@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Loader2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Loader2, ExternalLink } from 'lucide-react';
 import ReactPageFlip from 'react-pageflip';
 import GlareHover from '@/components/ui/GlareHover';
 
@@ -92,9 +92,11 @@ function IssueCard({
               href={issue.link_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-red-500 hover:text-red-400 font-bold underline underline-offset-2"
+              onClick={(e) => e.stopPropagation()}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-slate-500 hover:text-red-400 transition-colors shrink-0"
+              title="Otwórz link"
             >
-              [LINK]
+              <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
         </div>
@@ -394,6 +396,7 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                           className="object-contain"
                           quality={80}
                           draggable={false}
+                          loading={i === 0 ? 'eager' : undefined}
                           onLoad={i === 0 ? () => setModalLoaded(true) : undefined}
                         />
                       </div>

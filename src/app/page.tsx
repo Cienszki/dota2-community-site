@@ -10,6 +10,11 @@ import WardClicker from '@/components/WardClicker';
 import BorderGlow from '@/components/ui/BorderGlow';
 import { supabase } from '@/lib/supabase';
 
+const MOCK_TOURNAMENTS = [
+  { name: 'Wiosenna Furia', tag: 'Zapisy otwarte', desc: 'Sezonowy puchar dla wszystkich poziomów MMR — graj o nagrody i chwałę.', href: 'https://dota2inhouse.pl/wiosenna', image: null },
+  { name: 'PDL #1', tag: 'Liga drużynowa', desc: 'Pierwsza edycja Polskiej Ligi Dota 2 — regularne rozgrywki drużynowe.', href: 'https://dota2inhouse.pl/pdl', image: null },
+];
+
 const MOCK_TESTIMONIALS = [
   { id: 1, name: "Kamil", handle: "@kamil_dota", rating: 5, headline: "Najlepsze inhouse'y w Polsce", text: "Świetna organizacja turniejów i super poziom. Polecam każdemu kto chce się rozwijać!", avatar_url: null },
   { id: 2, name: "Zadymka", handle: "@zadymka", rating: 5, headline: "Świetna społeczność", text: "Znalazłem tu stałą ekipę do gry. Zero toksyczności, pełen profesjonalizm i super zabawa.", avatar_url: null },
@@ -20,6 +25,7 @@ const MOCK_TESTIMONIALS = [
 
 export default function Home() {
   const [testimonials, setTestimonials] = useState(MOCK_TESTIMONIALS);
+  const [tournaments, setTournaments] = useState(MOCK_TOURNAMENTS);
 
   useEffect(() => {
     async function fetchTestimonials() {
@@ -29,6 +35,29 @@ export default function Home() {
       }
     }
     fetchTestimonials();
+  }, []);
+
+  useEffect(() => {
+    async function fetchTournaments() {
+      const { data } = await supabase
+        .from('tournaments')
+        .select('*')
+        .eq('is_visible', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+      if (data && data.length > 0) {
+        setTournaments(
+          data.map((row) => ({
+            name: row.name,
+            tag: row.tag,
+            desc: row.description,
+            href: row.href,
+            image: row.image_url,
+          }))
+        );
+      }
+    }
+    fetchTournaments();
   }, []);
   const [discordCount, setDiscordCount] = useState(2400);
   const [partnerLink, setPartnerLink] = useState('https://dreammachines.pl/pl/?utm_content=dota2');
@@ -124,30 +153,21 @@ export default function Home() {
             className="max-w-4xl relative z-10"
           >
             <div className="flex flex-col items-center justify-center space-y-1">
-              <SplitText
-                text="POLSKA"
-                tag="h1"
-                className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
-                delay={40}
-                duration={0.6}
-                ease="power4.out"
-                splitType="chars"
-              />
               <div className="flex flex-wrap items-center justify-center gap-x-3">
                 <SplitText
-                  text="SPOŁECZNOŚĆ"
+                  text="POLISH"
                   tag="h1"
                   className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
-                  delay={60}
+                  delay={40}
                   duration={0.6}
                   ease="power4.out"
                   splitType="chars"
                 />
                 <SplitText
-                  text="DOTA 2"
+                  text="DOTA2"
                   tag="h1"
                   className="text-3xl sm:text-4xl md:text-5xl font-black text-red-600 tracking-tighter uppercase"
-                  delay={70}
+                  delay={60}
                   duration={0.6}
                   ease="power4.out"
                   splitType="chars"
@@ -161,30 +181,39 @@ export default function Home() {
                   className="inline-block w-6 sm:w-8 md:w-10 h-6 sm:h-8 md:h-10 object-contain align-middle"
                 />
               </div>
+              <SplitText
+                text="INHOUSE"
+                tag="h1"
+                className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tighter uppercase"
+                delay={70}
+                duration={0.6}
+                ease="power4.out"
+                splitType="chars"
+              />
             </div>
           </motion.div>
+
+          <p className="text-slate-400 text-xs md:text-sm font-semibold tracking-[0.2em] uppercase mt-3">
+            Polska Społeczność Dota 2
+          </p>
+
           {/* LCP paragraph — fully visible from server render, no opacity-0 delay */}
           <p className="text-slate-300 text-lg md:text-lg max-w-3xl mx-auto leading-relaxed drop-shadow-md mb-12 mt-8">
             Zorganizowana społeczność dla polskich graczy Dota 2. Regularne turnieje, liga drużynowa lub poprostu miejsce gdzie znajdziesz kompanów do gry. Dołącz do nas na Discordzie!
           </p>
 
           {/* ─── CALL-TO-ACTION BUTTONS ─── */}
-          <div className="flex flex-wrap justify-center gap-6 mt-12">
+          <div className="flex flex-wrap justify-center gap-6 mt-6">
             <div className="glow-container">
               <a href="https://discord.com/invite/ZxgmF7Kr4t" target="_blank" rel="noopener noreferrer" className="btn-hero h-12 flex items-center px-8 gap-3 text-xl">
                 <span>DOŁĄCZ DO NAS <img src="/images/discord_logo.png" alt="Discord" className="w-7 h-7 object-contain shrink-0" /></span>
               </a>
             </div>
-            <div className="glow-container">
-              <button className="btn-hero h-12 flex items-center px-8 text-xl">
-                <span>ZOBACZ TURNIEJE</span>
-              </button>
-            </div>
           </div>
         </section>
 
         {/* ─── SKEWED STATS BAR (12°) ─── */}
-        <div className="relative mt-6 z-10 max-w-[1088px] mx-auto px-6">
+        <div className="relative mt-6 z-10 max-w-[1088px] mx-auto px-16 md:px-6">
           <div className="bg-[#111]/60 border skew-x-0 md:-skew-x-[12deg] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-white/10 stats-glow h-auto md:h-22">
 
             {/* Stat 1: Discord */}
@@ -249,6 +278,40 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ─── CO JEST GRANE? (TOURNAMENTS) ─── */}
+      <section id="turnieje" className="relative z-10 max-w-7xl mx-auto px-6 mt-10">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl md:text-3xl font-black uppercase text-white">Co jest grane?</h2>
+          <p className="text-slate-400 text-sm mt-2">Dołącz do rozgrywek lub sprawdź trwającą rywalizację</p>
+        </div>
+        <div className="flex flex-wrap gap-6 justify-center">
+          {tournaments.map((t) => (
+            <BorderGlow
+              key={t.name}
+              className="flex-1 min-w-[320px] max-w-[460px]"
+              colors={["#ff0000", "#fff700", "#ff0000"]}
+              backgroundColor="#17181c"
+              borderRadius={16}
+              edgeSensitivity={30}
+              glowRadius={40}
+              glowIntensity={1.2}
+            >
+              <div className="p-7 flex flex-col gap-3 h-full">
+                {t.image && (
+                  <img src={t.image} alt={t.name} className="absolute top-4 right-4 w-[210px] h-[70px] object-cover rounded-lg" />
+                )}
+                <span className="self-start px-2.5 py-1 bg-red-600/15 text-red-400 text-[11px] font-extrabold uppercase tracking-wider rounded-sm">{t.tag}</span>
+                <h3 className="text-xl font-extrabold text-white max-w-[65%]">{t.name}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">{t.desc}</p>
+                <a href={t.href} target="_blank" rel="noopener noreferrer" className="self-start text-white font-bold text-sm uppercase tracking-wide border-b-2 border-red-600 pb-0.5">
+                  Zobacz szczegóły →
+                </a>
+              </div>
+            </BorderGlow>
+          ))}
+        </div>
+      </section>
+
       {/* ─── WARD CLICKER ─── */}
       <div className="mt-8 mb-6 md:mt-12 md:mb-8">
         <WardClicker />
@@ -256,7 +319,9 @@ export default function Home() {
 
       {/* ─── TESTIMONIALS MARQUEE ─── */}
       <section className="relative z-10 w-full mt-12 mb-10 flex flex-col items-center">
-        <div className="max-w-7xl mx-auto px-6 mb-6 text-center w-full">
+        <div className="max-w-7xl mx-auto px-6 mb-2 text-center w-full">
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-1">Głosy społeczności</p>
+          <p className="text-slate-500 text-xs">Opinie graczy z naszego serwera Discord</p>
         </div>
 
         <div
@@ -271,7 +336,7 @@ export default function Home() {
               <BorderGlow
                 key={`${review.id}-${idx}`}
                 className="w-[280px] md:w-[400px] shrink-0"
-                colors={["#ef4444", "#f59e0b", "#8b5cf6"]}
+                colors={["#ff0000", "#fff700", "#ff0000"]}
                 backgroundColor="#17181c"
                 borderRadius={16}
                 edgeSensitivity={30}
@@ -303,7 +368,6 @@ export default function Home() {
                     )}
                     <div>
                       <div className="text-white font-bold text-base">{review.name}</div>
-                      <div className="text-slate-500 text-xs">{review.handle}</div>
                     </div>
                   </div>
                   <div className="flex gap-0.5">
@@ -325,22 +389,20 @@ export default function Home() {
       </section>
 
       {/* ─── PARTNERS SECTION ─── */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 mt-10">
-        <p className="text-center text-slate-500 text-xs font-bold uppercase tracking-[0.3em] mb-8">Współpracujemy z</p>
-        <div className="flex flex-wrap justify-center items-center gap-8">
-          <a
-            href={partnerLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group relative block border border-white/10 rounded-xl overflow-hidden hover:border-red-500/40 transition-all duration-300"
-          >
-            <div className="absolute inset-0 bg-white/0 group-hover:bg-white/[0.03] transition-colors z-10" />
+      <section className="relative z-10 max-w-7xl mx-auto px-6 mt-16">
+        <p className="text-center text-slate-500 text-xs font-bold uppercase tracking-[0.3em] mb-8">Nasz partner</p>
+        <div className="max-w-2xl mx-auto border border-white/10 rounded-xl p-8 flex items-center gap-6 flex-wrap justify-center hover:border-red-500/40 transition-colors duration-300">
+          <a href={partnerLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
             <img
               src="/DM.png"
               alt="Dream Machines"
-              className="h-20 w-auto object-contain brightness-90 group-hover:brightness-110 transition-all"
+              className="h-14 w-auto object-contain brightness-90 hover:brightness-110 transition-all"
             />
           </a>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-white font-bold text-base">Dream Machines</div>
+            <p className="text-slate-400 text-sm leading-relaxed mt-1">Sprzęt gamingowy wspierający nasze turnieje i wydarzenia.</p>
+          </div>
         </div>
       </section>
 

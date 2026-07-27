@@ -152,7 +152,7 @@ function TeamBox({ teamName, players }: { teamName: string; players: PlayerInfo[
   return (
     <BorderGlow
       className="w-full h-full"
-      colors={["#ef4444", "#f59e0b", "#8b5cf6"]}
+      colors={["#ff0000", "#fff700", "#ff0000"]}
       backgroundColor="#17181c"
       borderRadius={16}
       glowRadius={6}

@@ -122,14 +122,14 @@ export default async function HallOfFamePage() {
           raysOrigin="top-center"
           raysColor="#ffffff"
           raysSpeed={1}
-          lightSpread={0.8}
-          rayLength={1.5}
+          lightSpread={1.3}
+          rayLength={2.3}
           followMouse={true}
           mouseInfluence={0.1}
           noiseAmount={0.05}
           distortion={0.03}
           pulsating={false}
-          fadeDistance={1.2}
+          fadeDistance={1.8}
           saturation={1.0}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />

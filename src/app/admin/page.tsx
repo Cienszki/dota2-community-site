@@ -9,13 +9,16 @@ import Navbar from '@/components/Navbar';
 import {
   Trash2, Edit2, Plus, Save, X, Newspaper, ChevronDown,
   Settings, Upload, Trophy, BookOpen, Check, Users, Radio, MessageSquare, Star, FileText, GripVertical,
+  Swords, Eye, EyeOff,
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
 import { addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions, getRankPlayers, deleteRankPlayer, getContentPage, upsertContentPage, deleteContentPage, uploadNewsImage } from './actions';
 
 
-type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'rekrutacja' | 'o-nas' | 'polityka' | null;
+type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'tournaments' | 'rekrutacja' | 'o-nas' | 'polityka' | null;
+
+const TOURNAMENT_TAGS = ['Zapisy otwarte', 'Trwający', 'Zakończony'] as const;
 
 interface NewsItem {
   id: number;
@@ -38,6 +41,18 @@ interface HofTournamentRow {
   created_at: string;
   status: string;
   image_url?: string | null;
+}
+
+interface TournamentRow {
+  id: string;
+  name: string;
+  tag: string;
+  description: string;
+  href: string;
+  image_url: string | null;
+  is_visible: boolean;
+  sort_order: number;
+  created_at: string;
 }
 
 interface BasherIssue {
@@ -213,6 +228,24 @@ export default function AdminPage() {
   const [testimonialSuccess, setTestimonialSuccess] = useState<string | null>(null);
   const [testimonialError, setTestimonialError] = useState<string | null>(null);
 
+  // ── Tournaments ("Co jest grane?") state ──
+  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
+  const [tournamentLoading, setTournamentLoading] = useState(false);
+  const [tournamentEditingId, setTournamentEditingId] = useState<string | null>(null);
+  const [tournamentName, setTournamentName] = useState('');
+  const [tournamentTag, setTournamentTag] = useState<string>(TOURNAMENT_TAGS[0]);
+  const [tournamentDescription, setTournamentDescription] = useState('');
+  const [tournamentHref, setTournamentHref] = useState('');
+  const [tournamentIsVisible, setTournamentIsVisible] = useState(true);
+  const [tournamentSortOrder, setTournamentSortOrder] = useState(0);
+  const [tournamentImageFile, setTournamentImageFile] = useState<File | null>(null);
+  const [tournamentImagePreview, setTournamentImagePreview] = useState<string | null>(null);
+  const [tournamentSaving, setTournamentSaving] = useState(false);
+  const [tournamentDeleting, setTournamentDeleting] = useState<string | null>(null);
+  const [tournamentTogglingId, setTournamentTogglingId] = useState<string | null>(null);
+  const [tournamentSuccess, setTournamentSuccess] = useState<string | null>(null);
+  const [tournamentError, setTournamentError] = useState<string | null>(null);
+
   // ── Content Pages state ──
   const [rekrutacjaContent, setRekrutacjaContent] = useState('');
   const [oNasContent, setONasContent] = useState('');
@@ -233,6 +266,18 @@ export default function AdminPage() {
     setTestimonialEditingId(null);
   };
 
+  const resetTournamentForm = () => {
+    setTournamentEditingId(null);
+    setTournamentName('');
+    setTournamentTag(TOURNAMENT_TAGS[0]);
+    setTournamentDescription('');
+    setTournamentHref('');
+    setTournamentIsVisible(true);
+    setTournamentSortOrder(0);
+    setTournamentImageFile(null);
+    setTournamentImagePreview(null);
+  };
+
   const resetStreamerForm = () => {
     setStreamerNick('');
     setStreamerMotto('');
@@ -249,6 +294,18 @@ export default function AdminPage() {
     if (!error && data) {
       setTestimonials(data);
     }
+  };
+
+  const fetchTournaments = async () => {
+    setTournamentLoading(true);
+    const supabase = createBrowserSupabaseClient();
+    const { data, error } = await supabase
+      .from('tournaments')
+      .select('*')
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
+    if (!error && data) setTournaments(data as TournamentRow[]);
+    setTournamentLoading(false);
   };
 
   // ── Content Pages CRUD ──
@@ -342,6 +399,114 @@ export default function AdminPage() {
       await fetchTestimonials();
     }
     setTestimonialDeleting(null);
+  };
+
+  // ── Tournaments ("Co jest grane?") CRUD ──
+
+  const handleSaveTournament = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTournamentSaving(true);
+    setTournamentSuccess(null);
+    setTournamentError(null);
+
+    try {
+      let imageUrl: string | null = tournamentImagePreview ?? null;
+
+      if (tournamentImageFile) {
+        const fileName = slugify(tournamentName.trim());
+        const fd = new FormData();
+        fd.append('file', tournamentImageFile);
+        fd.append('fileName', fileName);
+
+        const uploadRes = await fetch('/api/admin/tournament-banner', {
+          method: 'POST',
+          body: fd,
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok) throw new Error(uploadJson.error);
+        imageUrl = uploadJson.url;
+      }
+
+      const payload = {
+        name: tournamentName.trim(),
+        tag: tournamentTag,
+        description: tournamentDescription.trim(),
+        href: tournamentHref.trim(),
+        image_url: imageUrl,
+        is_visible: tournamentIsVisible,
+        sort_order: tournamentSortOrder,
+      };
+
+      const supabase = createBrowserSupabaseClient();
+      if (tournamentEditingId) {
+        const { error } = await supabase
+          .from('tournaments')
+          .update(payload)
+          .eq('id', tournamentEditingId);
+        if (error) throw error;
+        setTournamentSuccess('Turniej został zaktualizowany.');
+        toast.success('Turniej został zaktualizowany.');
+      } else {
+        const { error } = await supabase.from('tournaments').insert(payload);
+        if (error) throw error;
+        setTournamentSuccess('Turniej został dodany.');
+        toast.success('Turniej został dodany.');
+      }
+
+      resetTournamentForm();
+      setDirty(false);
+      setTimeout(() => setTournamentSuccess(null), 3000);
+      await fetchTournaments();
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisywania turnieju.';
+      setTournamentError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setTournamentSaving(false);
+    }
+  };
+
+  const handleTournamentEditClick = (t: TournamentRow) => {
+    setTournamentEditingId(t.id);
+    setTournamentName(t.name);
+    setTournamentTag(t.tag);
+    setTournamentDescription(t.description);
+    setTournamentHref(t.href);
+    setTournamentIsVisible(t.is_visible);
+    setTournamentSortOrder(t.sort_order);
+    setTournamentImageFile(null);
+    setTournamentImagePreview(t.image_url);
+    setActiveTab('tournaments');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteTournament = async (id: string) => {
+    if (!window.confirm('Na pewno usunąć ten turniej?')) return;
+    setTournamentDeleting(id);
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.from('tournaments').delete().eq('id', id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success('Turniej został usunięty.');
+      await fetchTournaments();
+    }
+    setTournamentDeleting(null);
+  };
+
+  const handleToggleTournamentVisibility = async (t: TournamentRow) => {
+    setTournamentTogglingId(t.id);
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase
+      .from('tournaments')
+      .update({ is_visible: !t.is_visible })
+      .eq('id', t.id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      await fetchTournaments();
+    }
+    setTournamentTogglingId(null);
   };
 
   // ── Data fetching ──
@@ -572,6 +737,7 @@ export default function AdminPage() {
       await fetchRankPlayers();
       await fetchStreamers();
       await fetchTestimonials();
+      await fetchTournaments();
     };
     init();
   }, []);
@@ -1117,6 +1283,7 @@ export default function AdminPage() {
     { tab: 'news', icon: Newspaper, label: 'Newsy' },
     { tab: 'settings', icon: Settings, label: 'Ustawienia' },
     { tab: 'hof', icon: Trophy, label: 'Hall of Fame' },
+    { tab: 'tournaments', icon: Swords, label: 'Co jest grane?' },
     { tab: 'basher', icon: BookOpen, label: 'Basher' },
     { tab: 'ranking', icon: Users, label: 'Ranking' },
     { tab: 'streamers', icon: Radio, label: 'Streamerzy' },
@@ -1661,6 +1828,241 @@ export default function AdminPage() {
                           title="Usuń"
                         >
                           <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ================================================================ */}
+        {/* TURNIEJE ("Co jest grane?")                                      */}
+        {/* ================================================================ */}
+        {activeTab === 'tournaments' && (
+          <div className="mb-10 bg-slate-900/40 border border-slate-700 rounded-3xl p-6 lg:p-8 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-200">
+                <Swords className="w-5 h-5 text-red-500" />
+                {tournamentEditingId ? 'Edytuj turniej' : 'Dodaj turniej'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => { resetTournamentForm(); switchTab(null); }}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {tournamentSuccess && (
+              <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl">
+                {tournamentSuccess}
+              </div>
+            )}
+            {tournamentError && (
+              <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-4 rounded-xl">
+                <p className="font-bold">Błąd: {tournamentError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveTournament} noValidate className="space-y-5 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Nazwa turnieju
+                  </label>
+                  <input
+                    type="text" required value={tournamentName}
+                    onChange={(e) => { setTournamentName(e.target.value); setDirty(true); }}
+                    placeholder="np. Wiosenna Furia"
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Status (widoczny tag)
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={tournamentTag}
+                      onChange={(e) => { setTournamentTag(e.target.value); setDirty(true); }}
+                      className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all pr-9"
+                    >
+                      {TOURNAMENT_TAGS.map((tag) => (
+                        <option key={tag} value={tag}>{tag}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                  Opis
+                </label>
+                <textarea
+                  required value={tournamentDescription}
+                  onChange={(e) => { setTournamentDescription(e.target.value); setDirty(true); }}
+                  placeholder="Krótki opis turnieju wyświetlany na karcie..."
+                  rows={3}
+                  className="w-full max-w-lg bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Link (&ldquo;Zobacz szczegóły&rdquo;)
+                  </label>
+                  <input
+                    type="url" required value={tournamentHref}
+                    onChange={(e) => { setTournamentHref(e.target.value); setDirty(true); }}
+                    placeholder="https://dota2inhouse.pl/..."
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Kolejność (mniejsza liczba = wyżej)
+                  </label>
+                  <input
+                    type="number" value={tournamentSortOrder}
+                    onChange={(e) => { setTournamentSortOrder(Number(e.target.value)); setDirty(true); }}
+                    className="w-full bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-950/30 border border-white/[0.05] rounded-2xl p-4 max-w-lg">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Baner turnieju (opcjonalny, ok. 210×70)
+                </label>
+                <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-red-500/50 rounded-xl py-6 bg-[#181a20] transition-colors cursor-pointer">
+                  <input
+                    type="file" accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      setTournamentImageFile(file);
+                      if (file) setTournamentImagePreview(URL.createObjectURL(file));
+                      setDirty(true);
+                    }}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-2 text-slate-500 text-sm">
+                    <Upload className="w-4 h-4" /> Wybierz plik...
+                  </div>
+                </div>
+                {tournamentImagePreview && (
+                  <img
+                    src={tournamentImagePreview}
+                    alt="Podgląd banera"
+                    className="mt-3 h-16 w-auto rounded-lg object-cover border border-white/10"
+                  />
+                )}
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer select-none w-fit">
+                <input
+                  type="checkbox" checked={tournamentIsVisible}
+                  onChange={(e) => { setTournamentIsVisible(e.target.checked); setDirty(true); }}
+                  className="w-4 h-4 rounded accent-red-600"
+                />
+                <span className="text-sm font-semibold text-slate-300">
+                  Widoczny na stronie głównej
+                </span>
+              </label>
+
+              <div className="flex gap-3">
+                <button
+                  type="submit" disabled={tournamentSaving}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-xl transition-all disabled:opacity-50"
+                >
+                  {tournamentSaving ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {tournamentEditingId ? 'Zapisz zmiany' : 'Dodaj turniej'}
+                </button>
+                {tournamentEditingId && (
+                  <button
+                    type="button"
+                    onClick={resetTournamentForm}
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-6 rounded-xl transition-all"
+                  >
+                    <X className="w-4 h-4" /> Anuluj edycję
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {/* ─── Tournaments list ─── */}
+            <div>
+              <h3 className="text-xl font-bold mb-5 text-slate-300 flex items-center gap-2">
+                <Swords className="w-5 h-5 text-slate-500" />
+                Wszystkie turnieje
+              </h3>
+
+              {tournamentLoading ? (
+                <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-8 text-center text-slate-500">
+                  Ładowanie...
+                </div>
+              ) : tournaments.length === 0 ? (
+                <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-8 text-center text-slate-500">
+                  Brak turniejów w bazie.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {tournaments.map((t) => (
+                    <div
+                      key={t.id}
+                      className="bg-slate-900/20 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center hover:bg-slate-800/30 transition-all"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-slate-200">{t.name}</span>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-red-600/15 text-red-400">
+                            {t.tag}
+                          </span>
+                          {!t.is_visible && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-slate-700/40 text-slate-400">
+                              Ukryty
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{t.description}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleTournamentVisibility(t)}
+                          disabled={tournamentTogglingId === t.id}
+                          className="bg-slate-800 hover:bg-emerald-600/20 text-emerald-400 p-3 rounded-xl transition-all border border-transparent hover:border-emerald-500/30 disabled:opacity-50"
+                          title={t.is_visible ? 'Ukryj na stronie głównej' : 'Pokaż na stronie głównej'}
+                        >
+                          {t.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={() => handleTournamentEditClick(t)}
+                          className="bg-slate-800 hover:bg-blue-600/20 text-blue-400 p-3 rounded-xl transition-all border border-transparent hover:border-blue-500/30"
+                          title="Edytuj"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTournament(t.id)}
+                          disabled={tournamentDeleting === t.id}
+                          className="bg-slate-800 hover:bg-red-600/20 text-red-400 p-3 rounded-xl transition-all border border-transparent hover:border-red-500/30 disabled:opacity-50"
+                          title="Usuń"
+                        >
+                          {tournamentDeleting === t.id ? (
+                            <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
                     </div>

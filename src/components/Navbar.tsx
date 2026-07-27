@@ -1,19 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Users, Mail, Menu, X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Mail, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Navbar() {
-  const [pdlLinked, setPdlLinked] = useState<boolean | null>(null);
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    fetch('/api/auth/status')
-      .then((r) => r.json())
-      .then((data) => setPdlLinked(data.linked === true))
-      .catch(() => setPdlLinked(false));
-  }, []);
 
   // Lock body scroll when mobile menu is open
   useEffect(() => {
@@ -33,6 +27,8 @@ export default function Navbar() {
     { href: '/basher', label: 'Basher' },
     { href: '/streamy', label: 'Streamy' },
   ];
+
+  const isActive = (href: string) => href !== '#' && pathname === href;
 
   return (
     <nav className="relative z-40 border-b border-white/10">
@@ -70,7 +66,7 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="btn-nav-tile text-lg tracking-wider px-3 py-2.5 not-italic flex-1"
+                  className={`btn-nav-tile text-lg tracking-wider px-3 py-2.5 not-italic flex-1 ${isActive(link.href) ? 'is-active' : ''}`}
                 >
                   <span className="not-italic">{link.label}</span>
                 </Link>
@@ -78,23 +74,12 @@ export default function Navbar() {
             )}
             <Link
               href="/kontakt"
-              className="btn-nav-tile text-lg tracking-wider px-4 py-2.5 not-italic hidden sm:inline-flex flex-1"
+              className={`btn-nav-tile text-lg tracking-wider px-4 py-2.5 not-italic hidden sm:inline-flex flex-1 ${isActive('/kontakt') ? 'is-active' : ''}`}
             >
               <span className="flex items-center gap-1.5 not-italic">
                 Kontakt <Mail className="w-3.5 h-3.5" />
               </span>
             </Link>
-            {pdlLinked === false && (
-              <Link
-                href="/api/auth/steam"
-                prefetch={false}
-                className="btn-nav-tile text-lg tracking-wider px-4 py-2.5 not-italic hidden sm:inline-flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap"
-              >
-                <span className="flex items-center gap-1.5 not-italic">
-                  Dołącz <Users className="w-3.5 h-3.5" />
-                </span>
-              </Link>
-            )}
           </div>
         </div>
 
@@ -146,7 +131,7 @@ export default function Navbar() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic"
+                    className={`btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic ${isActive(link.href) ? 'is-active' : ''}`}
                     onClick={() => setMobileOpen(false)}
                   >
                     {link.label}
@@ -155,21 +140,11 @@ export default function Navbar() {
               )}
               <Link
                 href="/kontakt"
-                className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic flex items-center gap-2"
+                className={`btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic flex items-center gap-2 ${isActive('/kontakt') ? 'is-active' : ''}`}
                 onClick={() => setMobileOpen(false)}
               >
                 Kontakt <Mail className="w-4 h-4" />
               </Link>
-              {pdlLinked === false && (
-                <Link
-                  href="/api/auth/steam"
-                  prefetch={false}
-                  className="btn-nav-tile text-lg tracking-wider px-4 py-3 not-italic flex items-center gap-2"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Dołącz <Users className="w-4 h-4" />
-                </Link>
-              )}
             </div>
           </div>
         </div>

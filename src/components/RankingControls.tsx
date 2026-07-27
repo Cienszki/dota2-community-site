@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -11,9 +11,9 @@ interface PlayerData {
   avatar: string;
   rankTier: number;
   leaderboardRank: number | null;
-  winRate: string;
-  mmr: number;
-  trend: number;
+  winRate: string | null;
+  trend: number | null;
+  hasPublicMatches: boolean;
   isOfficial: boolean;
 }
 
@@ -101,15 +101,20 @@ function InfoTooltip({ text }: { text: string }) {
 
 // ── Rank cell ──
 
+const MEDAL_STYLES: Record<number, string> = {
+  1: 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 shadow-[0_0_10px_rgba(234,179,8,0.35)]',
+  2: 'bg-slate-300/15 text-slate-300 border border-slate-300/30 shadow-[0_0_10px_rgba(203,213,225,0.25)]',
+  3: 'bg-orange-700/15 text-orange-400 border border-orange-600/30 shadow-[0_0_10px_rgba(194,120,3,0.3)]',
+};
+
 function RankCell({ position }: { position: number }) {
-  if (position === 1) {
-    return <span className="text-2xl drop-shadow-[0_0_8px_rgba(255,215,0,0.8)]">🥇</span>;
-  }
-  if (position === 2) {
-    return <span className="text-2xl drop-shadow-[0_0_8px_rgba(192,192,192,0.8)]">🥈</span>;
-  }
-  if (position === 3) {
-    return <span className="text-2xl drop-shadow-[0_0_8px_rgba(205,127,50,0.8)]">🥉</span>;
+  const medalClass = MEDAL_STYLES[position];
+  if (medalClass) {
+    return (
+      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${medalClass}`}>
+        <Trophy className="w-4 h-4" />
+      </span>
+    );
   }
   return (
     <span className="font-black text-base text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">
@@ -206,20 +211,21 @@ export default function RankingControls({ players }: RankingControlsProps) {
         </select>
       </div>
 
-      <div className="bg-slate-900/20 border border-white/5 rounded-3xl backdrop-blur-md shadow-2xl overflow-x-auto">
-        <table className="w-full text-left border-collapse table-fixed text-xs sm:text-sm">
+      {/* Desktop table */}
+      <div className="hidden md:block bg-[#17181c] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
+        <table className="w-full text-left border-collapse table-fixed text-sm">
           <thead>
-            <tr className="border-b border-white/5 text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-wider bg-white/5">
-              <th className="py-1.5 px-1 sm:px-3 text-right w-[10%] whitespace-nowrap">Pozycja</th>
-              <th className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left w-[30%] whitespace-nowrap">Gracz</th>
-              <th className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left w-[25%] whitespace-nowrap">Ranga</th>
-              <th className="py-1.5 px-1 sm:px-3 w-[15%] text-center whitespace-nowrap hidden md:table-cell">
+            <tr className="border-b border-white/[0.08] text-slate-400 text-sm font-bold uppercase tracking-wider bg-white/5">
+              <th className="py-1.5 px-3 text-right w-[10%] whitespace-nowrap">Pozycja</th>
+              <th className="py-1.5 pl-6 pr-3 text-left w-[30%] whitespace-nowrap">Gracz</th>
+              <th className="py-1.5 pl-6 pr-3 text-left w-[25%] whitespace-nowrap">Ranga</th>
+              <th className="py-1.5 px-3 w-[15%] text-center whitespace-nowrap">
                 Winrate
-                <InfoTooltip text="Ostatnie 100 Meczów" />
+                <InfoTooltip text="Ostatnie 50 meczów" />
               </th>
-              <th className="py-1.5 px-1 sm:px-3 w-[20%] text-center whitespace-nowrap hidden md:table-cell">
+              <th className="py-1.5 px-3 w-[20%] text-center whitespace-nowrap">
                 Forma
-                <InfoTooltip text="Ostatnie 7 dni" />
+                <InfoTooltip text="Ostatnie 14 dni" />
               </th>
             </tr>
           </thead>
@@ -228,22 +234,22 @@ export default function RankingControls({ players }: RankingControlsProps) {
               filteredPlayers.map((player, index) => (
                 <tr
                   key={player.id}
-                  className="border-b border-white/5 hover:bg-white/[0.03] transition-colors"
+                  className="border-b border-white/[0.08] hover:bg-white/[0.03] transition-colors"
                 >
-                  <td className="py-1.5 px-1 sm:px-3 text-center">
+                  <td className="py-1.5 px-3 text-center">
                     <RankCell position={index + 1} />
                   </td>
-                  
-                  <td className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left min-w-0">
-                    <div className="flex items-center justify-start gap-1.5 sm:gap-3">
+
+                  <td className="py-1.5 pl-6 pr-3 text-left min-w-0">
+                    <div className="flex items-center justify-start gap-3">
                       <img
                         src={player.avatar}
                         alt=""
-                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/10 object-cover shrink-0"
+                        className="w-8 h-8 rounded-lg border border-white/10 object-cover shrink-0"
                       />
-                      <div className="text-left min-w-0 max-w-[100px] xs:max-w-[130px] sm:max-w-none">
+                      <div className="text-left min-w-0">
                         {player.isOfficial ? (
-                          <span className="font-bold text-xs sm:text-base text-slate-200 truncate block">
+                          <span className="font-bold text-base text-slate-200 truncate block">
                             {player.name}
                           </span>
                         ) : (
@@ -251,20 +257,20 @@ export default function RankingControls({ players }: RankingControlsProps) {
                             href={`https://www.dotabuff.com/players/${player.steam_id}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group flex items-center gap-1 sm:gap-2 min-w-0"
+                            className="group flex items-center gap-2 min-w-0"
                           >
-                            <span className="font-bold text-xs sm:text-base text-slate-200 group-hover:text-red-400 transition-colors truncate">
+                            <span className="font-bold text-base text-slate-200 group-hover:text-red-400 transition-colors truncate">
                               {player.name}
                             </span>
-                            <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500 group-hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                            <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" />
                           </a>
                         )}
                       </div>
                     </div>
                   </td>
 
-                  <td className="py-1.5 pl-2 pr-1 sm:pl-6 sm:pr-3 text-left">
-                    <div className="flex items-center justify-start gap-1.5 sm:gap-3">
+                  <td className="py-1.5 pl-6 pr-3 text-left">
+                    <div className="flex items-center justify-start gap-3">
                       <img
                         src={player.isOfficial ? '/ranks/immortal2.png' : `/ranks/${(() => {
                           if (player.rankTier === 0) return 'unranked';
@@ -273,25 +279,39 @@ export default function RankingControls({ players }: RankingControlsProps) {
                           return badges[idx] || 'unranked';
                         })()}.png`}
                         alt=""
-                        className="w-7 h-7 sm:w-8 sm:h-8 object-contain shrink-0"
+                        className="w-8 h-8 object-contain shrink-0"
                       />
-                      <span className="text-slate-300 font-medium text-xs sm:text-base text-left truncate">
+                      <span className="text-slate-300 font-medium text-base text-left truncate">
                         {getRankName(player.rankTier, player.leaderboardRank)}
                       </span>
                     </div>
                   </td>
 
-                  <td className="py-1.5 px-1 sm:px-3 text-center font-mono font-bold text-xs sm:text-lg text-emerald-400 hidden md:table-cell">
+                  <td className="py-1.5 px-3 text-center font-mono font-bold text-lg text-emerald-400">
                     {player.isOfficial ? (
-                      <span className="text-slate-500 text-xs sm:text-lg">—</span>
+                      <span className="text-slate-500 text-lg">—</span>
+                    ) : player.winRate === null ? (
+                      <span
+                        className="text-slate-500 text-xs font-normal"
+                        title="Profil gracza ma prywatną historię meczów"
+                      >
+                        Brak danych
+                      </span>
                     ) : (
                       player.winRate
                     )}
                   </td>
 
-                  <td className="py-1.5 px-1 sm:px-3 text-center font-mono hidden md:table-cell">
+                  <td className="py-1.5 px-3 text-center font-mono">
                     {player.isOfficial ? (
                       <span className="text-slate-500 text-lg">—</span>
+                    ) : player.trend === null ? (
+                      <span
+                        className="text-slate-500 text-xs font-normal"
+                        title="Profil gracza ma prywatną historię meczów"
+                      >
+                        Brak danych
+                      </span>
                     ) : player.trend >= 5 ? (
                       <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-sm" title="ON FIRE! Niesamowity winstreak!">
                         <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
@@ -317,18 +337,111 @@ export default function RankingControls({ players }: RankingControlsProps) {
               ))
             ) : (
               <tr>
-                <>
-                  <td colSpan={5} className="py-10 text-center text-slate-400 font-medium hidden md:table-cell">
-                    Brak graczy spełniających kryteria wyszukiwania.
-                  </td>
-                  <td colSpan={3} className="py-10 text-center text-slate-400 font-medium md:hidden">
-                    Brak graczy spełniających kryteria wyszukiwania.
-                  </td>
-                </>
+                <td colSpan={5} className="py-10 text-center text-slate-400 font-medium">
+                  Brak graczy spełniających kryteria wyszukiwania.
+                </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {filteredPlayers.length > 0 ? (
+          filteredPlayers.map((player, index) => (
+            <div
+              key={player.id}
+              className="bg-[#17181c] border border-white/[0.08] rounded-2xl p-3"
+            >
+              <div className="flex items-center gap-2.5">
+                <RankCell position={index + 1} />
+                <img
+                  src={player.avatar}
+                  alt=""
+                  className="w-8 h-8 rounded-lg border border-white/10 object-cover shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  {player.isOfficial ? (
+                    <span className="font-bold text-sm text-slate-200 truncate block">
+                      {player.name}
+                    </span>
+                  ) : (
+                    <a
+                      href={`https://www.dotabuff.com/players/${player.steam_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-1 min-w-0"
+                    >
+                      <span className="font-bold text-sm text-slate-200 group-hover:text-red-400 transition-colors truncate">
+                        {player.name}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-red-400 transition-colors flex-shrink-0" />
+                    </a>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <img
+                      src={player.isOfficial ? '/ranks/immortal2.png' : `/ranks/${(() => {
+                        if (player.rankTier === 0) return 'unranked';
+                        const badges = ['herald','guardian','crusader','archon','legend','ancient','divine','immortal'];
+                        const idx = Math.floor(player.rankTier / 10) - 1;
+                        return badges[idx] || 'unranked';
+                      })()}.png`}
+                      alt=""
+                      className="w-4 h-4 object-contain shrink-0"
+                    />
+                    <span className="text-slate-400 font-medium text-xs truncate">
+                      {getRankName(player.rankTier, player.leaderboardRank)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-3">
+                <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-white/5 border border-white/[0.08] py-1.5 font-mono font-bold text-xs text-emerald-400">
+                  {player.isOfficial ? (
+                    'Winrate: —'
+                  ) : player.winRate === null ? (
+                    <span className="font-normal text-slate-500" title="Profil gracza ma prywatną historię meczów">
+                      Brak danych meczowych
+                    </span>
+                  ) : (
+                    `Winrate: ${player.winRate}`
+                  )}
+                </span>
+                <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-white/5 border border-white/[0.08] py-1.5 font-mono text-xs">
+                  {player.isOfficial ? (
+                    <span className="text-slate-500">Forma: —</span>
+                  ) : player.trend === null ? (
+                    <span className="text-slate-500" title="Profil gracza ma prywatną historię meczów">
+                      Brak danych
+                    </span>
+                  ) : player.trend >= 5 ? (
+                    <span className="flex items-center gap-1 text-orange-400 font-black" title="ON FIRE! Niesamowity winstreak!">
+                      <Flame className="w-3.5 h-3.5 fill-orange-500" />+{player.trend}
+                    </span>
+                  ) : player.trend > 0 ? (
+                    <span className="flex items-center gap-1 text-emerald-400 font-bold" title="Więcej wygranych niż przegranych">
+                      <TrendingUp className="w-3.5 h-3.5" />+{player.trend}
+                    </span>
+                  ) : player.trend < 0 ? (
+                    <span className="flex items-center gap-1 text-red-500 font-bold" title="Więcej przegranych niż wygranych">
+                      <TrendingDown className="w-3.5 h-3.5" />{player.trend}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-slate-500 font-bold" title="Brak zmian / Równy bilans">
+                      <Minus className="w-3.5 h-3.5" />
+                    </span>
+                  )}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="bg-[#17181c] border border-white/[0.08] rounded-2xl py-10 text-center text-slate-400 font-medium text-sm">
+            Brak graczy spełniających kryteria wyszukiwania.
+          </div>
+        )}
       </div>
 
     </div>
