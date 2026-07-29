@@ -290,7 +290,8 @@ export default function Home() {
               key={t.name}
               className="flex-1 min-w-[320px] max-w-[460px]"
               colors={["#ff0000", "#fff700", "#ff0000"]}
-              backgroundColor="#17181c"
+              backgroundColor="#050505"
+              background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
               borderRadius={16}
               edgeSensitivity={30}
               glowRadius={40}
@@ -337,7 +338,8 @@ export default function Home() {
                 key={`${review.id}-${idx}`}
                 className="w-[280px] md:w-[400px] shrink-0"
                 colors={["#ff0000", "#fff700", "#ff0000"]}
-                backgroundColor="#17181c"
+                backgroundColor="#050505"
+                background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
                 borderRadius={16}
                 edgeSensitivity={30}
                 glowRadius={40}

@@ -62,7 +62,7 @@ export default function KontaktForm() {
           <p className="text-slate-400 text-sm">Masz pytania dotyczące inhouse lobby lub turniejów? Napisz do nas!</p>
         </div>
 
-        <div className="bg-slate-900/20 border border-white/5 rounded-3xl p-8 backdrop-blur-md shadow-2xl relative z-10 overflow-hidden">
+        <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-md shadow-2xl relative z-10 overflow-hidden">
 
           {status === 'success' ? (
             <div className="text-center py-8">

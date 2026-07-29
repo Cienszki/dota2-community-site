@@ -212,7 +212,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block bg-[#17181c] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
+      <div className="hidden md:block bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed text-sm">
           <thead>
             <tr className="border-b border-white/[0.08] text-slate-400 text-sm font-bold uppercase tracking-wider bg-white/5">
@@ -352,7 +352,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
           filteredPlayers.map((player, index) => (
             <div
               key={player.id}
-              className="bg-[#17181c] border border-white/[0.08] rounded-2xl p-3"
+              className="bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl p-3"
             >
               <div className="flex items-center gap-2.5">
                 <RankCell position={index + 1} />
@@ -438,7 +438,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
             </div>
           ))
         ) : (
-          <div className="bg-[#17181c] border border-white/[0.08] rounded-2xl py-10 text-center text-slate-400 font-medium text-sm">
+          <div className="bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl py-10 text-center text-slate-400 font-medium text-sm">
             Brak graczy spełniających kryteria wyszukiwania.
           </div>
         )}

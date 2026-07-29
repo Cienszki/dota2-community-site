@@ -3,8 +3,8 @@ import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BorderGlow from '@/components/ui/BorderGlow';
 import { supabase } from '@/lib/supabase';
+import Image from 'next/image';
 import { ExternalLink, Play } from 'lucide-react';
-import { FaTwitch } from 'react-icons/fa';
 import { getLiveChannels } from '@/lib/twitch';
 
 export const metadata: Metadata = {
@@ -77,9 +77,14 @@ export default async function StreamyPage() {
 
       <section className="relative z-10 max-w-7xl mx-auto px-6 pb-20">
         <div className="flex items-center gap-4 pt-[30px] mb-12">
-          <div className="w-16 h-16 shrink-0 bg-red-600/10 rounded-2xl flex items-center justify-center text-red-500 border border-red-500/20">
-            <FaTwitch className="w-6 h-6" />
-          </div>
+          <Image
+            src="/images/twitch.png"
+            alt=""
+            width={512}
+            height={512}
+            className="w-16 h-16 object-contain shrink-0"
+            priority
+          />
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white">Streamy</h1>
             <p className="text-slate-400 text-lg mt-0.5">Oglądaj i wspieraj naszych zaprzyjaźnionych streamerów!</p>
@@ -101,7 +106,8 @@ export default async function StreamyPage() {
                   key={streamer.id}
                   className="w-full h-full"
                   colors={["#ff0000", "#fff700", "#ff0000"]}
-                  backgroundColor="#17181c"
+                  backgroundColor="#050505"
+                  background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
                   borderRadius={16}
                   edgeSensitivity={30}
                   glowRadius={40}
