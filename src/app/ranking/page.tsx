@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
-import { Users, Trophy, ShieldAlert, Info } from 'lucide-react';
+import Image from 'next/image';
+import { statSync } from 'fs';
+import { join } from 'path';
+import { Users, ShieldAlert, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import RankingControls from '@/components/RankingControls';
@@ -30,7 +33,20 @@ interface PlayerData {
 
 const FALLBACK_AVATAR = 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
 
+function getRankingIconVersion(): number {
+  try {
+    return statSync(join(process.cwd(), 'public/images/ranking.png')).mtimeMs;
+  } catch {
+    return 0;
+  }
+}
+
 export default async function RankingPage() {
+  // Cache-busting query param so replacing this file on disk is reflected
+  // immediately — Next's image optimizer otherwise caches by URL alone and
+  // doesn't reliably notice an in-place file change.
+  const rankingIconSrc = `/images/ranking.png?v=${getRankingIconVersion()}`;
+
   let players: PlayerData[] = [];
 
   try {
@@ -106,8 +122,15 @@ export default async function RankingPage() {
       {/* LEADERBOARD CONTAINER */}
       <section className="relative z-10 max-w-7xl mx-auto px-6 pt-[30px] pb-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-red-600/10 rounded-xl flex items-center justify-center text-red-500 border border-red-500/20"><Trophy className="w-6 h-6" /></div>
+          <div className="flex items-start gap-4">
+            <Image
+              src={rankingIconSrc}
+              alt="Ranking"
+              width={2048}
+              height={2048}
+              className="h-[83px] w-[83px] object-contain shrink-0"
+              priority
+            />
             <div>
               <h1 className="text-4xl font-extrabold tracking-tight">Ranking</h1>
               <p className="text-slate-400 text-xl">Najlepsi polscy gracze w naszej społeczności.</p>

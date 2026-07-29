@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
   },
   images: {
     qualities: [75, 80],
+    // Allows a `?v=<mtime>` cache-busting query string on local /public
+    // images (e.g. the ranking page icon) — Next.js otherwise rejects any
+    // search string on a local image src with a 400.
+    localPatterns: [
+      {
+        pathname: '/images/**',
+      },
+    ],
     remotePatterns: [
       {
         protocol: 'https',
