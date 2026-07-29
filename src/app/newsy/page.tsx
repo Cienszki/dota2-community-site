@@ -6,6 +6,28 @@ import NewsPanel from '@/components/NewsPanel';
 export const metadata: Metadata = {
   title: 'Aktualności i Wydarzenia',
   description: 'Aktualności o turniejach Dota 2, życiu polskiej społeczności oraz najważniejszych wydarzeniach ligowych.',
+  openGraph: {
+    title: 'Aktualności i Wydarzenia | Polish Dota2 Inhouse',
+    description: 'Aktualności o turniejach Dota 2, życiu polskiej społeczności oraz najważniejszych wydarzeniach ligowych.',
+    url: 'https://dota2inhouse.pl/newsy',
+    siteName: 'Polish Dota2 Inhouse',
+    locale: 'pl_PL',
+    type: 'website',
+    images: [
+      {
+        url: '/images/og-image.png',
+        width: 3840,
+        height: 2160,
+        alt: 'Polish Dota2 Inhouse Banner',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Aktualności i Wydarzenia | Polish Dota2 Inhouse',
+    description: 'Aktualności o turniejach Dota 2, życiu polskiej społeczności oraz najważniejszych wydarzeniach ligowych.',
+    images: ['/images/og-image.png'],
+  },
 };
 
 export default function NewsyPage() {
