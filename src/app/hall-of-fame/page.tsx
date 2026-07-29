@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Trophy } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import LightRays from '@/components/ui/LightRays';
 import TrophyRoom, { type TournamentData, type PlayerInfo } from '@/components/TrophyRoom';
@@ -151,10 +152,16 @@ export default async function HallOfFamePage() {
       {tournamentData.length > 0 ? (
         <TrophyRoom tournaments={tournamentData} />
       ) : (
-        <section className="relative z-10 text-center py-20">
-          <p className="text-slate-500 text-lg">
-            Brak turniejów w bazie. Dodaj pierwszy w panelu admina.
-          </p>
+        <section className="relative z-10 max-w-7xl mx-auto px-6 py-16">
+          <div className="bg-[#17181c]/50 border border-white/[0.06] rounded-3xl p-16 text-center backdrop-blur-md">
+            <div className="w-16 h-16 mx-auto mb-5 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-400 border border-amber-500/25">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-200 mb-2">Brak turniejów w bazie</h3>
+            <p className="text-slate-500 text-sm max-w-sm mx-auto">
+              Historia zwycięzców pojawi się tutaj, gdy dodasz pierwszy turniej w panelu admina.
+            </p>
+          </div>
         </section>
       )}
     </main>

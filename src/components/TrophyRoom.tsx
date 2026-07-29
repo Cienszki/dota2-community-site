@@ -86,13 +86,11 @@ function TournamentHeader({
   date,
   url,
   alignRight,
-  invisible,
 }: {
   name: string;
   date: string;
   url: string | null;
   alignRight: boolean;
-  invisible?: boolean;
 }) {
   const linkClass =
     'inline-flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-500 hover:brightness-110 transition-all duration-300';
@@ -109,12 +107,31 @@ function TournamentHeader({
   );
 
   return (
-    <div className={`flex flex-col ${alignRight ? 'items-end' : 'items-start'} ${invisible ? 'invisible' : ''}`}>
+    <div className={`h-full flex flex-col justify-end ${alignRight ? 'items-end' : 'items-start'}`}>
       <div className={alignRight ? 'text-right' : 'text-left'}>
         <h2 className="text-3xl md:text-4xl font-extrabold drop-shadow-lg leading-tight">
           {inner}
         </h2>
         <p className="text-base text-slate-400 mt-1 mb-4">{date}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Just the team name + trophy icon (no box) ──
+
+function TeamHeader({ teamName, alignRight }: { teamName: string; alignRight: boolean }) {
+  return (
+    <div className={`h-full flex flex-col justify-end ${alignRight ? 'items-end' : 'items-start'}`}>
+      <div className={alignRight ? 'text-right' : 'text-left'}>
+        <h3 className="text-3xl md:text-4xl font-extrabold text-slate-200 flex items-center gap-2 leading-tight">
+          <Trophy className="w-6 h-6 text-amber-400 shrink-0" />
+          {teamName}
+        </h3>
+        {/* invisible spacer mirroring the date line so both headers share
+            the same shape and the name text itself lands on the same
+            baseline, not just the header block as a whole */}
+        <p className="text-base mt-1 mb-4 invisible">&nbsp;</p>
       </div>
     </div>
   );
@@ -130,7 +147,7 @@ function TournamentImage({
   name: string;
 }) {
   return (
-    <div className="relative w-full aspect-[16/9] md:min-h-0">
+    <div className="relative w-full max-w-[600px] h-[200px] mx-auto">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -146,25 +163,22 @@ function TournamentImage({
 
 // ── Team box ──
 
-function TeamBox({ teamName, players }: { teamName: string; players: PlayerInfo[] }) {
+function TeamBox({ players, fullWidth }: { players: PlayerInfo[]; fullWidth?: boolean }) {
   const mainPlayers = players.filter((p) => !p.isSubstitute);
 
   return (
     <BorderGlow
-      className="w-full h-full"
+      className={fullWidth ? 'w-full h-[200px]' : 'w-full max-w-[600px] h-[200px] mx-auto'}
       colors={["#ff0000", "#fff700", "#ff0000"]}
-      backgroundColor="#17181c"
+      backgroundColor="#050505"
+      background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
       borderRadius={16}
       glowRadius={6}
       coneSpread={8}
       glowIntensity={0.35}
       fillOpacity={0.2}
     >
-      <div className="p-6 h-full flex flex-col justify-center">
-        <h3 className="text-3xl font-bold text-slate-200 mb-4 text-center flex items-center justify-center gap-2">
-          <Trophy className="w-6 h-6 text-amber-400" />
-          {teamName}
-        </h3>
+      <div className="p-6 h-full flex items-center justify-center overflow-y-auto">
         <div className="flex flex-wrap gap-4 md:gap-6 justify-center items-start">
           {mainPlayers.map((player, i) => (
             <PlayerAvatar key={player.friendId ?? `player-${i}`} player={player} compact />
@@ -247,46 +261,53 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
               />
             )}
 
-            {/* ── Mobile: vertical stack (header → team → image) ── */}
-            <div className="flex flex-col gap-6 md:hidden pt-20">
-              <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} />
-              <TeamBox teamName={tournament.teamName} players={tournament.players} />
-              {tournament.imageUrl ? (
-                <TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} />
-              ) : null}
+            {/* ── Mobile: centered stack (title+date → team name → team box, no image) ── */}
+            <div className="flex flex-col items-center text-center gap-3 md:hidden pt-20">
+              <div>
+                <h2 className="text-2xl font-extrabold drop-shadow-lg leading-tight">
+                  {tournamentUrl ? (
+                    <a
+                      href={tournamentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-500 hover:brightness-110 transition-all duration-300"
+                    >
+                      {tournament.name}
+                      <ExternalLink className="w-4 h-4 text-amber-400/80 inline shrink-0" />
+                    </a>
+                  ) : (
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-orange-500">
+                      {tournament.name}
+                    </span>
+                  )}
+                </h2>
+                <p className="text-slate-500 text-sm mt-1">{tournament.date}</p>
+              </div>
+              <h3 className="text-2xl font-extrabold text-slate-200 flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
+                {tournament.teamName}
+              </h3>
+              <TeamBox players={tournament.players} fullWidth />
             </div>
 
-            {/* ── Desktop: side-by-side timeline grid ── */}
-            <div className="hidden md:grid md:grid-cols-2 gap-6 md:gap-8 pt-20">
-              {/* Left column */}
-              <div className="md:pr-10">
-                {isEven ? (
-                  <div className="flex flex-col gap-4 h-full">
-                    <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight />
-                    <TeamBox teamName={tournament.teamName} players={tournament.players} />
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4 h-full">
-                    <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight invisible />
-                    <TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} />
-                  </div>
-                )}
-              </div>
-
-              {/* Right column */}
-              <div className="md:pl-10">
-                {isEven ? (
-                  <div className="flex flex-col gap-4 h-full">
-                    <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} invisible />
-                    <TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} />
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4 h-full">
-                    <TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} />
-                    <TeamBox teamName={tournament.teamName} players={tournament.players} />
-                  </div>
-                )}
-              </div>
+            {/* ── Desktop: single grid so header row + content row each align across
+                 both columns, regardless of which header/content is taller ── */}
+            <div className="hidden md:grid md:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-0 pt-20">
+              {isEven ? (
+                <>
+                  <div className="md:pr-10"><TeamHeader teamName={tournament.teamName} alignRight /></div>
+                  <div className="md:pl-10"><TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} /></div>
+                  <div className="md:pr-10"><TeamBox players={tournament.players} /></div>
+                  <div className="md:pl-10"><TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} /></div>
+                </>
+              ) : (
+                <>
+                  <div className="md:pr-10"><TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight /></div>
+                  <div className="md:pl-10"><TeamHeader teamName={tournament.teamName} alignRight={false} /></div>
+                  <div className="md:pr-10"><TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} /></div>
+                  <div className="md:pl-10"><TeamBox players={tournament.players} /></div>
+                </>
+              )}
             </div>
           </motion.div>
         );

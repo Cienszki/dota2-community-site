@@ -9,6 +9,11 @@ interface BorderGlowProps {
   edgeSensitivity?: number;
   glowColor?: string;
   backgroundColor?: string;
+  /** Full CSS `background` value (e.g. a gradient) for the visible card fill.
+   * Falls back to `backgroundColor` when omitted. `backgroundColor` itself
+   * must stay a solid color — it's also used inside the animated border's
+   * gradient mask, which can't nest another gradient as one of its stops. */
+  background?: string;
   borderRadius?: number;
   glowRadius?: number;
   glowIntensity?: number;
@@ -87,6 +92,7 @@ const BorderGlow = ({
   edgeSensitivity = 30,
   glowColor = '40 80 80',
   backgroundColor = '#120F17',
+  background,
   borderRadius = 28,
   glowRadius = 40,
   glowIntensity = 1.0,
@@ -169,6 +175,7 @@ const BorderGlow = ({
 
   const style: CSSProperties = {
     '--card-bg': backgroundColor,
+    '--card-bg-visible': background || backgroundColor,
     '--edge-sensitivity': edgeSensitivity,
     '--border-radius': `${borderRadius}px`,
     '--glow-padding': `${glowRadius}px`,

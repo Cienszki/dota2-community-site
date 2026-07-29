@@ -13,7 +13,7 @@
   transform: translate3d(0, 0, 0.01px);
   display: grid;
   border: none;
-  background: var(--card-bg, #120F17);
+  background: var(--card-bg-visible, var(--card-bg, #120F17));
   overflow: visible;
   box-shadow: rgba(0, 0, 0, 0.4) 0px 8px 24px;
 }
