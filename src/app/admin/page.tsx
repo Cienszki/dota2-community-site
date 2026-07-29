@@ -155,9 +155,7 @@ export default function AdminPage() {
   const [twitchLink, setTwitchLink] = useState('');
   const [youtubeLink, setYoutubeLink] = useState('');
   const [instagramLink, setInstagramLink] = useState('');
-  const [fontFamily, setFontFamily] = useState('Logik');
-  const [customFonts, setCustomFonts] = useState<{ name: string; base64: string }[]>([]);
-  const [fontNameInput, setFontNameInput] = useState('');
+  const [fontFamily, setFontFamily] = useState('Oxanium');
   const [saveSettingsSuccess, setSaveSettingsSuccess] = useState(false);
   const [saveSettingsError, setSaveSettingsError] = useState<string | null>(null);
 
@@ -544,7 +542,6 @@ export default function AdminPage() {
         if (val.youtube_link) setYoutubeLink(val.youtube_link);
         if (val.instagram_link) setInstagramLink(val.instagram_link);
         if (val.font_family) setFontFamily(val.font_family);
-        if (val.custom_fonts) setCustomFonts(val.custom_fonts);
       }
     } catch (err) {
       console.error('Błąd pobierania ustawień:', err);
@@ -840,7 +837,6 @@ export default function AdminPage() {
         youtube_link: youtubeLink,
         instagram_link: instagramLink,
         font_family: fontFamily,
-        custom_fonts: customFonts,
       };
 
       const supabase = createBrowserSupabaseClient();
@@ -879,45 +875,6 @@ export default function AdminPage() {
       const msg = err instanceof Error ? err.message : String(err) || 'Wystąpił błąd podczas zapisywania do bazy danych.';
       setSaveSettingsError(msg);
       toast.error(msg);
-    }
-  };
-
-  const handleFontUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '');
-    const fontName = fontNameInput.trim() || cleanName;
-
-    if (!fontName) {
-      alert('Podaj nazwę dla czcionki przed jej wgraniem.');
-      return;
-    }
-
-    if (file.size > 2000000) {
-      alert('Rozmiar pliku czcionki jest zbyt duży! Maksymalny rozmiar to 2MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        const updatedFonts = [...customFonts, { name: fontName, base64 }];
-        setCustomFonts(updatedFonts);
-        setFontFamily(fontName);
-        setFontNameInput('');
-        e.target.value = '';
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleRemoveFont = (nameToRemove: string) => {
-    const updated = customFonts.filter((f) => f.name !== nameToRemove);
-    setCustomFonts(updated);
-    if (fontFamily === nameToRemove) {
-      setFontFamily('Logik');
     }
   };
 
@@ -1443,82 +1400,20 @@ export default function AdminPage() {
 
               <div className="border-t border-white/[0.07] pt-6">
                 <h3 className="text-lg font-bold text-slate-300 mb-4">Czcionka serwisu</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                      Wybierz aktywną czcionkę
-                    </label>
-                    <div className="relative max-w-md">
-                      <select
-                        value={fontFamily}
-                        onChange={(e) => { setFontFamily(e.target.value); setDirty(true); }}
-                        className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all pr-9"
-                      >
-                        <optgroup label="Podstawowe czcionki">
-                          <option value="Logik">Logik (Domyślna)</option>
-                          <option value="Logik Bold">Logik Bold</option>
-                          <option value="Logik Extended">Logik Extended</option>
-                          <option value="System-UI">Systemowa Sans-Serif</option>
-                          <option value="Inter">Inter (Google Fonts)</option>
-                          <option value="Roboto">Roboto (Google Fonts)</option>
-                          <option value="Poppins">Poppins (Google Fonts)</option>
-                          <option value="Montserrat">Montserrat (Google Fonts)</option>
-                        </optgroup>
-                        {customFonts.length > 0 && (
-                          <optgroup label="Wgrane czcionki (Base64)">
-                            {customFonts.map((font) => (
-                              <option key={font.name} value={font.name}>{font.name}</option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-950/30 border border-white/[0.05] rounded-2xl p-4">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Wgraj nowy plik czcionki (.ttf, .woff, .woff2)
-                    </label>
-                    <input
-                      type="text" value={fontNameInput}
-                      onChange={(e) => { setFontNameInput(e.target.value); setDirty(true); }}
-                      placeholder="Nazwa czcionki (np. MojaCzcionka)..."
-                      className="w-full bg-[#181a20] border border-white/10 rounded-xl px-3 py-2 text-slate-300 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all text-sm mb-3"
-                    />
-                    <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-red-500/50 rounded-xl py-6 bg-[#181a20] transition-colors cursor-pointer">
-                      <input
-                        type="file" accept=".ttf,.woff,.woff2,.otf"
-                        onChange={(e) => { handleFontUpload(e); setDirty(true); }}
-                        className="absolute inset-0 opacity-0 cursor-pointer"
-                      />
-                      <div className="text-center">
-                        <Upload className="w-6 h-6 text-slate-500 mx-auto mb-2" />
-                        <span className="text-xs font-bold text-slate-400">
-                          Kliknij lub przeciągnij plik czcionki
-                        </span>
-                        <span className="block text-[10px] text-slate-600 mt-1">TTF, WOFF, WOFF2, OTF (max 2MB)</span>
-                      </div>
-                    </div>
-                    {customFonts.length > 0 && (
-                      <div className="mt-4">
-                        <span className="text-xs font-bold text-slate-400 block mb-2">Wgrane czcionki:</span>
-                        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                          {customFonts.map((font) => (
-                            <div key={font.name} className="flex justify-between items-center bg-slate-900/60 px-3 py-1.5 rounded-lg border border-white/5 text-xs">
-                              <span className="text-slate-300 font-medium">{font.name}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFont(font.name)}
-                                className="text-red-400 hover:text-red-300 font-bold px-1 transition-colors"
-                              >
-                                Usuń
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                    Wybierz aktywną czcionkę
+                  </label>
+                  <div className="relative max-w-md">
+                    <select
+                      value={fontFamily}
+                      onChange={(e) => { setFontFamily(e.target.value); setDirty(true); }}
+                      className="w-full appearance-none bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all pr-9"
+                    >
+                      <option value="Oxanium">Oxanium</option>
+                      <option value="Exo 2">Exo 2</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -2816,7 +2711,6 @@ export default function AdminPage() {
             pagesSaving={pagesSaving}
             pagesSuccess={pagesSuccess}
             pagesError={pagesError}
-            customFonts={customFonts}
           />
         )}
 
@@ -2834,7 +2728,6 @@ export default function AdminPage() {
             pagesSaving={pagesSaving}
             pagesSuccess={pagesSuccess}
             pagesError={pagesError}
-            customFonts={customFonts}
           />
         )}
 
@@ -2853,7 +2746,6 @@ export default function AdminPage() {
               pagesSaving={pagesSaving}
               pagesSuccess={pagesSuccess}
               pagesError={pagesError}
-              customFonts={customFonts}
             />
             <button
               type="button"
@@ -2933,7 +2825,6 @@ export default function AdminPage() {
                     value={content}
                     onChange={(val) => { setContent(val); setDirty(true); }}
                     placeholder="Wpisz treść wpisu…"
-                    customFonts={customFonts}
                   />
                 </div>
 
@@ -3087,7 +2978,7 @@ export default function AdminPage() {
 
 function RenderContentPageEditor({
   slug, label, content, setContent, loading, setLoading,
-  fetchContentPage, handleSave, pagesSaving, pagesSuccess, pagesError, customFonts,
+  fetchContentPage, handleSave, pagesSaving, pagesSuccess, pagesError,
 }: {
   slug: string;
   label: string;
@@ -3100,7 +2991,6 @@ function RenderContentPageEditor({
   pagesSaving: boolean;
   pagesSuccess: string | null;
   pagesError: string | null;
-  customFonts: { name: string; base64: string }[];
 }) {
   useEffect(() => {
     fetchContentPage(slug, setContent, setLoading);
@@ -3132,7 +3022,6 @@ function RenderContentPageEditor({
               value={content}
               onChange={(val) => setContent(val)}
               placeholder="Wpisz treść strony..."
-              customFonts={customFonts}
             />
             <div className="mt-4">
               <button

@@ -139,9 +139,8 @@ interface RichTextEditorProps {
 }
 
 const BUILT_IN_FONTS = [
-  { label: 'Logik (Domyślna)', value: 'Logik' },
-  { label: 'Logik Bold', value: 'Logik Bold' },
-  { label: 'Logik Extended', value: 'Logik Extended' },
+  { label: 'Oxanium (Domyślna)', value: 'Oxanium' },
+  { label: 'Exo 2', value: "'Exo 2'" },
   { label: 'Arial', value: 'Arial' },
   { label: 'Georgia', value: 'Georgia' },
   { label: 'Times New Roman', value: "'Times New Roman'" },

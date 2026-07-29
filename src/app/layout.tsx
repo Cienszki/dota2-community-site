@@ -57,19 +57,20 @@ async function getSettings() {
       .eq('title', 'global_settings')
       .maybeSingle();
     if (error || !data || !data.content) {
-      return {
-        font_family: 'Logik',
-        custom_fonts: []
-      };
+      return { font_family: 'Oxanium' };
     }
     return JSON.parse(data.content);
   } catch {
-    return {
-      font_family: 'Logik',
-      custom_fonts: []
-    };
+    return { font_family: 'Oxanium' };
   }
 }
+
+// The only two fonts available site-wide (see admin Settings → Czcionka
+// serwisu). Both are always loaded together so rich-text content authored
+// with either font (via the news editor's per-paragraph font picker) always
+// renders correctly, regardless of which one is the active site default.
+const GOOGLE_FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=Exo+2:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap';
 
 export default async function RootLayout({
   children,
@@ -77,45 +78,15 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const settings = await getSettings();
-  const fontFamily = settings.font_family || 'Logik';
-  const customFonts = (settings.custom_fonts || []) as { name: string; base64: string }[];
-
-  const googleFonts = ['Inter', 'Roboto', 'Poppins', 'Montserrat'];
-  const isGoogleFont = googleFonts.includes(fontFamily);
-
-  // Generate CSS for custom fonts
-  const fontStyles = customFonts
-    .map((font) => `
-      @font-face {
-        font-family: '${font.name}';
-        src: url(${font.base64}) format('woff2');
-        font-weight: 400;
-        font-style: normal;
-        font-display: swap;
-      }
-    `)
-    .join('\n');
+  const fontFamily = settings.font_family || 'Oxanium';
 
   return (
     <html lang="pl">
       <head>
-        {/* Preload critical hero font (Logik-SemiBold) for LCP text */}
-        <link
-          rel="preload"
-          href="/fonts/Logik-SemiBold.ttf"
-          as="font"
-          type="font/ttf"
-          crossOrigin="anonymous"
-        />
-        {isGoogleFont && (
-          <>
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-            <link href={`https://fonts.googleapis.com/css2?family=${fontFamily}:wght@400;600;700;800&display=swap`} rel="stylesheet" />
-          </>
-        )}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href={GOOGLE_FONTS_HREF} rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: `
-          ${fontStyles}
           :root {
             --font-sans: '${fontFamily}', sans-serif;
           }

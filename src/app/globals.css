@@ -1,37 +1,9 @@
 @import "tailwindcss"; /* To ładuje Tailwinda w nowej wersji */
 
-@theme {
-  --font-logik-bold: 'Logik Bold', sans-serif;
-  --font-logik-extended: 'Logik Extended', sans-serif;
-}
-
-@font-face {
-  font-family: 'Logik';
-  src: url('/fonts/Logik-SemiBold.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Logik Bold';
-  src: url('/fonts/Logik-Bold.ttf') format('truetype');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Logik Extended';
-  src: url('/fonts/Logik-Extended.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-/* Nadpisujemy domyślną czcionkę systemową Tailwinda Twoją czcionką */
+/* Nadpisujemy domyślną czcionkę systemową Tailwinda — Oxanium/Exo 2 są
+   ładowane z Google Fonts w layout.tsx, tu tylko nazwa jako fallback. */
 :root {
-  --font-sans: 'Logik', sans-serif;
+  --font-sans: 'Oxanium', sans-serif;
 }
 
 body {
