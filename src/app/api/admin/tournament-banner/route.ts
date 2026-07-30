@@ -42,8 +42,17 @@ export async function POST(request: Request) {
       .from('tournament-banners')
       .getPublicUrl(`landing_${fileName}`);
 
+    // The storage path is stable (same tournament -> same filename, upsert:
+    // true), so re-uploading a banner keeps the exact same public URL. That
+    // makes browsers/CDN keep serving the previously cached bytes at that
+    // URL — appending a cache-busting query param forces every re-upload to
+    // be treated as a new resource.
+    const bustedUrl = publicUrlData?.publicUrl
+      ? `${publicUrlData.publicUrl}?v=${Date.now()}`
+      : null;
+
     return NextResponse.json(
-      { url: publicUrlData?.publicUrl ?? null },
+      { url: bustedUrl },
       { status: 200 },
     );
   } catch (err: unknown) {

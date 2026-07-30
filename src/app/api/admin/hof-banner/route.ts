@@ -42,8 +42,15 @@ export async function POST(request: Request) {
       .from('tournament-banners')
       .getPublicUrl(fileName);
 
+    // Same fixed-path + upsert:true setup as tournament-banner — re-uploads
+    // reuse the same public URL, so a cache-busting query param is needed to
+    // stop browsers/CDN from serving the previously cached image bytes.
+    const bustedUrl = publicUrlData?.publicUrl
+      ? `${publicUrlData.publicUrl}?v=${Date.now()}`
+      : null;
+
     return NextResponse.json(
-      { url: publicUrlData?.publicUrl ?? null },
+      { url: bustedUrl },
       { status: 200 },
     );
   } catch (err: unknown) {

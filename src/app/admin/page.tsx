@@ -1102,7 +1102,9 @@ export default function AdminPage() {
             .from(bucketName)
             .getPublicUrl(filePath);
 
-          urls.push(publicUrlData.publicUrl);
+          // Fixed path + upsert:true means re-uploading a page reuses the
+          // exact same URL — bust the cache so browsers fetch the new bytes.
+          urls.push(`${publicUrlData.publicUrl}?v=${Date.now()}`);
         }
 
         pagesArray = urls;
