@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
 import ClientLightPillar from '@/components/ClientLightPillar';
@@ -8,6 +8,7 @@ import Navbar from '@/components/Navbar';
 import SplitText from '@/components/SplitText';
 import WardClicker from '@/components/WardClicker';
 import BorderGlow from '@/components/ui/BorderGlow';
+import SmoothScroll from '@/components/SmoothScroll';
 import { supabase } from '@/lib/supabase';
 
 const MOCK_TOURNAMENTS = [
@@ -59,7 +60,7 @@ export default function Home() {
     }
     fetchTournaments();
   }, []);
-  const [discordCount, setDiscordCount] = useState(2400);
+  const [discordCount, setDiscordCount] = useState(2500);
   const [partnerLink, setPartnerLink] = useState('https://dreammachines.pl/pl/?utm_content=dota2');
 
   useEffect(() => {
@@ -94,8 +95,25 @@ export default function Home() {
     fetchAll();
   }, []);
 
+  // Parallax on the side hero art — direct style writes on scroll instead of
+  // React state, so this doesn't trigger a re-render on every scroll pixel.
+  const elderTitanRef = useRef<HTMLImageElement>(null);
+  const zeusRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const PARALLAX_SPEED = 0.4;
+    const onScroll = () => {
+      const offset = `translateY(${window.scrollY * PARALLAX_SPEED}px)`;
+      if (elderTitanRef.current) elderTitanRef.current.style.transform = offset;
+      if (zeusRef.current) zeusRef.current.style.transform = offset;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-clip">
+      <SmoothScroll />
       
       {/* ─── TECH GRID OVERLAY ─── */}
       <div className="absolute inset-0 z-0 bg-[linear-gradient(to_right,#ffffff05_1px,transparent_1px),linear-gradient(to_bottom,#ffffff05_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
@@ -125,26 +143,28 @@ export default function Home() {
 
       <div className="relative">
         <img
+          ref={elderTitanRef}
           src="/images/ET.webp"
           alt="Elder Titan"
           width={300}
           height={600}
           loading="lazy"
-          className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0"
+          className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0 will-change-transform"
           style={{ left: 'calc(4% + 300px)' }}
         />
         <img
+          ref={zeusRef}
           src="/images/Zeus.webp"
           alt="Zeus"
           width={300}
           height={600}
           loading="lazy"
-          className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0"
+          className="hidden lg:block absolute top-0 bottom-0 h-full w-auto max-w-[22%] object-contain object-bottom opacity-50 pointer-events-none select-none z-0 will-change-transform"
           style={{ right: 'calc(4% + 300px)' }}
         />
 
         {/* ─── HERO SECTION ─── */}
-        <section className="relative z-10 max-w-7xl mx-auto px-6 pt-[60px] pb-12 flex flex-col items-center text-center">
+        <section className="relative z-10 max-w-7xl mx-auto px-6 pt-[60px] flex flex-col items-center text-center">
           {/* Animated headings wrapper — only SplitText headings, NOT the LCP paragraph */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -198,7 +218,7 @@ export default function Home() {
           </p>
 
           {/* LCP paragraph — fully visible from server render, no opacity-0 delay */}
-          <p className="text-slate-300 text-lg md:text-lg max-w-3xl mx-auto leading-relaxed drop-shadow-md mb-12 mt-8">
+          <p className="text-slate-300 text-lg md:text-lg max-w-3xl mx-auto leading-relaxed drop-shadow-md mb-6 mt-8">
             Zorganizowana społeczność dla polskich graczy Dota 2. Regularne turnieje, liga drużynowa lub poprostu miejsce gdzie znajdziesz kompanów do gry. Dołącz do nas na Discordzie!
           </p>
 
@@ -213,7 +233,7 @@ export default function Home() {
         </section>
 
         {/* ─── SKEWED STATS BAR (12°) ─── */}
-        <div className="relative mt-6 z-10 max-w-[1088px] mx-auto px-16 md:px-6">
+        <div className="relative mt-12 z-10 max-w-[1088px] mx-auto px-16 md:px-6">
           <div className="bg-[#111]/60 border skew-x-0 md:-skew-x-[12deg] shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-white/10 stats-glow h-auto md:h-22">
 
             {/* Stat 1: Discord */}
@@ -279,7 +299,14 @@ export default function Home() {
       </div>
 
       {/* ─── CO JEST GRANE? (TOURNAMENTS) ─── */}
-      <section id="turnieje" className="relative z-10 max-w-7xl mx-auto px-6 mt-10">
+      <motion.section
+        id="turnieje"
+        className="relative z-10 max-w-7xl mx-auto px-6 mt-10"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.7 }}
+      >
         <div className="text-center mb-8">
           <h2 className="text-2xl md:text-3xl font-black uppercase text-white">Co jest grane?</h2>
           <p className="text-slate-400 text-sm mt-2">Dołącz do rozgrywek lub sprawdź trwającą rywalizację</p>
@@ -311,18 +338,29 @@ export default function Home() {
             </BorderGlow>
           ))}
         </div>
-      </section>
+      </motion.section>
 
       {/* ─── WARD CLICKER ─── */}
-      <div className="mt-8 mb-6 md:mt-12 md:mb-8">
+      <motion.div
+        className="mt-8 mb-6 md:mt-12 md:mb-8"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.7 }}
+      >
         <WardClicker />
-      </div>
+      </motion.div>
 
       {/* ─── TESTIMONIALS MARQUEE ─── */}
-      <section className="relative z-10 w-full mt-12 mb-10 flex flex-col items-center">
-        <div className="max-w-7xl mx-auto px-6 mb-2 text-center w-full">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mb-1">Głosy społeczności</p>
-          <p className="text-slate-500 text-xs">Opinie graczy z naszego serwera Discord</p>
+      <motion.section
+        className="relative z-10 w-full mt-12 mb-10 flex flex-col items-center"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.7 }}
+      >
+        <div className="max-w-7xl mx-auto px-6 mb-6 text-center w-full">
+          <p className="text-slate-400 text-sm font-bold uppercase tracking-[0.2em]">Głosy społeczności</p>
         </div>
 
         <div
@@ -349,7 +387,7 @@ export default function Home() {
                 href="https://disboard.org/server/947158056381337630"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-6 flex flex-col gap-4 cursor-pointer h-full"
+                className="px-6 py-4 flex flex-col gap-4 cursor-pointer h-full"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -388,11 +426,17 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* ─── PARTNERS SECTION ─── */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 mt-16">
-        <p className="text-center text-slate-500 text-xs font-bold uppercase tracking-[0.3em] mb-8">Nasz partner</p>
+      <motion.section
+        className="relative z-10 max-w-7xl mx-auto px-6 mt-16"
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.15 }}
+        transition={{ duration: 0.7 }}
+      >
+        <p className="text-center text-slate-500 text-sm font-bold uppercase tracking-[0.3em] mb-6">Nasz partner</p>
         <div className="max-w-2xl mx-auto border border-white/10 rounded-xl p-8 flex items-center gap-6 flex-wrap justify-center hover:border-red-500/40 transition-colors duration-300">
           <a href={partnerLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
             <img
@@ -406,7 +450,7 @@ export default function Home() {
             <p className="text-slate-400 text-sm leading-relaxed mt-1">Sprzęt gamingowy wspierający nasze turnieje i wydarzenia.</p>
           </div>
         </div>
-      </section>
+      </motion.section>
 
     </main>
   );
