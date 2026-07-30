@@ -37,7 +37,7 @@ function Footer() {
   const navLinks = [
     { name: "Rekrutacja", href: "/rekrutacja", external: false },
     { name: "O nas", href: "/o-nas", external: false },
-    { name: "Wesprzyj nas!", href: "https://tipply.pl/@pd2ih", external: true },
+    { name: "Wesprzyj nas!", href: "/wesprzyj-nas", external: false },
   ];
 
   return (
