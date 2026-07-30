@@ -28,26 +28,26 @@ export default function NotFound() {
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
         </div>
 
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4 text-center">
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4 pb-16 text-center">
           {/* Primary Message */}
           <p className="text-2xl sm:text-3xl text-gray-400 mb-6 max-w-md leading-relaxed">
             Zgubiłeś coś? Jeśli tak to tutaj tego nie ma
           </p>
 
-          {/* Largo GIF Container (200x200) */}
-          <div className="relative w-[200px] h-[200px] mb-6 rounded-2xl overflow-hidden border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
+          {/* Largo GIF Container (140x140, -30%) */}
+          <div className="relative w-[140px] h-[140px] mb-6 rounded-2xl overflow-hidden border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.2)]">
             <Image
               alt="Largo 404"
               className="object-cover w-full h-full"
-              height={200}
+              height={140}
               src="/images/largo.gif"
               unoptimized
-              width={200}
+              width={140}
             />
           </div>
 
-          {/* Big 404 Text */}
-          <span className="text-9xl sm:text-[10rem] font-black text-red-500 mb-8 tracking-wider drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">
+          {/* Big 404 Text (-40%) */}
+          <span className="text-[4.8rem] sm:text-[6rem] font-black text-red-500 mb-8 tracking-wider drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">
             404
           </span>
 
