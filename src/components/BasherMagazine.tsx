@@ -116,10 +116,10 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
   const flipRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Reset loading state whenever a new issue is opened
-  useEffect(() => {
-    if (selectedIssue) setModalLoaded(false);
-  }, [selectedIssue]);
+  const openIssue = (issue: BasherIssue) => {
+    setModalLoaded(false);
+    setSelectedIssue(issue);
+  };
 
   // ── Zoom / Pan state ──
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -202,20 +202,37 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
     }
   }, []);
 
+  // These fire in the CAPTURE phase (before react-pageflip's own native
+  // mouse listeners lower in the tree get a chance to run) and stop
+  // propagation whenever we're zoomed in. Without this, react-pageflip's
+  // internal drag-to-flip math assumes it owns raw, unscaled screen
+  // coordinates — dragging a page corner while our CSS transform: scale()
+  // wrapper is active desyncs that math and crashes
+  // (GetAngleBetweenTwoLine reading `.y` off a null point). Panning takes
+  // over as the zoomed-in gesture instead, so flip-by-drag is intentionally
+  // disabled above 1x zoom (flipping via the prev/next arrow buttons still
+  // works, since those call the library's animated flip API directly).
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (zoomLevel > 1) {
+      e.stopPropagation();
       setIsPanning(true);
       setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
     }
   }, [zoomLevel, panOffset]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isPanning && zoomLevel > 1) {
-      setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+    if (zoomLevel > 1) {
+      e.stopPropagation();
+      if (isPanning) {
+        setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+      }
     }
   }, [isPanning, zoomLevel, panStart]);
 
-  const handleMouseUp = useCallback(() => setIsPanning(false), []);
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (zoomLevel > 1) e.stopPropagation();
+    setIsPanning(false);
+  }, [zoomLevel]);
 
   if (issues.length === 0) {
     return null;
@@ -231,7 +248,7 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
         <div className="w-full lg:w-1/3 max-w-[380px] mx-auto">
           <IssueCard
             issue={newestIssue}
-            onClick={() => setSelectedIssue(newestIssue)}
+            onClick={() => openIssue(newestIssue)}
             size="large"
           />
         </div>
@@ -245,7 +262,7 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                 <IssueCard
                   key={issue.id}
                   issue={issue}
-                  onClick={() => setSelectedIssue(issue)}
+                  onClick={() => openIssue(issue)}
                 />
               ))}
             </div>
@@ -320,9 +337,9 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                 ref={containerRef}
                 className="flex-1 flex items-center justify-center overflow-hidden relative"
                 onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
+                onMouseDownCapture={handleMouseDown}
+                onMouseMoveCapture={handleMouseMove}
+                onMouseUpCapture={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 style={{ cursor: zoomLevel > 1 ? (isPanning ? 'grabbing' : 'grab') : 'default' }}
               >
@@ -392,9 +409,8 @@ export default function BasherMagazine({ issues, newestIssue }: Props) {
                           src={pageUrl}
                           alt={`Strona ${i + 1}`}
                           fill
-                          sizes={`${pageSize.width}px`}
+                          unoptimized
                           className="object-contain"
-                          quality={80}
                           draggable={false}
                           loading={i === 0 ? 'eager' : undefined}
                           onLoad={i === 0 ? () => setModalLoaded(true) : undefined}
