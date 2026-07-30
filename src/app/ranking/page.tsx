@@ -2,13 +2,14 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { statSync } from 'fs';
 import { join } from 'path';
-import { Users, ShieldAlert, Info } from 'lucide-react';
+import { Users, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import RankingControls from '@/components/RankingControls';
 import Navbar from '@/components/Navbar';
 import SteamLinkHandler from '@/components/SteamLinkHandler';
 import JoinSteamButton from '@/components/JoinSteamButton';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Ranking Polskich Graczy Dota 2',
@@ -108,6 +109,7 @@ export default async function RankingPage() {
 
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
+      <SmoothScroll />
       
       {/* BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
@@ -133,9 +135,9 @@ export default async function RankingPage() {
             />
             <div>
               <h1 className="text-4xl font-extrabold tracking-tight">Ranking</h1>
-              <p className="text-slate-400 text-xl">Najlepsi polscy gracze w naszej społeczności.</p>
+              <p className="text-slate-400 text-xl">dla polskich graczy Dota 2. Każdy może dołączyć do rankingu.</p>
               <p className="text-slate-500 text-sm mt-2 flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5" /> Profil gracza musi być ustawiony jako publiczny w ustawieniach gry Dota 2.
+                <Info className="w-3.5 h-3.5" /> Profil gracza musi być ustawiony jako publiczny w ustawieniach gry Dota 2.
               </p>
               <p className="text-slate-500 text-sm mt-1.5 flex items-center gap-1.5">
                 <Info className="w-3.5 h-3.5" /> Lista top 5000 graczy z Polski pobierana jest z oficjalnego rankingu Dota 2 (narodowość: Polska). Z listy usunięto graczy, którzy ustawili polską flagę &bdquo;dla beki&rdquo;.

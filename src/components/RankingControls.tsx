@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -140,10 +140,22 @@ export default function RankingControls({ players }: RankingControlsProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const filteredPlayers = players.filter(p => {
+  // Players with an official top-5000 leaderboard rank (whether tracked via
+  // their own steam_id or as a name-only top-5000 entry) are always Immortal
+  // by definition of being on Valve's own Immortal-only leaderboard — their
+  // stored rankTier can be 0 (no linked Steam account), so filtering must
+  // treat them as tier 8 rather than relying on rankTier alone.
+  const getBaseRank = (p: PlayerData) =>
+    p.isOfficial || (p.leaderboardRank !== null && p.leaderboardRank > 0) ? 8 : Math.floor(p.rankTier / 10);
+
+  // Global position must reflect each player's rank in the FULL leaderboard,
+  // not their index within whatever subset the filters currently show —
+  // filtering (e.g. down to just Ancient players) must not renumber #1..#N.
+  const playersWithPosition = players.map((p, i) => ({ ...p, position: i + 1 }));
+
+  const filteredPlayers = playersWithPosition.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
-    const baseRank = Math.floor(p.rankTier / 10);
-    const matchesRank = rankFilter === 'all' || baseRank === parseInt(rankFilter);
+    const matchesRank = rankFilter === 'all' || getBaseRank(p) === parseInt(rankFilter);
     return matchesSearch && matchesRank;
   });
 
@@ -159,7 +171,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
   return (
     <div className="space-y-6">
 
-      <div className="flex flex-col md:flex-row gap-4 mt-6">
+      <div className="flex flex-col md:flex-row gap-4 mt-6 md:max-w-5xl md:mx-auto">
         <div className="relative flex-1" ref={searchContainerRef}>
           <Search className="absolute left-4 top-4 w-5 h-5 text-slate-500" />
           <input
@@ -193,37 +205,40 @@ export default function RankingControls({ players }: RankingControlsProps) {
           )}
         </div>
 
-        <select
-          className="bg-slate-900/40 border border-white/10 rounded-xl px-4 py-3.5 text-slate-200 outline-none focus:border-red-500 transition-all cursor-pointer min-w-[200px]"
-          value={rankFilter}
-          onChange={(e) => setRankFilter(e.target.value)}
-        >
-          <option value="all">Wszystkie rangi</option>
-          <option value="0">Brak rangi / Nieznana</option>
-          <option value="1">Herald</option>
-          <option value="2">Guardian</option>
-          <option value="3">Crusader</option>
-          <option value="4">Archon</option>
-          <option value="5">Legend</option>
-          <option value="6">Ancient</option>
-          <option value="7">Divine</option>
-          <option value="8">Immortal</option>
-        </select>
+        <div className="relative min-w-[200px]">
+          <select
+            className="w-full appearance-none bg-slate-900/40 border border-white/10 rounded-xl pl-4 pr-9 py-3.5 text-slate-200 outline-none focus:border-red-500 transition-all cursor-pointer"
+            value={rankFilter}
+            onChange={(e) => setRankFilter(e.target.value)}
+          >
+            <option value="all">Wszystkie rangi</option>
+            <option value="0">Brak rangi / Nieznana</option>
+            <option value="1">Herald</option>
+            <option value="2">Guardian</option>
+            <option value="3">Crusader</option>
+            <option value="4">Archon</option>
+            <option value="5">Legend</option>
+            <option value="6">Ancient</option>
+            <option value="7">Divine</option>
+            <option value="8">Immortal</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+        </div>
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
+      <div className="hidden md:block max-w-5xl mx-auto bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed text-sm">
           <thead>
             <tr className="border-b border-white/[0.08] text-slate-400 text-sm font-bold uppercase tracking-wider bg-white/5">
               <th className="py-1.5 px-3 text-right w-[10%] whitespace-nowrap">Pozycja</th>
-              <th className="py-1.5 pl-6 pr-3 text-left w-[30%] whitespace-nowrap">Gracz</th>
-              <th className="py-1.5 pl-6 pr-3 text-left w-[25%] whitespace-nowrap">Ranga</th>
-              <th className="py-1.5 px-3 w-[15%] text-center whitespace-nowrap">
+              <th className="py-1.5 pl-6 pr-3 text-left w-[37%] whitespace-nowrap">Gracz</th>
+              <th className="py-1.5 pl-6 pr-3 text-left w-[21%] whitespace-nowrap">Ranga</th>
+              <th className="py-1.5 px-3 w-[14%] text-center whitespace-nowrap">
                 Winrate
                 <InfoTooltip text="Ostatnie 50 meczów" />
               </th>
-              <th className="py-1.5 px-3 w-[20%] text-center whitespace-nowrap">
+              <th className="py-1.5 px-3 w-[18%] text-center whitespace-nowrap">
                 Forma
                 <InfoTooltip text="Ostatnie 14 dni" />
               </th>
@@ -231,13 +246,13 @@ export default function RankingControls({ players }: RankingControlsProps) {
           </thead>
           <tbody>
             {filteredPlayers.length > 0 ? (
-              filteredPlayers.map((player, index) => (
+              filteredPlayers.map((player) => (
                 <tr
                   key={player.id}
                   className="border-b border-white/[0.08] hover:bg-white/[0.03] transition-colors"
                 >
                   <td className="py-1.5 px-3 text-center">
-                    <RankCell position={index + 1} />
+                    <RankCell position={player.position} />
                   </td>
 
                   <td className="py-1.5 pl-6 pr-3 text-left min-w-0">
@@ -349,13 +364,13 @@ export default function RankingControls({ players }: RankingControlsProps) {
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {filteredPlayers.length > 0 ? (
-          filteredPlayers.map((player, index) => (
+          filteredPlayers.map((player) => (
             <div
               key={player.id}
               className="bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl p-3"
             >
               <div className="flex items-center gap-2.5">
-                <RankCell position={index + 1} />
+                <RankCell position={player.position} />
                 <img
                   src={player.avatar}
                   alt=""
