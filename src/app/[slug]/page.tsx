@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
+import SmoothScroll from '@/components/SmoothScroll';
 
 const PAGE_TITLES: Record<string, string> = {
   rekrutacja: 'Rekrutacja',
@@ -64,6 +65,7 @@ export default async function ContentPage({ params }: Props) {
 
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden min-h-screen">
+      <SmoothScroll />
       {/* BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
         <ClientLightPillar
@@ -83,7 +85,7 @@ export default async function ContentPage({ params }: Props) {
       </div>
 
       <Navbar />
-      <div className="relative z-10 max-w-3xl mx-auto px-6 py-24">
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-24">
         {page ? (
           <>
             <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase mb-12">

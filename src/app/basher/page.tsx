@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BasherMagazine from '@/components/BasherMagazine';
 import { supabase } from '@/lib/supabase';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Magazyn Basher - Satyryczny Kącik Społeczności',
@@ -37,6 +38,7 @@ export default async function BasherPage() {
 
   return (
     <main className="relative min-h-screen bg-[#050505] text-slate-100 overflow-x-hidden">
+      <SmoothScroll />
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
         <ClientLightPillar
           topColor="#ff0000"
@@ -68,7 +70,7 @@ export default async function BasherPage() {
           />
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white">Basher</h1>
-            <p className="text-slate-400 text-lg mt-0.5">Magazyn społeczności Dota 2 Inhouse.</p>
+            <p className="text-slate-400 text-lg mt-0.5">Satyryczno-komediowa pseudo gazetka społeczności PD2IH.</p>
           </div>
         </div>
 

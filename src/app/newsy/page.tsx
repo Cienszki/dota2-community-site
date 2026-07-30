@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
 import NewsPanel from '@/components/NewsPanel';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Aktualności i Wydarzenia',
@@ -33,7 +34,8 @@ export const metadata: Metadata = {
 export default function NewsyPage() {
   return (
     <main className="relative min-h-screen bg-[#050505] text-slate-100 overflow-x-hidden">
-      
+      <SmoothScroll />
+
       {/* BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
         <ClientLightPillar 

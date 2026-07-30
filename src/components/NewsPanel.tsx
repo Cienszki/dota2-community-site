@@ -187,7 +187,7 @@ export default function NewsPanel() {
         />
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight">Newsy</h1>
-          <p className="text-slate-400 text-lg mt-0.5">Najnowsze wieści ze społeczności dota2inhouse.pl</p>
+          <p className="text-slate-400 text-lg mt-0.5">Najważniejsze wieści z PD2IH, czyli info o turniejach, spotkaniach i innych nowościach.</p>
         </div>
       </div>
 

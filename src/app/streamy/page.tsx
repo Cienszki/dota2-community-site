@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { ExternalLink, Play } from 'lucide-react';
 import { getLiveChannels } from '@/lib/twitch';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Streamy Dota 2 Na Żywo',
@@ -56,6 +57,7 @@ export default async function StreamyPage() {
 
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
+      <SmoothScroll />
       <div className="absolute inset-0 z-0 pointer-events-none opacity-50">
         <ClientLightPillar
           topColor="#8b5cf6"

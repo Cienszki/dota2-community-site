@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import LightRays from '@/components/ui/LightRays';
 import TrophyRoom, { type TournamentData, type PlayerInfo } from '@/components/TrophyRoom';
 import { supabase } from '@/lib/supabase';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export const metadata: Metadata = {
   title: 'Hall of Fame - Sala Chwały Turniejów',
@@ -117,6 +118,7 @@ export default async function HallOfFamePage() {
 
   return (
     <main className="relative min-h-screen bg-[#050505] text-slate-100 overflow-x-hidden">
+      <SmoothScroll />
       {/* Background */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
         <LightRays
