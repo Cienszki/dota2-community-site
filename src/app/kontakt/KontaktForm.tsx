@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
+import SmoothScroll from '@/components/SmoothScroll';
 
 export default function KontaktForm() {
   const [email, setEmail] = useState('');
@@ -38,6 +40,7 @@ export default function KontaktForm() {
 
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
+      <SmoothScroll />
 
       {/* BACKGROUND */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
@@ -55,11 +58,14 @@ export default function KontaktForm() {
           className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-2/3 h-[100%] w-auto object-contain opacity-70 pointer-events-none select-none z-0"
         />
         <div className="text-center mb-10 relative z-10">
-          <div className="w-12 h-12 bg-red-600/10 rounded-xl flex items-center justify-center text-red-500 border border-red-500/20 mx-auto mb-4">
-            <Mail className="w-6 h-6" />
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight mb-2">Skontaktuj się z nami</h1>
-          <p className="text-slate-400 text-sm">Masz pytania dotyczące inhouse lobby lub turniejów? Napisz do nas!</p>
+          <Image
+            src="/images/kurier.webp"
+            alt=""
+            width={550}
+            height={550}
+            className="h-32 w-32 object-contain mx-auto drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]"
+            priority
+          />
         </div>
 
         <div className="bg-slate-900/50 border border-white/5 rounded-3xl p-8 backdrop-blur-md shadow-2xl relative z-10 overflow-hidden">
