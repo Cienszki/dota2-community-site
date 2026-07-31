@@ -67,6 +67,11 @@ export async function getLiveChannels(logins: string[]): Promise<Set<string>> {
             'Client-Id': clientId,
             Authorization: `Bearer ${token}`,
           },
+          // Next.js doesn't cache fetch() by default — without this, every
+          // single page load hit the Helix API fresh, risking Twitch's
+          // per-app rate limit under real traffic. A short window is enough
+          // since "is this streamer live" doesn't need to be second-fresh.
+          next: { revalidate: 60 },
         }
       );
 

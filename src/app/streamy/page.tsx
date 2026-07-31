@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BorderGlow from '@/components/ui/BorderGlow';
@@ -32,6 +33,132 @@ function getTwitchChannel(url: string): string | null {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Streamer grid — pure render, no data fetching. Shared by the instant
+// fallback (no live-status info yet) and the enhanced version that streams
+// in once the Twitch lookup resolves.
+// ---------------------------------------------------------------------------
+
+function StreamerGrid({ streamers, liveChannels }: { streamers: Streamer[]; liveChannels: Set<string> }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {streamers.map((streamer) => {
+        const twitchChannel = getTwitchChannel(streamer.stream_url);
+        const isLive = twitchChannel ? liveChannels.has(twitchChannel.toLowerCase()) : false;
+
+        return (
+          <BorderGlow
+            key={streamer.id}
+            className="w-full h-full"
+            colors={["#ff0000", "#fff700", "#ff0000"]}
+            backgroundColor="#050505"
+            background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
+            borderRadius={16}
+            edgeSensitivity={30}
+            glowRadius={40}
+            glowIntensity={1.2}
+          >
+            <div className="p-5 flex flex-col h-full">
+              <div className="flex-1">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <a
+                    href={streamer.stream_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xl font-bold text-white hover:text-purple-400 transition-colors group/nick min-w-0"
+                  >
+                    <span className="truncate">{streamer.nick}</span>
+                    <ExternalLink className="w-4 h-4 text-slate-500 opacity-50 group-hover/nick:opacity-100 transition-all shrink-0" />
+                  </a>
+                  {isLive && (
+                    <span className="flex items-center gap-1.5 shrink-0 bg-red-600/15 border border-red-500/40 text-red-400 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                      </span>
+                      Na żywo
+                    </span>
+                  )}
+                </div>
+                {streamer.motto && (
+                  <p className="text-sm text-slate-400 leading-relaxed mb-4 line-clamp-3">
+                    {streamer.motto.length > 250
+                      ? streamer.motto.slice(0, 250) + '…'
+                      : streamer.motto}
+                  </p>
+                )}
+              </div>
+
+              {twitchChannel && isLive ? (
+                <div
+                  className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
+                  style={{ aspectRatio: '16 / 9' }}
+                >
+                  <iframe
+                    src={`https://player.twitch.tv/?channel=${twitchChannel}&parent=localhost&parent=dota2inhouse.pl&parent=www.dota2inhouse.pl&muted=true`}
+                    allowFullScreen
+                    className="absolute inset-0 w-full h-full"
+                    title={`${streamer.nick} — Twitch`}
+                    sandbox="allow-scripts allow-same-origin allow-presentation"
+                  />
+                </div>
+              ) : twitchChannel && !isLive ? (
+                <div
+                  className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
+                  style={{ aspectRatio: '16 / 9' }}
+                >
+                  <img
+                    src="/images/offline-placeholder.png"
+                    alt={`${streamer.nick} jest offline`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <a
+                  href={streamer.stream_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block w-full rounded-xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 mt-3 relative"
+                  style={{ aspectRatio: '16 / 9' }}
+                >
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                    <div className="w-14 h-14 rounded-full bg-red-600/80 flex items-center justify-center group-hover:bg-red-500 transition-colors">
+                      <Play className="w-6 h-6 text-white ml-0.5" />
+                    </div>
+                    <span className="text-xs text-slate-400 flex items-center gap-1">
+                      Otwórz stream <ExternalLink className="w-3 h-3" />
+                    </span>
+                  </div>
+                </a>
+              )}
+            </div>
+          </BorderGlow>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Live-status lookup — the only part that depends on the external Twitch
+// API. Isolated behind <Suspense> so a slow/unavailable Twitch API can never
+// hang the whole page; the streamer grid above already rendered without it.
+// ---------------------------------------------------------------------------
+
+async function LiveStreamerGrid({ streamers }: { streamers: Streamer[] }) {
+  const twitchLogins = Array.from(
+    new Set(
+      streamers
+        .map((s) => getTwitchChannel(s.stream_url))
+        .filter((c): c is string => c !== null)
+        .map((c) => c.toLowerCase())
+    )
+  );
+  const liveChannels = await getLiveChannels(twitchLogins);
+
+  return <StreamerGrid streamers={streamers} liveChannels={liveChannels} />;
+}
+
 export default async function StreamyPage() {
   const { data: streamers, error } = await supabase
     .from('streamers')
@@ -44,16 +171,6 @@ export default async function StreamyPage() {
   }
 
   const allStreamers = (streamers ?? []) as Streamer[];
-
-  const twitchLogins = Array.from(
-    new Set(
-      allStreamers
-        .map((s) => getTwitchChannel(s.stream_url))
-        .filter((c): c is string => c !== null)
-        .map((c) => c.toLowerCase())
-    )
-  );
-  const liveChannels = await getLiveChannels(twitchLogins);
 
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
@@ -98,101 +215,9 @@ export default async function StreamyPage() {
             <p className="text-slate-500 text-lg">Brak streamerów w bazie. Wróć później.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {allStreamers.map((streamer) => {
-              const twitchChannel = getTwitchChannel(streamer.stream_url);
-              const isLive = twitchChannel ? liveChannels.has(twitchChannel.toLowerCase()) : false;
-
-              return (
-                <BorderGlow
-                  key={streamer.id}
-                  className="w-full h-full"
-                  colors={["#ff0000", "#fff700", "#ff0000"]}
-                  backgroundColor="#050505"
-                  background="linear-gradient(135deg, rgba(43,43,43,0.8) 0%, rgba(5,5,5,0.8) 100%)"
-                  borderRadius={16}
-                  edgeSensitivity={30}
-                  glowRadius={40}
-                  glowIntensity={1.2}
-                >
-                  <div className="p-5 flex flex-col h-full">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2 mb-1">
-                        <a
-                          href={streamer.stream_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xl font-bold text-white hover:text-purple-400 transition-colors group/nick min-w-0"
-                        >
-                          <span className="truncate">{streamer.nick}</span>
-                          <ExternalLink className="w-4 h-4 text-slate-500 opacity-50 group-hover/nick:opacity-100 transition-all shrink-0" />
-                        </a>
-                        {isLive && (
-                          <span className="flex items-center gap-1.5 shrink-0 bg-red-600/15 border border-red-500/40 text-red-400 text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-full">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                            </span>
-                            Na żywo
-                          </span>
-                        )}
-                      </div>
-                      {streamer.motto && (
-                        <p className="text-sm text-slate-400 leading-relaxed mb-4 line-clamp-3">
-                          {streamer.motto.length > 250
-                            ? streamer.motto.slice(0, 250) + '…'
-                            : streamer.motto}
-                        </p>
-                      )}
-                    </div>
-
-                    {twitchChannel && isLive ? (
-                      <div
-                        className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
-                        style={{ aspectRatio: '16 / 9' }}
-                      >
-                        <iframe
-                          src={`https://player.twitch.tv/?channel=${twitchChannel}&parent=localhost&parent=dota2inhouse.pl&parent=www.dota2inhouse.pl&muted=true`}
-                          allowFullScreen
-                          className="absolute inset-0 w-full h-full"
-                          title={`${streamer.nick} — Twitch`}
-                          sandbox="allow-scripts allow-same-origin allow-presentation"
-                        />
-                      </div>
-                    ) : twitchChannel && !isLive ? (
-                      <div
-                        className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
-                        style={{ aspectRatio: '16 / 9' }}
-                      >
-                        <img
-                          src="/images/offline-placeholder.png"
-                          alt={`${streamer.nick} jest offline`}
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <a
-                        href={streamer.stream_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group block w-full rounded-xl overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 border border-white/5 mt-3 relative"
-                        style={{ aspectRatio: '16 / 9' }}
-                      >
-                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
-                          <div className="w-14 h-14 rounded-full bg-red-600/80 flex items-center justify-center group-hover:bg-red-500 transition-colors">
-                            <Play className="w-6 h-6 text-white ml-0.5" />
-                          </div>
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
-                            Otwórz stream <ExternalLink className="w-3 h-3" />
-                          </span>
-                        </div>
-                      </a>
-                    )}
-                  </div>
-                </BorderGlow>
-              );
-            })}
-          </div>
+          <Suspense fallback={<StreamerGrid streamers={allStreamers} liveChannels={new Set()} />}>
+            <LiveStreamerGrid streamers={allStreamers} />
+          </Suspense>
         )}
       </section>
     </main>
