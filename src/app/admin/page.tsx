@@ -13,7 +13,17 @@ import {
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
-import { addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions, getRankPlayers, deleteRankPlayer, getContentPage, upsertContentPage, deleteContentPage, uploadNewsImage } from './actions';
+import {
+  addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions,
+  getRankPlayers, deleteRankPlayer,
+  getContentPage, upsertContentPage, deleteContentPage,
+  uploadNewsImage, saveNews, deleteNews, publishNews,
+  saveGlobalSettings,
+  saveTestimonial, deleteTestimonial,
+  getAllTournamentsAdmin, saveTournament, deleteTournament, setTournamentVisibility, uploadTournamentBanner,
+  saveHofTournament, deleteHofTournament, publishHofTournament, uploadHofBanner,
+  uploadBasherPages, saveBasherIssue, deleteBasherIssue, publishBasherIssue,
+} from './actions';
 
 
 type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'tournaments' | 'rekrutacja' | 'o-nas' | 'polityka' | null;
@@ -52,6 +62,16 @@ interface TournamentRow {
   image_url: string | null;
   is_visible: boolean;
   sort_order: number;
+  created_at: string;
+}
+
+interface TestimonialRow {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  headline: string;
+  text: string;
+  rating: number;
   created_at: string;
 }
 
@@ -214,7 +234,7 @@ export default function AdminPage() {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // ── Testimonials state ──
-  const [testimonials, setTestimonials] = useState<Record<string, any>[]>([]);
+  const [testimonials, setTestimonials] = useState<TestimonialRow[]>([]);
   const [testimonialNick, setTestimonialNick] = useState('');
   const [testimonialAvatarUrl, setTestimonialAvatarUrl] = useState('');
   const [testimonialHeadline, setTestimonialHeadline] = useState('');
@@ -296,13 +316,8 @@ export default function AdminPage() {
 
   const fetchTournaments = async () => {
     setTournamentLoading(true);
-    const supabase = createBrowserSupabaseClient();
-    const { data, error } = await supabase
-      .from('tournaments')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: false });
-    if (!error && data) setTournaments(data as TournamentRow[]);
+    const result = await getAllTournamentsAdmin();
+    if (result.success) setTournaments(result.data as TournamentRow[]);
     setTournamentLoading(false);
   };
 
@@ -343,32 +358,20 @@ export default function AdminPage() {
     setTestimonialError(null);
 
     try {
-      const supabase = createBrowserSupabaseClient();
+      const data = {
+        name: testimonialNick,
+        avatar_url: testimonialAvatarUrl || null,
+        headline: testimonialHeadline,
+        text: testimonialText,
+        rating: testimonialRating,
+      };
+      const result = await saveTestimonial(testimonialEditingId, data);
+      if (!result.success) throw new Error(result.error);
+
       if (testimonialEditingId) {
-        const { error } = await supabase
-          .from('testimonials')
-          .update({
-            name: testimonialNick,
-            avatar_url: testimonialAvatarUrl || null,
-            headline: testimonialHeadline,
-            text: testimonialText,
-            rating: testimonialRating,
-          })
-          .eq('id', testimonialEditingId);
-        if (error) throw error;
         setTestimonialSuccess('Opinia została zaktualizowana.');
         toast.success('Opinia została zaktualizowana.');
       } else {
-        const { error } = await supabase
-          .from('testimonials')
-          .insert({
-            name: testimonialNick,
-            avatar_url: testimonialAvatarUrl || null,
-            headline: testimonialHeadline,
-            text: testimonialText,
-            rating: testimonialRating,
-          });
-        if (error) throw error;
         setTestimonialSuccess('Opinia została dodana.');
         toast.success('Opinia została dodana.');
       }
@@ -387,11 +390,10 @@ export default function AdminPage() {
   const handleDeleteTestimonial = async (id: string) => {
     if (!window.confirm('Na pewno usunąć tę opinię?')) return;
     setTestimonialDeleting(id);
-    const supabase = createBrowserSupabaseClient();
-    const { error } = await supabase.from('testimonials').delete().eq('id', id);
-    if (error) {
-      setTestimonialError(error.message);
-      toast.error(error.message);
+    const result = await deleteTestimonial(id);
+    if (!result.success) {
+      setTestimonialError(result.error);
+      toast.error(result.error);
     } else {
       toast.success('Opinia została usunięta.');
       await fetchTestimonials();
@@ -416,13 +418,9 @@ export default function AdminPage() {
         fd.append('file', tournamentImageFile);
         fd.append('fileName', fileName);
 
-        const uploadRes = await fetch('/api/admin/tournament-banner', {
-          method: 'POST',
-          body: fd,
-        });
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok) throw new Error(uploadJson.error);
-        imageUrl = uploadJson.url;
+        const uploadResult = await uploadTournamentBanner(fd);
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+        imageUrl = uploadResult.url;
       }
 
       const payload = {
@@ -435,18 +433,13 @@ export default function AdminPage() {
         sort_order: tournamentSortOrder,
       };
 
-      const supabase = createBrowserSupabaseClient();
+      const result = await saveTournament(tournamentEditingId, payload);
+      if (!result.success) throw new Error(result.error);
+
       if (tournamentEditingId) {
-        const { error } = await supabase
-          .from('tournaments')
-          .update(payload)
-          .eq('id', tournamentEditingId);
-        if (error) throw error;
         setTournamentSuccess('Turniej został zaktualizowany.');
         toast.success('Turniej został zaktualizowany.');
       } else {
-        const { error } = await supabase.from('tournaments').insert(payload);
-        if (error) throw error;
         setTournamentSuccess('Turniej został dodany.');
         toast.success('Turniej został dodany.');
       }
@@ -481,10 +474,9 @@ export default function AdminPage() {
   const handleDeleteTournament = async (id: string) => {
     if (!window.confirm('Na pewno usunąć ten turniej?')) return;
     setTournamentDeleting(id);
-    const supabase = createBrowserSupabaseClient();
-    const { error } = await supabase.from('tournaments').delete().eq('id', id);
-    if (error) {
-      toast.error(error.message);
+    const result = await deleteTournament(id);
+    if (!result.success) {
+      toast.error(result.error);
     } else {
       toast.success('Turniej został usunięty.');
       await fetchTournaments();
@@ -494,13 +486,9 @@ export default function AdminPage() {
 
   const handleToggleTournamentVisibility = async (t: TournamentRow) => {
     setTournamentTogglingId(t.id);
-    const supabase = createBrowserSupabaseClient();
-    const { error } = await supabase
-      .from('tournaments')
-      .update({ is_visible: !t.is_visible })
-      .eq('id', t.id);
-    if (error) {
-      toast.error(error.message);
+    const result = await setTournamentVisibility(t.id, !t.is_visible);
+    if (!result.success) {
+      toast.error(result.error);
     } else {
       await fetchTournaments();
     }
@@ -759,19 +747,14 @@ export default function AdminPage() {
       }
     }
 
-    const payload: Record<string, unknown> = { title, category, content };
+    const payload: { title: string; category: string; content: string; image_url?: string } = { title, category, content };
     if (imageUrl) payload.image_url = imageUrl;
 
-    const supabase = createBrowserSupabaseClient();
-    if (editingId) {
-      await supabase
-        .from('news')
-        .update(payload)
-        .eq('id', editingId);
-    } else {
-      await supabase
-        .from('news')
-        .insert([{ ...payload, status: 'draft' }]);
+    const result = await saveNews(editingId, payload);
+    if (!result.success) {
+      console.error('Błąd zapisu newsa:', result.error);
+      toast.error(result.error);
+      return;
     }
 
     resetNewsForm();
@@ -781,22 +764,16 @@ export default function AdminPage() {
 
   const handleDeleteNews = async (id: number) => {
     if (!window.confirm('Na pewno chcesz usunąć ten wpis?')) return;
-    const supabase = createBrowserSupabaseClient();
-    await supabase.from('news').delete().eq('id', id);
+    const result = await deleteNews(id);
+    if (!result.success) toast.error(result.error);
     fetchNews();
   };
 
   const handlePublishNews = async (id: number) => {
     setNewsPublishing(id);
-    try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase
-        .from('news')
-        .update({ status: 'published' })
-        .eq('id', id);
-      if (error) throw error;
-    } catch (err: unknown) {
-      console.error('Błąd publikacji newsa:', err);
+    const result = await publishNews(id);
+    if (!result.success) {
+      console.error('Błąd publikacji newsa:', result.error);
     }
     setNewsPublishing(null);
     fetchNews();
@@ -839,32 +816,8 @@ export default function AdminPage() {
         font_family: fontFamily,
       };
 
-      const supabase = createBrowserSupabaseClient();
-      const { data: existing, error: checkError } = await supabase
-        .from('news')
-        .select('id')
-        .eq('category', 'SystemSettings')
-        .eq('title', 'global_settings')
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('news')
-          .update({ content: JSON.stringify(value) })
-          .eq('id', existing.id);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('news')
-          .insert([{
-            title: 'global_settings',
-            category: 'SystemSettings',
-            content: JSON.stringify(value),
-          }]);
-        if (insertError) throw insertError;
-      }
+      const result = await saveGlobalSettings(value);
+      if (!result.success) throw new Error(result.error);
 
       setSaveSettingsSuccess(true);
       toast.success('Ustawienia zostały zapisane!');
@@ -914,22 +867,16 @@ export default function AdminPage() {
     try {
       let imageUrl: string | null = bannerPreview ?? null;
 
-      // Upload banner via server-side API (bypasses RLS)
+      // Upload banner via server action (bypasses RLS)
       if (bannerFile) {
         const fileName = slugify(hofTournamentName.trim());
         const fd = new FormData();
         fd.append('file', bannerFile);
         fd.append('fileName', fileName);
 
-        const uploadRes = await fetch('/api/admin/hof-banner', {
-          method: 'POST',
-          body: fd,
-        });
-
-        const uploadJson = await uploadRes.json();
-        if (!uploadRes.ok) throw new Error(uploadJson.error);
-
-        imageUrl = uploadJson.url;
+        const uploadResult = await uploadHofBanner(fd);
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+        imageUrl = uploadResult.url;
       }
 
       const playersJson = hofPlayers
@@ -941,7 +888,6 @@ export default function AdminPage() {
         }));
 
       const payload = {
-        ...(hofEditingId ? { id: hofEditingId } : {}),
         tournament_name: hofTournamentName.trim(),
         tournament_date: hofTournamentDate.trim(),
         tournament_id: hofTournamentId.trim(),
@@ -951,14 +897,8 @@ export default function AdminPage() {
         image_url: imageUrl,
       };
 
-      const res = await fetch('/api/admin/hof', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      const result = await saveHofTournament(hofEditingId, payload);
+      if (!result.success) throw new Error(result.error);
 
       setHofSuccess(true);
       toast.success(hofEditingId ? 'Turniej został zaktualizowany!' : 'Turniej został zapisany jako szkic!');
@@ -1002,28 +942,16 @@ export default function AdminPage() {
 
   const handleHofDelete = async (id: string) => {
     if (!window.confirm('Na pewno chcesz usunąć ten turniej?')) return;
-    await fetch('/api/admin/hof', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
+    const result = await deleteHofTournament(id);
+    if (!result.success) console.error('Błąd usuwania turnieju:', result.error);
     fetchHofTournaments();
   };
 
   const handlePublishHof = async (id: string) => {
     setHofPublishing(id);
-    try {
-      const res = await fetch('/api/admin/hof', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: 'published' }),
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error);
-      }
-    } catch (err: unknown) {
-      console.error('Błąd publikacji turnieju:', err);
+    const result = await publishHofTournament(id);
+    if (!result.success) {
+      console.error('Błąd publikacji turnieju:', result.error);
     }
     setHofPublishing(null);
     fetchHofTournaments();
@@ -1059,23 +987,6 @@ export default function AdminPage() {
         return;
       }
 
-      // Duplicate issue number check (skip when editing the same record)
-      const supabase = createBrowserSupabaseClient();
-      if (!basherEditingId) {
-        const { data: existingIssue } = await supabase
-          .from('basher_issues')
-          .select('id')
-          .eq('issue_number', issueNumber)
-          .maybeSingle();
-
-        if (existingIssue) {
-          setBasherError('Magazyn z tym numerem wydania został już dodany!');
-          toast.error('Magazyn z tym numerem wydania został już dodany!');
-          setBasherSaving(false);
-          return;
-        }
-      }
-
       let pagesArray: string[];
 
       if (basherFiles.length > 0) {
@@ -1084,30 +995,13 @@ export default function AdminPage() {
           a.name.localeCompare(b.name),
         );
 
-        const urls: string[] = [];
-        const bucketName = 'basher-magazines';
+        const fd = new FormData();
+        fd.append('issueNumber', String(issueNumber));
+        sortedFiles.forEach((file) => fd.append('files', file));
 
-        for (let i = 0; i < sortedFiles.length; i++) {
-          const file = sortedFiles[i];
-          const ext = file.name.split('.').pop() || 'png';
-          const filePath = `basher_${issueNumber}_${i + 1}.${ext}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from(bucketName)
-            .upload(filePath, file, { upsert: true });
-
-          if (uploadError) throw uploadError;
-
-          const { data: publicUrlData } = supabase.storage
-            .from(bucketName)
-            .getPublicUrl(filePath);
-
-          // Fixed path + upsert:true means re-uploading a page reuses the
-          // exact same URL — bust the cache so browsers fetch the new bytes.
-          urls.push(`${publicUrlData.publicUrl}?v=${Date.now()}`);
-        }
-
-        pagesArray = urls;
+        const uploadResult = await uploadBasherPages(fd);
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+        pagesArray = uploadResult.urls;
       } else {
         // Bez nowych plików — używamy istniejących URL-i (tryb edycji)
         pagesArray = basherPreviews.filter(Boolean);
@@ -1130,18 +1024,8 @@ export default function AdminPage() {
 
       const wasEditing = !!basherEditingId;
 
-      if (basherEditingId) {
-        const { error: updateError } = await supabase
-          .from('basher_issues')
-          .update(payload)
-          .eq('id', basherEditingId);
-        if (updateError) throw updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('basher_issues')
-          .insert([{ ...payload, status: 'draft' }]);
-        if (insertError) throw insertError;
-      }
+      const result = await saveBasherIssue(basherEditingId, payload);
+      if (!result.success) throw new Error(result.error);
 
       setBasherSuccess(wasEditing ? 'updated' : 'inserted');
       toast.success(wasEditing ? 'Wydanie zostało zaktualizowane!' : 'Wydanie zostało zapisane jako szkic!');
@@ -1162,12 +1046,9 @@ export default function AdminPage() {
   const handleBasherDelete = async (id: string) => {
     if (!window.confirm('Na pewno chcesz usunąć to wydanie?')) return;
     setBasherIssues((prev) => prev.filter((i) => i.id !== id));
-    try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.from('basher_issues').delete().eq('id', id);
-      if (error) throw error;
-    } catch (err: unknown) {
-      console.error('Błąd usuwania magazynu:', err);
+    const result = await deleteBasherIssue(id);
+    if (!result.success) {
+      console.error('Błąd usuwania magazynu:', result.error);
       fetchBasherIssues();
     }
   };
@@ -1178,15 +1059,9 @@ export default function AdminPage() {
       prev.map((i) => (i.id === id ? { ...i, status: 'published' } : i)),
     );
     setBasherPublishing(id);
-    try {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase
-        .from('basher_issues')
-        .update({ status: 'published' })
-        .eq('id', id);
-      if (error) throw error;
-    } catch (err: unknown) {
-      console.error('Błąd publikacji magazynu:', err);
+    const result = await publishBasherIssue(id);
+    if (!result.success) {
+      console.error('Błąd publikacji magazynu:', result.error);
       fetchBasherIssues();
     }
     setBasherPublishing(null);
