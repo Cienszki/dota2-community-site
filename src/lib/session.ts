@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
+import { requireEnv } from './env';
 
-const SECRET = process.env.PDL_SESSION_SECRET!;
+const SECRET = requireEnv('PDL_SESSION_SECRET', process.env.PDL_SESSION_SECRET);
 const COOKIE_NAME = 'pdl_session';
 
 function hmac(data: string): string {
