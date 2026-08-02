@@ -60,23 +60,11 @@ export default function Home() {
     }
     fetchTournaments();
   }, []);
-  const [discordCount, setDiscordCount] = useState(2500);
+  const discordCount = 2500;
   const [partnerLink, setPartnerLink] = useState('https://dreammachines.pl/pl/?utm_content=dota2');
 
   useEffect(() => {
     async function fetchAll() {
-      try {
-        const res = await fetch(
-          'https://discord.com/api/guilds/947158056381337630/widget.json'
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setDiscordCount(Math.floor(data.presence_count / 100) * 100);
-        }
-      } catch {
-        // fallback
-      }
-
       try {
         const { data, error } = await supabase
           .from('news')
@@ -243,7 +231,7 @@ export default function Home() {
                 <div className="flex flex-col justify-center">
                   <div className="text-lg font-black text-white leading-none whitespace-nowrap">{discordCount}+</div>
                   <div className="text-[11px] font-bold tracking-wider text-slate-400 mt-1 uppercase whitespace-nowrap">
-                    <div>Użytkowników</div>
+                    <div>Członków</div>
                     <div>społeczności</div>
                   </div>
                 </div>
