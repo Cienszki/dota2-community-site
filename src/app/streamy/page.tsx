@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import BorderGlow from '@/components/ui/BorderGlow';
@@ -206,7 +207,12 @@ export default async function StreamyPage() {
           />
           <div>
             <h1 className="text-4xl font-extrabold tracking-tight text-white">Streamy</h1>
-            <p className="text-slate-400 text-lg mt-0.5">Oglądaj i wspieraj naszych zaprzyjaźnionych streamerów!</p>
+            <p className="text-slate-400 text-lg mt-0.5">
+              Najlepsi streamerzy^^! Jeśli chcesz aby Twój stream był tutaj widoczny,{' '}
+              <Link href="/kontakt" className="text-red-400 hover:text-red-300 underline underline-offset-2 transition-colors">
+                napisz do nas
+              </Link>
+            </p>
           </div>
         </div>
 
