@@ -3,8 +3,7 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { validateImageFile } from '@/lib/validate-image';
-
-const ALLOWED_ADMIN_EMAILS = ['voocash.s@gmail.com', 'wilq.wdz@gmail.com'];
+import { ALLOWED_ADMIN_EMAILS } from '@/lib/admin-emails';
 
 async function checkAdminAuth() {
   const supabaseClient = await createServerSupabaseClient();
@@ -787,6 +786,7 @@ interface HofTournamentPayload {
   team_name: string;
   players: { name: string; friend_id?: number; is_substitute: boolean }[];
   image_url: string | null;
+  team_logo_url: string | null;
 }
 
 export async function saveHofTournament(id: string | null, payload: HofTournamentPayload) {
@@ -884,6 +884,43 @@ export async function uploadHofBanner(formData: FormData) {
     return {
       success: false as const,
       error: isAuthError ? (err as Error).message : (err instanceof Error ? err.message : 'Wystąpił błąd podczas przesyłania banera.'),
+    };
+  }
+}
+
+export async function uploadHofTeamLogo(formData: FormData) {
+  try {
+    await checkAdminAuth();
+
+    const file = formData.get('file') as File | null;
+    const fileName = formData.get('fileName') as string | null;
+    if (!file) throw new Error('Brak pliku.');
+    if (!fileName) throw new Error('Brak nazwy pliku.');
+
+    const validationError = validateImageFile(file, 3 * 1024 * 1024);
+    if (validationError) throw new Error(validationError);
+
+    // Reuses the tournament-banners bucket with a distinct `logo_` prefix
+    // rather than a separate bucket, to avoid another dashboard setup step.
+    const bucketName = 'tournament-banners';
+    const filePath = `logo_${fileName}`;
+    const arrayBuffer = await file.arrayBuffer();
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(bucketName)
+      .upload(filePath, arrayBuffer, { contentType: file.type, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: publicUrlData } = supabaseAdmin.storage.from(bucketName).getPublicUrl(filePath);
+    const bustedUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`;
+
+    return { success: true as const, url: bustedUrl };
+  } catch (err: unknown) {
+    console.error('Server action — uploadHofTeamLogo:', err);
+    const isAuthError = err instanceof Error && (err.message.startsWith('Unauthenticated') || err.message.startsWith('Unauthorized'));
+    return {
+      success: false as const,
+      error: isAuthError ? (err as Error).message : (err instanceof Error ? err.message : 'Wystąpił błąd podczas przesyłania logo drużyny.'),
     };
   }
 }

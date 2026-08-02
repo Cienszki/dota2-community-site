@@ -21,7 +21,7 @@ import {
   saveGlobalSettings,
   saveTestimonial, deleteTestimonial,
   getAllTournamentsAdmin, saveTournament, deleteTournament, setTournamentVisibility, uploadTournamentBanner,
-  saveHofTournament, deleteHofTournament, publishHofTournament, uploadHofBanner,
+  saveHofTournament, deleteHofTournament, publishHofTournament, uploadHofBanner, uploadHofTeamLogo,
   uploadBasherPages, saveBasherIssue, deleteBasherIssue, publishBasherIssue,
 } from './actions';
 
@@ -51,6 +51,7 @@ interface HofTournamentRow {
   created_at: string;
   status: string;
   image_url?: string | null;
+  team_logo_url?: string | null;
 }
 
 interface TournamentRow {
@@ -195,6 +196,8 @@ export default function AdminPage() {
   const [hofEditingId, setHofEditingId] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [teamLogoFile, setTeamLogoFile] = useState<File | null>(null);
+  const [teamLogoPreview, setTeamLogoPreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   // ── Basher state ──
@@ -845,6 +848,8 @@ export default function AdminPage() {
     setHofError(null);
     setBannerFile(null);
     setBannerPreview(null);
+    setTeamLogoFile(null);
+    setTeamLogoPreview(null);
   };
 
   const handleHofPlayerChange = (
@@ -879,6 +884,20 @@ export default function AdminPage() {
         imageUrl = uploadResult.url;
       }
 
+      let teamLogoUrl: string | null = teamLogoPreview ?? null;
+
+      // Upload team logo via server action (bypasses RLS)
+      if (teamLogoFile) {
+        const fileName = slugify(hofTeamName.trim() || hofTournamentName.trim());
+        const fd = new FormData();
+        fd.append('file', teamLogoFile);
+        fd.append('fileName', fileName);
+
+        const uploadResult = await uploadHofTeamLogo(fd);
+        if (!uploadResult.success) throw new Error(uploadResult.error);
+        teamLogoUrl = uploadResult.url;
+      }
+
       const playersJson = hofPlayers
         .filter((p) => p.name.trim() !== '')
         .map((p) => ({
@@ -895,6 +914,7 @@ export default function AdminPage() {
         team_name: hofTeamName.trim(),
         players: playersJson,
         image_url: imageUrl,
+        team_logo_url: teamLogoUrl,
       };
 
       const result = await saveHofTournament(hofEditingId, payload);
@@ -936,6 +956,8 @@ export default function AdminPage() {
     );
     setBannerPreview(item.image_url ?? null);
     setBannerFile(null);
+    setTeamLogoPreview(item.team_logo_url ?? null);
+    setTeamLogoFile(null);
     setActiveTab('hof');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1441,6 +1463,52 @@ export default function AdminPage() {
                         onClick={() => {
                           setBannerFile(null);
                           setBannerPreview(null);
+                        }}
+                        className="absolute top-1 right-1 bg-black/70 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.07] pt-6">
+                <h3 className="text-lg font-bold text-slate-300 mb-4">Logo drużyny</h3>
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-amber-500/50 rounded-xl py-8 px-8 bg-[#181a20] transition-colors cursor-pointer w-32 h-32">
+                    <input
+                      type="file" accept="image/png"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        setTeamLogoFile(file);
+                        if (file) {
+                          setTeamLogoPreview(URL.createObjectURL(file));
+                        } else {
+                          setTeamLogoPreview(null);
+                        }
+                        setDirty(true);
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                    <div className="text-center pointer-events-none">
+                      <Upload className="w-6 h-6 text-slate-500 mx-auto mb-2" />
+                      <span className="text-xs font-bold text-slate-400">Wybierz plik</span>
+                      <span className="block text-[10px] text-slate-600 mt-1">PNG</span>
+                    </div>
+                  </div>
+                  {teamLogoPreview && (
+                    <div className="relative w-32 h-32 rounded-xl overflow-hidden border border-white/10 bg-[#181a20]">
+                      <img
+                        src={teamLogoPreview}
+                        alt="Podgląd logo drużyny"
+                        className="w-full h-full object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTeamLogoFile(null);
+                          setTeamLogoPreview(null);
                         }}
                         className="absolute top-1 right-1 bg-black/70 text-white p-1 rounded-full hover:bg-red-600 transition-colors"
                       >

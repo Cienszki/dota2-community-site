@@ -21,6 +21,7 @@ export interface TournamentData {
   tournamentId: string;
   players: PlayerInfo[];
   imageUrl?: string | null;
+  teamLogoUrl?: string | null;
 }
 
 interface TrophyRoomProps {
@@ -118,14 +119,26 @@ function TournamentHeader({
   );
 }
 
-// ── Just the team name + trophy icon (no box) ──
+// ── Just the team name + logo (or trophy icon fallback) — no box ──
 
-function TeamHeader({ teamName, alignRight }: { teamName: string; alignRight: boolean }) {
+function TeamHeader({
+  teamName,
+  teamLogoUrl,
+  alignRight,
+}: {
+  teamName: string;
+  teamLogoUrl?: string | null;
+  alignRight: boolean;
+}) {
   return (
     <div className={`h-full flex flex-col justify-end ${alignRight ? 'items-end' : 'items-start'}`}>
       <div className={alignRight ? 'text-right' : 'text-left'}>
         <h3 className="text-3xl md:text-4xl font-extrabold text-slate-200 flex items-center gap-2 leading-tight">
-          <Trophy className="w-6 h-6 text-amber-400 shrink-0" />
+          {teamLogoUrl ? (
+            <img src={teamLogoUrl} alt="" className="w-8 h-8 md:w-9 md:h-9 object-contain shrink-0" />
+          ) : (
+            <Trophy className="w-6 h-6 text-amber-400 shrink-0" />
+          )}
           {teamName}
         </h3>
         {/* invisible spacer mirroring the date line so both headers share
@@ -284,7 +297,11 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
                 <p className="text-slate-500 text-sm mt-1">{tournament.date}</p>
               </div>
               <h3 className="text-2xl font-extrabold text-slate-200 flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
+                {tournament.teamLogoUrl ? (
+                  <img src={tournament.teamLogoUrl} alt="" className="w-7 h-7 object-contain shrink-0" />
+                ) : (
+                  <Trophy className="w-5 h-5 text-amber-400 shrink-0" />
+                )}
                 {tournament.teamName}
               </h3>
               <TeamBox players={tournament.players} fullWidth />
@@ -295,7 +312,7 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
             <div className="hidden md:grid md:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-0 pt-20">
               {isEven ? (
                 <>
-                  <div className="md:pr-10"><TeamHeader teamName={tournament.teamName} alignRight /></div>
+                  <div className="md:pr-10"><TeamHeader teamName={tournament.teamName} teamLogoUrl={tournament.teamLogoUrl} alignRight /></div>
                   <div className="md:pl-10"><TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight={false} /></div>
                   <div className="md:pr-10"><TeamBox players={tournament.players} /></div>
                   <div className="md:pl-10"><TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} /></div>
@@ -303,7 +320,7 @@ export default function TrophyRoom({ tournaments }: TrophyRoomProps) {
               ) : (
                 <>
                   <div className="md:pr-10"><TournamentHeader name={tournament.name} date={tournament.date} url={tournamentUrl} alignRight /></div>
-                  <div className="md:pl-10"><TeamHeader teamName={tournament.teamName} alignRight={false} /></div>
+                  <div className="md:pl-10"><TeamHeader teamName={tournament.teamName} teamLogoUrl={tournament.teamLogoUrl} alignRight={false} /></div>
                   <div className="md:pr-10"><TournamentImage imageUrl={tournament.imageUrl} name={tournament.name} /></div>
                   <div className="md:pl-10"><TeamBox players={tournament.players} /></div>
                 </>

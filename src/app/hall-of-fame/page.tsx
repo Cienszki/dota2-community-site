@@ -39,6 +39,7 @@ interface DbTournament {
   team_name: string;
   players: DbPlayer[];
   image_url: string | null; // ← kolumna z Supabase Storage
+  team_logo_url: string | null; // ← kolumna z Supabase Storage
 }
 
 // ---------------------------------------------------------------------------
@@ -104,6 +105,7 @@ export default async function HallOfFamePage() {
     dotabuffLink: t.dotabuff_link,
     tournamentId: t.tournament_id,
     imageUrl: t.image_url ?? null,
+    teamLogoUrl: t.team_logo_url ?? null,
     players: t.players.map((p) => {
       const fetched = p.friend_id != null ? playerInfoMap.get(p.friend_id) : undefined;
       return {
