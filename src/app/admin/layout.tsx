@@ -3,8 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server';
 import AdminLogoutButton from './AdminLogoutButton';
 import Link from 'next/link';
 import { Toaster } from 'sonner';
-
-const ALLOWED_ADMIN_EMAILS = ['voocash.s@gmail.com', 'wilq.wdz@gmail.com'];
+import { ALLOWED_ADMIN_EMAILS } from '@/lib/admin-emails';
 
 export default async function AdminLayout({
   children,

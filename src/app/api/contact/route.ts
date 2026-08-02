@@ -1,11 +1,36 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const escapeHtml = (str: string) =>
   str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+  );
+}
+
 export async function POST(request: Request) {
   try {
+    const ip = getClientIp(request);
+    const { data: allowed, error: rateLimitError } = await supabaseAdmin.rpc('try_rate_limit', {
+      p_bucket: 'contact_form',
+      p_ip: ip,
+      p_max_events: 3,
+      p_window_seconds: 3600,
+    });
+    if (rateLimitError) {
+      console.error('Rate limit check failed:', rateLimitError.message);
+    } else if (!allowed) {
+      return NextResponse.json(
+        { error: 'Zbyt wiele wiadomości. Spróbuj ponownie za godzinę.' },
+        { status: 429 },
+      );
+    }
+
     const { email, message } = await request.json();
 
     if (!email || !message) {

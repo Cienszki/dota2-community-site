@@ -3,13 +3,41 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sign } from '@/lib/session';
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
+const STEAM_ID_PREFIX = 'https://steamcommunity.com/openid/id/';
+const STEAM_ID64_OFFSET = BigInt('76561197960265728');
+
+function getClientIp(request: Request): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown'
+  );
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const claimedId = url.searchParams.get('openid.claimed_id');
+  const responseNonce = url.searchParams.get('openid.response_nonce');
 
   if (!claimedId) {
     return NextResponse.json({ error: 'Brak openid.claimed_id w żądaniu.' }, { status: 400 });
+  }
+
+  // --- Rate limit (per IP) — cheap check before spending a round-trip to Steam ---
+  const ip = getClientIp(request);
+  const { data: allowed, error: rateLimitError } = await supabaseAdmin.rpc('try_rate_limit', {
+    p_bucket: 'steam_callback',
+    p_ip: ip,
+    p_max_events: 10,
+    p_window_seconds: 60,
+  });
+  if (rateLimitError) {
+    console.error('Rate limit check failed:', rateLimitError.message);
+  } else if (!allowed) {
+    return NextResponse.json(
+      { error: 'Zbyt wiele prób logowania. Spróbuj ponownie za chwilę.' },
+      { status: 429 },
+    );
   }
 
   // --- OpenID 2.0 verification ---
@@ -41,9 +69,56 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Weryfikacja OpenID nie powiodła się.' }, { status: 403 });
   }
 
-  // --- Extract Steam ID ---
-  const steamId64 = claimedId.replace('https://steamcommunity.com/openid/id/', '');
-  const steamId32 = (BigInt(steamId64) - BigInt('76561197960265728')).toString();
+  // --- Replay protection ---
+  // check_authentication only re-verifies the signature; it doesn't track
+  // whether this exact signed response was already consumed. Without this,
+  // a single captured callback URL could be replayed indefinitely.
+  if (!responseNonce) {
+    return NextResponse.json({ error: 'Brak openid.response_nonce w odpowiedzi.' }, { status: 400 });
+  }
+
+  const { error: nonceError } = await supabaseAdmin
+    .from('steam_openid_nonces')
+    .insert({ nonce: responseNonce });
+
+  if (nonceError) {
+    if (nonceError.code === '23505') {
+      // Postgres unique_violation => this exact Steam response was already used once.
+      console.warn('Steam OpenID nonce replay rejected:', nonceError.message);
+      return NextResponse.json(
+        { error: 'Ta odpowiedź logowania Steam została już wykorzystana.' },
+        { status: 403 },
+      );
+    }
+    // Any other error (e.g. migration 017 not applied yet, transient DB issue)
+    // shouldn't lock every legitimate login out — log it and continue.
+    console.error('Steam OpenID nonce check failed unexpectedly:', nonceError);
+  }
+
+  after(async () => {
+    try {
+      await supabaseAdmin
+        .from('steam_openid_nonces')
+        .delete()
+        .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+    } catch (e) {
+      console.warn('Nonce cleanup failed:', e);
+    }
+  });
+
+  // --- Extract & validate Steam ID ---
+  const steamId64 = claimedId.replace(STEAM_ID_PREFIX, '');
+  if (!/^\d+$/.test(steamId64)) {
+    return NextResponse.json({ error: 'Nieprawidłowy format identyfikatora Steam.' }, { status: 400 });
+  }
+
+  let steamId32: string;
+  try {
+    steamId32 = (BigInt(steamId64) - STEAM_ID64_OFFSET).toString();
+  } catch (e) {
+    console.error('Błąd konwersji Steam ID:', e);
+    return NextResponse.json({ error: 'Nieprawidłowy identyfikator Steam.' }, { status: 400 });
+  }
 
   // --- Fetch OpenDota Data ---
   let openDotaName = `Gracz #${steamId32}`;

@@ -1,8 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireEnv } from '@/lib/env';
-
-const ALLOWED_ADMIN_EMAILS = ['voocash.s@gmail.com', 'wilq.wdz@gmail.com'];
+import { ALLOWED_ADMIN_EMAILS } from '@/lib/admin-emails';
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });

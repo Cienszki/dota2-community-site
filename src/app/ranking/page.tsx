@@ -53,7 +53,7 @@ export default async function RankingPage() {
   try {
     const { data: leaderboardEntries, error } = await supabase
       .from('ranking_leaderboard')
-      .select('*');
+      .select('steam_id, name, avatar, rank_tier, leaderboard_rank, win_rate, form, has_public_matches');
 
     if (!error && leaderboardEntries && leaderboardEntries.length > 0) {
       let officialIndex = 0;
