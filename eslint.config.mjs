@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Verbatim vendored copy of the bot's @dota2inhouse/core — not ours to
+    // lint or edit; fixes belong upstream, then re-sync (see core/VENDORED.md).
+    "src/lib/inhouse/core/**",
   ]),
 ]);
 
