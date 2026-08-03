@@ -193,6 +193,7 @@ export async function GET(request: Request) {
 
   response.cookies.set('pdl_session', sessionToken, {
     httpOnly: true,
+    secure: protocol === 'https',
     sameSite: 'lax',
     path: '/',
     maxAge: 60 * 60 * 24 * 365,
