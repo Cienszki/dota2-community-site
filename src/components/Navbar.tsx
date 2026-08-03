@@ -22,6 +22,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/newsy', label: 'Newsy' },
     { href: '#', label: 'Turnieje' },
+    { href: '/inhouse', label: 'Inhouse' },
     { href: '/ranking', label: 'Ranking' },
     { href: '/hall-of-fame', label: 'Hall of Fame' },
     { href: '/basher', label: 'Basher' },
