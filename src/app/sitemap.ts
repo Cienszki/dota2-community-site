@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/hall-of-fame',
     '/basher',
     '/streamy',
+    '/wesprzyj-nas',
     '/rekrutacja',
     '/o-nas',
     '/kontakt',
