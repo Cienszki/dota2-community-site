@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { requireEnv } from '@/lib/env';
 
 const escapeHtml = (str: string) =>
   str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -37,18 +38,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Brakujące pola' }, { status: 400 });
     }
 
+    const smtpUser = requireEnv('SMTP_USER', process.env.SMTP_USER);
+
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT),
+      host: requireEnv('SMTP_HOST', process.env.SMTP_HOST),
+      port: Number(requireEnv('SMTP_PORT', process.env.SMTP_PORT)),
       secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: smtpUser,
+        pass: requireEnv('SMTP_PASS', process.env.SMTP_PASS),
       },
     });
 
     await transporter.sendMail({
-      from: `Formularz Kontaktowy <${process.env.SMTP_USER}>`,
+      from: `Formularz Kontaktowy <${smtpUser}>`,
       to: 'polishdota2inhouse@gmail.com',
       replyTo: email,
       subject: `[dota2inhouse.pl] Nowa wiadomość od ${email}`,

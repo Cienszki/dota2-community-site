@@ -11,9 +11,3 @@ export async function getWardClicks(): Promise<number> {
 
   return data?.value ?? 0;
 }
-
-export async function incrementWardClicks(): Promise<number | null> {
-  const { data, error } = await supabase.rpc('increment_ward_clicks');
-  if (error) return null;
-  return data as number;
-}

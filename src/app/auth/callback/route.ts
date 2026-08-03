@@ -5,7 +5,12 @@ import { requireEnv } from '@/lib/env';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/admin';
+  const requestedNext = searchParams.get('next');
+  // Defense in depth: only ever redirect to a same-site path. Currently safe
+  // regardless (this is concatenated onto `origin` as a raw string below, not
+  // resolved via `new URL()`, so it can't escape the origin either way) — but
+  // this keeps it safe even if that redirect logic is ever refactored.
+  const next = requestedNext?.startsWith('/') && !requestedNext.startsWith('//') ? requestedNext : '/admin';
 
   if (code) {
     // Collect cookies that supabase wants to set
