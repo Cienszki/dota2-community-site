@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
-import NewsPanel from '@/components/NewsPanel';
+import NewsPanel, { type NewsItem } from '@/components/NewsPanel';
 import SmoothScroll from '@/components/SmoothScroll';
+import { supabase } from '@/lib/supabase';
 
 export const metadata: Metadata = {
   title: 'Aktualności i Wydarzenia',
@@ -31,7 +32,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default function NewsyPage() {
+export default async function NewsyPage() {
+  const { data, error } = await supabase
+    .from('news')
+    .select('*')
+    .eq('status', 'published')
+    .neq('category', 'SystemSettings')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Błąd pobierania newsów:', error.message);
+  }
+
+  const news = (data ?? []) as NewsItem[];
+
   return (
     <main className="relative min-h-screen bg-[#050505] text-slate-100 overflow-x-hidden">
       <SmoothScroll />
@@ -58,7 +72,7 @@ export default function NewsyPage() {
 
       {/* NEWSY CONTENT */}
       <div className="pt-[30px] pb-20">
-        <NewsPanel />
+        <NewsPanel news={news} />
       </div>
 
     </main>

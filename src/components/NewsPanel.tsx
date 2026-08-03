@@ -3,11 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { createPortal } from 'react-dom';
-import { createBrowserSupabaseClient } from '@/lib/supabase-browser';
 import { Share2, Link2, Check, X, Maximize2, ChevronDown } from 'lucide-react';
 import { FaFacebook } from 'react-icons/fa';
 
-interface NewsItem {
+export interface NewsItem {
   id: number;
   title: string;
   content: string;
@@ -142,34 +141,9 @@ function Lightbox({ imageUrl, onClose }: { imageUrl: string; onClose: () => void
   );
 }
 
-export default function NewsPanel() {
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function NewsPanel({ news }: { news: NewsItem[] }) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchNews() {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data, error } = await supabase
-          .from('news')
-          .select('*')
-          .eq('status', 'published')
-          .neq('category', 'SystemSettings')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        if (data) setNews(data);
-      } catch (error) {
-        console.error('Błąd pobierania newsów:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchNews();
-  }, []);
 
   const visibleNews = news.slice(0, visibleCount);
   const hasMore = visibleCount < news.length;
@@ -191,11 +165,7 @@ export default function NewsPanel() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : news.length === 0 ? (
+      {news.length === 0 ? (
         <div className="bg-[#17181c]/50 border border-white/[0.06] rounded-3xl p-16 text-center backdrop-blur-md">
           <h3 className="text-xl font-bold text-slate-200 mb-2">Brak nowych newsów</h3>
           <p className="text-slate-500 text-sm">Wróć tu za jakiś czas, żeby sprawdzić najnowsze ogłoszenia.</p>
