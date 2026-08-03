@@ -1,38 +1,12 @@
-'use client';
-import { useEffect, useState } from 'react';
 import { FaTwitch, FaYoutube, FaInstagram, FaDiscord } from 'react-icons/fa';
-import { createBrowserSupabaseClient } from '@/lib/supabase-browser';
 import Link from 'next/link';
+import type { GlobalSettings } from '@/lib/global-settings';
 
-function Footer() {
-  const [twitchLink, setTwitchLink] = useState('');
-  const [youtubeLink, setYoutubeLink] = useState('');
-  const [instagramLink, setInstagramLink] = useState('');
-  const [discordLink, setDiscordLink] = useState('https://discord.gg/ZxgmF7Kr4t');
-
-  useEffect(() => {
-    async function fetchLinks() {
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const { data, error } = await supabase
-          .from('news')
-          .select('*')
-          .eq('category', 'SystemSettings')
-          .eq('title', 'global_settings')
-          .maybeSingle();
-        if (!error && data && data.content) {
-          const val = JSON.parse(data.content);
-          if (val.twitch_link) setTwitchLink(val.twitch_link);
-          if (val.youtube_link) setYoutubeLink(val.youtube_link);
-          if (val.instagram_link) setInstagramLink(val.instagram_link);
-          if (val.discord_link) setDiscordLink(val.discord_link);
-        }
-      } catch {
-        // fallback to defaults
-      }
-    }
-    fetchLinks();
-  }, []);
+function Footer({ settings }: { settings: GlobalSettings }) {
+  const twitchLink = settings.twitch_link ?? '';
+  const youtubeLink = settings.youtube_link ?? '';
+  const instagramLink = settings.instagram_link ?? '';
+  const discordLink = settings.discord_link ?? 'https://discord.gg/ZxgmF7Kr4t';
 
   const navLinks = [
     { name: "Rekrutacja", href: "/rekrutacja", external: false },

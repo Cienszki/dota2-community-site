@@ -1,7 +1,28 @@
 import type { Metadata } from "next";
+import { Oxanium, Exo_2 } from "next/font/google";
 import "./globals.css"; // Tutaj ładują się nasze nowe style z globals.css
-import { supabase } from "@/lib/supabase";
+import { getGlobalSettings } from "@/lib/global-settings";
 import Footer from "@/components/Footer";
+
+// Both fonts are always loaded together so rich-text content authored with
+// either font (via the news editor's per-paragraph font picker) always
+// renders correctly, regardless of which one is the active site default
+// (see admin Settings → Czcionka serwisu). Self-hosted via next/font instead
+// of a <link> tag — no external request to fonts.googleapis.com at runtime.
+const oxanium = Oxanium({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  variable: '--font-oxanium',
+  display: 'swap',
+});
+
+const exo2 = Exo_2({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-exo2',
+  display: 'swap',
+});
 
 // ISR: revalidate settings every 5 minutes instead of force-dynamic
 export const revalidate = 300;
@@ -48,56 +69,35 @@ export const metadata: Metadata = {
   },
 };
 
-async function getSettings() {
-  try {
-    const { data, error } = await supabase
-      .from('news')
-      .select('*')
-      .eq('category', 'SystemSettings')
-      .eq('title', 'global_settings')
-      .maybeSingle();
-    if (error || !data || !data.content) {
-      return { font_family: 'Oxanium' };
-    }
-    return JSON.parse(data.content);
-  } catch {
-    return { font_family: 'Oxanium' };
-  }
-}
-
-// The only two fonts available site-wide (see admin Settings → Czcionka
-// serwisu). Both are always loaded together so rich-text content authored
-// with either font (via the news editor's per-paragraph font picker) always
-// renders correctly, regardless of which one is the active site default.
-const GOOGLE_FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=Exo+2:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap';
+const FONT_VAR_BY_NAME: Record<string, string> = {
+  Oxanium: 'var(--font-oxanium)',
+  'Exo 2': 'var(--font-exo2)',
+};
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const settings = await getSettings();
+  const settings = await getGlobalSettings();
   const fontFamily = settings.font_family || 'Oxanium';
+  const fontSansVar = FONT_VAR_BY_NAME[fontFamily] ?? FONT_VAR_BY_NAME.Oxanium;
 
   return (
-    <html lang="pl">
+    <html lang="pl" className={`${oxanium.variable} ${exo2.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href={GOOGLE_FONTS_HREF} rel="stylesheet" />
         <style dangerouslySetInnerHTML={{ __html: `
           :root {
-            --font-sans: '${fontFamily}', sans-serif;
+            --font-sans: ${fontSansVar};
           }
           body {
-            font-family: var(--font-sans) !important;
+            font-family: var(--font-sans), sans-serif !important;
           }
         ` }} />
       </head>
       <body className="antialiased bg-[#050505]">
         {children}
-        <Footer />
+        <Footer settings={settings} />
       </body>
     </html>
   );

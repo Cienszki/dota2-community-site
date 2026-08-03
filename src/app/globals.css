@@ -1,13 +1,33 @@
 @import "tailwindcss"; /* To ładuje Tailwinda w nowej wersji */
 
 /* Nadpisujemy domyślną czcionkę systemową Tailwinda — Oxanium/Exo 2 są
-   ładowane z Google Fonts w layout.tsx, tu tylko nazwa jako fallback. */
+   ładowane przez next/font w layout.tsx (self-hosted), tu tylko nazwa jako
+   fallback zanim layout.tsx ustawi realną wartość --font-sans. */
 :root {
   --font-sans: 'Oxanium', sans-serif;
 }
 
 body {
   font-family: var(--font-sans);
+}
+
+/* RichTextEditor.tsx's per-paragraph font picker (BUILT_IN_FONTS) writes the
+   literal Google Font family name directly into stored news HTML as an inline
+   style (e.g. style="font-family: 'Exo 2'"). next/font self-hosts these two
+   fonts under generated internal names exposed only via the --font-oxanium/
+   --font-exo2 variables (see layout.tsx) — so on their own, those literal
+   names wouldn't match any @font-face anymore. Re-pointing them here keeps
+   both already-published and newly authored per-paragraph picks resolving to
+   the self-hosted files instead of silently falling back to a system font.
+   `!important` is required: it's the only way an author stylesheet rule can
+   out-rank an inline `style` attribute for the same property. */
+[style*="font-family: 'Oxanium'"],
+[style*="font-family:'Oxanium'"] {
+  font-family: var(--font-oxanium) !important;
+}
+[style*="font-family: 'Exo 2'"],
+[style*="font-family:'Exo 2'"] {
+  font-family: var(--font-exo2) !important;
 }
 
 /* Custom styles for Tiptap & News Content (since @tailwindcss/typography is not installed) */
