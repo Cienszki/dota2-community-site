@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { getWardClicks } from '@/app/actions';
 
 export default function WardClicker() {
@@ -58,7 +59,7 @@ export default function WardClicker() {
         className="cursor-pointer hover:scale-105 active:scale-95 transition-transform shrink-0"
         aria-label="Postaw warda"
       >
-        <img
+        <Image
           src="/images/ward.png"
           alt="Observer Ward"
           width={192}
