@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import ClientLightPillar from '@/components/ClientLightPillar';
 import Navbar from '@/components/Navbar';
@@ -125,6 +126,14 @@ export default function KontaktForm() {
                   <span>Wystąpił błąd podczas wysyłania. Spróbuj ponownie za chwilę.</span>
                 </div>
               )}
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Przesyłając wiadomość, zgadzasz się na kontakt w celu odpowiedzi na Twoje zapytanie. Administrator danych: Polish Dota2 Inhouse. Zgodnie z{' '}
+                <Link href="/polityka-prywatnosci" className="underline hover:text-slate-300 transition-colors">
+                  Polityką Prywatności
+                </Link>
+                .
+              </p>
 
               <div className="pt-2">
                 <button
