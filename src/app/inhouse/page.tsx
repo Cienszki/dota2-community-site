@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Radio, ArrowRight, HelpCircle } from 'lucide-react';
+import { Radio, ArrowRight, HelpCircle, Trophy } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import SkewButton from '@/components/inhouse/SkewButton';
 import LiveBoard from '@/components/inhouse/LiveBoard';
@@ -51,6 +51,12 @@ export default async function InhousePage() {
             className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors font-semibold"
           >
             <HelpCircle className="w-4 h-4" /> Jak to działa?
+          </Link>
+          <Link
+            href="/inhouse/leaderboards"
+            className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors font-semibold"
+          >
+            <Trophy className="w-4 h-4" /> Rankingi
           </Link>
         </div>
       </div>

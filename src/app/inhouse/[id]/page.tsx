@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Trophy, MapPin, Clock, Sparkles, Radio, Eye, Award } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
@@ -298,11 +299,13 @@ function TeamColumn({
           {players.map((m) => (
             <li key={m.steamId32} className="text-sm text-slate-300 flex items-center gap-2">
               <span className={`w-1.5 h-1.5 rounded-full ${m.leftAt === null ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-              {resolveDisplayName({
-                displayName: m.displayName,
-                playerName: m.playerName,
-                steamId32: m.steamId32,
-              })}
+              <Link href={`/players/${m.steamId32}`} className="hover:text-white transition-colors">
+                {resolveDisplayName({
+                  displayName: m.displayName,
+                  playerName: m.playerName,
+                  steamId32: m.steamId32,
+                })}
+              </Link>
             </li>
           ))}
         </ul>
