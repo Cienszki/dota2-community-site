@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { FaTwitch, FaYoutube, FaInstagram, FaDiscord } from 'react-icons/fa';
 import Link from 'next/link';
 import type { GlobalSettings } from '@/lib/global-settings';
@@ -8,10 +9,10 @@ function Footer({ settings }: { settings: GlobalSettings }) {
   const instagramLink = settings.instagram_link ?? '';
   const discordLink = settings.discord_link ?? 'https://discord.gg/ZxgmF7Kr4t';
 
-  const navLinks = [
+  const navLinks: { name: string; href: string; external: boolean; icon?: string }[] = [
     { name: "Rekrutacja", href: "/rekrutacja", external: false },
     { name: "O nas", href: "/o-nas", external: false },
-    { name: "Wesprzyj nas!", href: "/wesprzyj-nas", external: false },
+    { name: "Wesprzyj nas!", href: "/wesprzyj-nas", external: false, icon: "/images/midas.png" },
   ];
 
   return (
@@ -36,15 +37,21 @@ function Footer({ settings }: { settings: GlobalSettings }) {
                     href={link.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-slate-400 hover:text-white transition-all duration-300 relative after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-red-600 after:transition-all after:duration-300 hover:after:w-full"
+                    className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-all duration-300 relative after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-red-600 after:transition-all after:duration-300 hover:after:w-full"
                   >
+                    {link.icon && (
+                      <Image src={link.icon} alt="" width={20} height={20} className="w-4 h-4 object-contain" />
+                    )}
                     {link.name}
                   </a>
                 ) : (
                   <Link
                     href={link.href}
-                    className="text-slate-400 hover:text-white transition-all duration-300 relative after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-red-600 after:transition-all after:duration-300 hover:after:w-full"
+                    className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white transition-all duration-300 relative after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-0 after:bg-red-600 after:transition-all after:duration-300 hover:after:w-full"
                   >
+                    {link.icon && (
+                      <Image src={link.icon} alt="" width={20} height={20} className="w-4 h-4 object-contain" />
+                    )}
                     {link.name}
                   </Link>
                 )}
