@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight } from 'lucide-react';
+import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp } from 'lucide-react';
 import { isInhouseConfigured, getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
 import type { ResolvedSettings } from '@/lib/inhouse/core/types';
@@ -54,21 +54,12 @@ export default async function InhouseAdminPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          <Link
-            href="/admin/inhouse/moderation"
-            className="flex items-center justify-between gap-4 bg-slate-900/40 border border-slate-700 hover:border-red-500/40 rounded-2xl p-5 transition-colors group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-red-600/15 border border-red-500/25 flex items-center justify-center">
-                <Gavel className="w-4 h-4 text-red-400" />
-              </div>
-              <div>
-                <div className="font-bold text-slate-200">Moderacja</div>
-                <div className="text-slate-500 text-sm">Ostrzeżenia i bany — od meczu, nie od nicka</div>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-slate-300 transition-colors" />
-          </Link>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <NavCard href="/admin/inhouse/moderation" icon={<Gavel className="w-4 h-4 text-red-400" />} title="Moderacja" desc="Ostrzeżenia i bany — od meczu, nie od nicka" />
+            <NavCard href="/admin/inhouse/schedule" icon={<CalendarClock className="w-4 h-4 text-red-400" />} title="Harmonogram" desc="Cykliczne sloty gier" />
+            <NavCard href="/admin/inhouse/pool" icon={<Server className="w-4 h-4 text-red-400" />} title="Pula botów" desc="Konta Steam i dzierżawy" />
+            <NavCard href="/admin/inhouse/metrics" icon={<TrendingUp className="w-4 h-4 text-red-400" />} title="Metryki" desc="Publish rate i hostowie" />
+          </div>
 
           <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">
             <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2 mb-1">
@@ -92,5 +83,25 @@ export default async function InhouseAdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function NavCard({ href, icon, title, desc }: { href: string; icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-4 bg-slate-900/40 border border-slate-700 hover:border-red-500/40 rounded-2xl p-5 transition-colors group"
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-red-600/15 border border-red-500/25 flex items-center justify-center">
+          {icon}
+        </div>
+        <div>
+          <div className="font-bold text-slate-200">{title}</div>
+          <div className="text-slate-500 text-sm">{desc}</div>
+        </div>
+      </div>
+      <ChevronRight className="w-5 h-5 text-slate-600 group-hover:text-slate-300 transition-colors" />
+    </Link>
   );
 }
