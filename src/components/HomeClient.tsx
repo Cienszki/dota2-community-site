@@ -302,7 +302,7 @@ export default function HomeClient({ tournaments, testimonials, partnerLink }: H
         transition={{ duration: 0.7 }}
       >
         <div className="max-w-7xl mx-auto px-6 mb-6 text-center w-full">
-          <p className="text-slate-400 text-sm font-bold uppercase tracking-[0.2em]">Głosy społeczności</p>
+          <p className="text-slate-500 text-sm font-bold uppercase tracking-[0.3em]">Głosy społeczności</p>
         </div>
 
         <div
@@ -379,21 +379,24 @@ export default function HomeClient({ tournaments, testimonials, partnerLink }: H
         transition={{ duration: 0.7 }}
       >
         <p className="text-center text-slate-500 text-sm font-bold uppercase tracking-[0.3em] mb-6">Nasz partner</p>
-        <div className="max-w-2xl mx-auto border border-white/10 rounded-xl p-8 flex items-center gap-6 flex-wrap justify-center hover:border-red-500/40 transition-colors duration-300">
-          <a href={partnerLink} target="_blank" rel="noopener noreferrer" className="shrink-0">
-            <Image
-              src="/images/DM.png"
-              alt="Dream Machines"
-              width={1000}
-              height={200}
-              className="h-14 w-auto object-contain brightness-90 hover:brightness-110 transition-all"
-            />
-          </a>
+        <a
+          href={partnerLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group max-w-2xl mx-auto border border-white/10 rounded-xl p-8 flex items-center gap-6 flex-wrap justify-center hover:border-red-500/40 transition-colors duration-300"
+        >
+          <Image
+            src="/images/DM.png"
+            alt="Dream Machines"
+            width={1000}
+            height={200}
+            className="h-14 w-auto object-contain brightness-90 group-hover:brightness-110 transition-all shrink-0"
+          />
           <div className="flex-1 min-w-[200px]">
             <div className="text-white font-bold text-base">Dream Machines</div>
             <p className="text-slate-400 text-sm leading-relaxed mt-1">Sprzęt gamingowy wspierający nasze turnieje i wydarzenia.</p>
           </div>
-        </div>
+        </a>
       </motion.section>
 
     </main>
