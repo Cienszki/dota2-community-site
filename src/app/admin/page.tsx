@@ -216,7 +216,7 @@ export default function AdminPage() {
   const [basherEditingId, setBasherEditingId] = useState<string | null>(null);
 
   // ── Ranking management state ──
-  const [rankPlayers, setRankPlayers] = useState<{ id: string; steam_id: string; created_at: string }[]>([]);
+  const [rankPlayers, setRankPlayers] = useState<{ id: string; steam_id: string; name: string; created_at: string }[]>([]);
   const [rankLoading, setRankLoading] = useState(false);
   const [rankSearch, setRankSearch] = useState('');
   const [rankDeleting, setRankDeleting] = useState<string | null>(null);
@@ -2229,7 +2229,7 @@ export default function AdminPage() {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="text-base font-bold text-slate-200 truncate">
-                          Gracz #{player.steam_id}
+                          {player.name}
                         </p>
                         <p className="text-xs font-mono text-slate-500 mt-0.5">
                           Steam ID: {player.steam_id}
