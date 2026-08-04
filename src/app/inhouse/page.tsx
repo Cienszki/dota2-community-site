@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Radio, ArrowRight, HelpCircle, Trophy } from 'lucide-react';
+import { Radio, ArrowRight, HelpCircle, Trophy, Plus } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import SkewButton from '@/components/inhouse/SkewButton';
 import LiveBoard from '@/components/inhouse/LiveBoard';
@@ -43,7 +43,10 @@ export default async function InhousePage() {
           Prawdziwi ludzie, prawie każdego wieczoru. Nie liga. Bez tryhardów.
         </p>
         <div className="flex flex-wrap items-center gap-4 mt-7">
-          <SkewButton href="/inhouse/link" variant="redSolid" prefetch={false}>
+          <SkewButton href="/inhouse/new" variant="redSolid" prefetch={false}>
+            <Plus className="w-4 h-4" /> Utwórz grę
+          </SkewButton>
+          <SkewButton href="/inhouse/link" variant="red" prefetch={false}>
             Połącz konto <ArrowRight className="w-4 h-4" />
           </SkewButton>
           <Link
