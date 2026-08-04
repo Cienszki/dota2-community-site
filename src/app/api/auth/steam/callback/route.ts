@@ -6,6 +6,32 @@ const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_ID_PREFIX = 'https://steamcommunity.com/openid/id/';
 const STEAM_ID64_OFFSET = BigInt('76561197960265728');
 
+// Same 50-match / 14-day window as scripts/sync-player-stats.mjs (the daily
+// cron that refreshes everyone else) — duplicated here rather than imported
+// since that script is intentionally standalone (runs outside the Next.js
+// app via GitHub Actions). Keep the two in sync if this logic ever changes.
+const OPENDOTA_MATCHES_LIMIT = 50;
+const FORM_WINDOW_DAYS = 14;
+
+interface OpenDotaProfileResponse {
+  profile?: { personaname?: string; avatarfull?: string };
+  leaderboard_rank?: number;
+  mmr_estimate?: { estimate?: number };
+  rank_tier?: number;
+}
+
+interface OpenDotaMatch {
+  player_slot: number;
+  radiant_win: boolean;
+  start_time: number;
+}
+
+// player_slot 0-4 = Radiant, 128-132 = Dire (OpenDota/Valve match schema).
+function isWin(match: OpenDotaMatch): boolean {
+  const isRadiant = match.player_slot < 128;
+  return isRadiant ? match.radiant_win : !match.radiant_win;
+}
+
 function getClientIp(request: Request): string {
   return (
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
@@ -121,20 +147,70 @@ export async function GET(request: Request) {
   }
 
   // --- Fetch OpenDota Data ---
+  // Profile + matches fetched immediately so a newly-linked player shows real
+  // winrate/forma right away on /ranking, instead of showing "—" until the
+  // next daily sync-player-stats cron run.
   let openDotaName = `Gracz #${steamId32}`;
   let openDotaAvatar = 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb_full.jpg';
   let openDotaRank: number | null = null;
+  let mmr: number | null = null;
+  let rankTier: number | null = null;
+  let winRate: number | null = null;
+  let form: number | null = null;
+  let hasPublicMatches = true;
 
-  try {
-    const openDotaRes = await fetch(`https://api.opendota.com/api/players/${steamId32}`);
-    if (openDotaRes.ok) {
-      const openDotaData = await openDotaRes.json();
-      openDotaName = openDotaData.profile?.personaname || openDotaName;
-      openDotaAvatar = openDotaData.profile?.avatarfull || openDotaAvatar;
-      openDotaRank = openDotaData.leaderboard_rank || null;
+  // Fetched independently (allSettled, not Promise.all) so a failure on one
+  // request — a transient OpenDota timeout, a rate-limit blip — can't wipe
+  // out data the other request already fetched successfully. A shared
+  // try/catch around both would mean a matches-fetch error also discards an
+  // already-parsed profile, leaving even the name/avatar at the fallback.
+  //
+  // Both also get an explicit timeout: plain fetch() has no default one, so
+  // an OpenDota outage (e.g. a Cloudflare 522) would otherwise leave the
+  // whole login hanging for however long the underlying TCP connection takes
+  // to give up — 20+ seconds observed in practice. Failing fast here means
+  // the player still gets logged in promptly, just without live stats until
+  // the next retry/cron sync.
+  const OPENDOTA_TIMEOUT_MS = 5000;
+  const [profileResult, matchesResult] = await Promise.allSettled([
+    fetch(`https://api.opendota.com/api/players/${steamId32}`, {
+      signal: AbortSignal.timeout(OPENDOTA_TIMEOUT_MS),
+    }).then((r) =>
+      r.ok ? (r.json() as Promise<OpenDotaProfileResponse>) : Promise.reject(new Error(`HTTP ${r.status}`)),
+    ),
+    fetch(`https://api.opendota.com/api/players/${steamId32}/matches?limit=${OPENDOTA_MATCHES_LIMIT}`, {
+      signal: AbortSignal.timeout(OPENDOTA_TIMEOUT_MS),
+    }).then((r) =>
+      r.ok ? (r.json() as Promise<OpenDotaMatch[]>) : Promise.reject(new Error(`HTTP ${r.status}`)),
+    ),
+  ]);
+
+  if (profileResult.status === 'fulfilled') {
+    const profile = profileResult.value;
+    openDotaName = profile.profile?.personaname || openDotaName;
+    openDotaAvatar = profile.profile?.avatarfull || openDotaAvatar;
+    openDotaRank = profile.leaderboard_rank || null;
+    mmr = profile.mmr_estimate?.estimate ?? null;
+    rankTier = profile.rank_tier ?? null;
+  } else {
+    console.warn('OpenDota profile fetch failed:', profileResult.reason);
+  }
+
+  if (matchesResult.status === 'fulfilled') {
+    const matches = matchesResult.value;
+    hasPublicMatches = Array.isArray(matches) && matches.length > 0;
+
+    if (hasPublicMatches) {
+      const wins = matches.filter(isWin).length;
+      winRate = Math.round((wins / matches.length) * 1000) / 10; // e.g. 68.2
+
+      const cutoffSeconds = Date.now() / 1000 - FORM_WINDOW_DAYS * 24 * 60 * 60;
+      const recentMatches = matches.filter((m) => m.start_time >= cutoffSeconds);
+      const recentWins = recentMatches.filter(isWin).length;
+      form = recentWins - (recentMatches.length - recentWins);
     }
-  } catch (e) {
-    console.warn('OpenDota fetch failed:', e);
+  } else {
+    console.warn('OpenDota matches fetch failed:', matchesResult.reason);
   }
 
   // --- Upsert Logic ---
@@ -147,7 +223,13 @@ export async function GET(request: Request) {
         steam_id: steamId32,
         avatar: openDotaAvatar,
         leaderboard_rank: openDotaRank,
+        mmr,
+        rank_tier: rankTier,
+        win_rate: winRate,
+        form,
+        has_public_matches: hasPublicMatches,
         is_registered: true,
+        last_synced_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'steam_id' }
