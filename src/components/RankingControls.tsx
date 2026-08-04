@@ -236,11 +236,11 @@ export default function RankingControls({ players }: RankingControlsProps) {
               <th className="py-1.5 pl-6 pr-3 text-left w-[21%] whitespace-nowrap">Ranga</th>
               <th className="py-1.5 px-3 w-[14%] text-center whitespace-nowrap">
                 Winrate
-                <InfoTooltip text="Ostatnie 50 meczów" />
+                <InfoTooltip text="Ostatnie 50 meczów. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
               <th className="py-1.5 px-3 w-[18%] text-center whitespace-nowrap">
                 Forma
-                <InfoTooltip text="Ostatnie 14 dni" />
+                <InfoTooltip text="Ostatnie 14 dni. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
             </tr>
           </thead>
