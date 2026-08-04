@@ -22,11 +22,25 @@ interface Streamer {
   stream_url: string;
 }
 
-function getTwitchChannel(url: string): string | null {
+type StreamPlatform = 'twitch' | 'kick';
+
+interface StreamChannel {
+  platform: StreamPlatform;
+  channel: string;
+}
+
+// We only have a live-status API integration for Twitch (src/lib/twitch.ts).
+// Kick channels are still recognized here so they get the offline placeholder
+// instead of falling back to the generic "Otwórz stream" card — but without a
+// Kick API integration we have no way to tell if they're actually live.
+function getStreamChannel(url: string): StreamChannel | null {
   try {
     const u = new URL(url);
     if (u.hostname.includes('twitch.tv')) {
-      return u.pathname.replace(/^\//, '').split('/')[0];
+      return { platform: 'twitch', channel: u.pathname.replace(/^\//, '').split('/')[0] };
+    }
+    if (u.hostname.includes('kick.com')) {
+      return { platform: 'kick', channel: u.pathname.replace(/^\//, '').split('/')[0] };
     }
   } catch {
     // ignore
@@ -44,8 +58,9 @@ function StreamerGrid({ streamers, liveChannels }: { streamers: Streamer[]; live
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {streamers.map((streamer) => {
-        const twitchChannel = getTwitchChannel(streamer.stream_url);
-        const isLive = twitchChannel ? liveChannels.has(twitchChannel.toLowerCase()) : false;
+        const streamChannel = getStreamChannel(streamer.stream_url);
+        const isLive =
+          streamChannel?.platform === 'twitch' && liveChannels.has(streamChannel.channel.toLowerCase());
 
         return (
           <BorderGlow
@@ -90,20 +105,20 @@ function StreamerGrid({ streamers, liveChannels }: { streamers: Streamer[]; live
                 )}
               </div>
 
-              {twitchChannel && isLive ? (
+              {streamChannel?.platform === 'twitch' && isLive ? (
                 <div
                   className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
                   style={{ aspectRatio: '16 / 9' }}
                 >
                   <iframe
-                    src={`https://player.twitch.tv/?channel=${twitchChannel}&parent=localhost&parent=dota2inhouse.pl&parent=www.dota2inhouse.pl&muted=true`}
+                    src={`https://player.twitch.tv/?channel=${streamChannel.channel}&parent=localhost&parent=dota2inhouse.pl&parent=www.dota2inhouse.pl&muted=true`}
                     allowFullScreen
                     className="absolute inset-0 w-full h-full"
                     title={`${streamer.nick} — Twitch`}
                     sandbox="allow-scripts allow-same-origin allow-presentation"
                   />
                 </div>
-              ) : twitchChannel && !isLive ? (
+              ) : streamChannel && !isLive ? (
                 <div
                   className="relative w-full rounded-xl overflow-hidden bg-slate-800 mt-3"
                   style={{ aspectRatio: '16 / 9' }}
@@ -150,9 +165,9 @@ async function LiveStreamerGrid({ streamers }: { streamers: Streamer[] }) {
   const twitchLogins = Array.from(
     new Set(
       streamers
-        .map((s) => getTwitchChannel(s.stream_url))
-        .filter((c): c is string => c !== null)
-        .map((c) => c.toLowerCase())
+        .map((s) => getStreamChannel(s.stream_url))
+        .filter((c): c is StreamChannel => c?.platform === 'twitch')
+        .map((c) => c.channel.toLowerCase())
     )
   );
   const liveChannels = await getLiveChannels(twitchLogins);
