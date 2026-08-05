@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// The website reads and writes Firestore exclusively through the Admin SDK
+// (src/lib/firebase-admin.ts), which BYPASSES these rules. Browsers never touch
+// Firestore directly — the game document contains lobbyPassword and the full
+// unpublished-game record, and expressing the "published" visibility invariant
+// (website-integration.md §0.1) as security rules is subtle and easy to get
+// wrong. So the client surface is locked shut, and every read is ordinary,
+// unit-testable TypeScript behind the `published` check instead.
+//
+// Deploy this to the SAME Firebase project the bot uses:
+//   firebase deploy --only firestore:rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

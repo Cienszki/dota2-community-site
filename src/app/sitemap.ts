@@ -6,6 +6,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     '',
     '/newsy',
+    '/inhouse',
+    '/inhouse/how-it-works',
     '/ranking',
     '/hall-of-fame',
     '/basher',
@@ -14,6 +16,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/rekrutacja',
     '/o-nas',
     '/kontakt',
+    // Individual /inhouse/{id} game pages are deliberately NOT listed — an
+    // unpublished game must leave no trace on any public surface (invariant 0.1).
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),

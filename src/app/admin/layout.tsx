@@ -56,6 +56,14 @@ export default async function AdminLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-white tracking-tight">Panel Admina</span>
+            <nav className="hidden sm:flex items-center gap-1 text-xs">
+              <Link href="/admin" className="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">
+                Treść
+              </Link>
+              <Link href="/admin/inhouse" className="px-2.5 py-1 rounded-md text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">
+                Inhouse
+              </Link>
+            </nav>
             <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium border border-zinc-700/50 rounded-md px-2 py-0.5">
               {user.email}
             </span>
