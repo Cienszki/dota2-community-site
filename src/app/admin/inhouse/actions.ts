@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { requireWebsiteAdmin, isAuthError } from '@/lib/inhouse/admin-guard';
+import { setLobbyPassword } from '@/lib/inhouse/lobby-config';
 import {
   getInhouseStore,
   resolveSettings,
@@ -83,6 +84,33 @@ export async function saveInhouseDefaults(_prev: FormState, formData: FormData):
     };
   } catch (err) {
     console.error('saveInhouseDefaults', err);
+    return { status: 'error', message: isAuthError(err) ? 'Brak uprawnień.' : 'Nie udało się zapisać.' };
+  }
+}
+
+// ─── inhouseConfig/lobby — the shared lobby password (§7.2) ──────────────────
+
+export async function saveLobbyPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+  try {
+    await requireWebsiteAdmin();
+    if (!isInhouseConfigured()) return { status: 'error', message: 'Firestore nie jest skonfigurowany.' };
+
+    const password = String(formData.get('password') ?? '').trim();
+
+    // Dota's lobby password field is what this ends up in, and players retype it
+    // from a card — so no whitespace, and short enough to not be a chore.
+    if (!password) return { status: 'error', message: 'Hasło nie może być puste.' };
+    if (/\s/.test(password)) return { status: 'error', message: 'Hasło nie może zawierać spacji.' };
+    if (password.length > 32) return { status: 'error', message: 'Hasło może mieć maksymalnie 32 znaki.' };
+
+    await setLobbyPassword(password);
+    revalidatePath('/admin/inhouse');
+    return {
+      status: 'ok',
+      message: 'Zapisano hasło. Obowiązuje dla lobby tworzonych od teraz.',
+    };
+  } catch (err) {
+    console.error('saveLobbyPassword', err);
     return { status: 'error', message: isAuthError(err) ? 'Brak uprawnień.' : 'Nie udało się zapisać.' };
   }
 }

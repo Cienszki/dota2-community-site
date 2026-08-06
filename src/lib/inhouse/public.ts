@@ -7,12 +7,39 @@
 // is safe to import from both the SSE route and client components.
 
 import type { GameState, SlotSnapshot } from './core/types';
+import { spectateUrl } from './display';
 
 /** What a signed-out visitor is allowed to know about a game. */
 export interface PublicGame {
   id: string;
   gameNumber: number;
   initiatorName: string;
+  /**
+   * The lobby's in-game name — what a player types into Dota's lobby browser.
+   *
+   * Public on purpose, unlike the password: the name is how the most common
+   * join path works at all (§3.1), and the lobby is only listed in the browser
+   * once the game is published anyway.
+   */
+  lobbyName: string | null;
+  /**
+   * Display names of the players currently sitting in the lobby, in seating
+   * order. Assembled from the memberships sub-collection by the server — the
+   * slot snapshot carries Steam IDs only, and a Steam ID is not a name.
+   */
+  roster: string[];
+  /**
+   * `steam://` link that launches Dota into spectating this game, or null when
+   * the game isn't running or no league is configured. Derived server-side so
+   * the league ID itself never crosses to the client.
+   */
+  spectateUrl: string | null;
+  /**
+   * Dota match ID, once the match has launched. Safe to publish — these are
+   * league games, so the match is publicly retrievable by design, and this is
+   * what makes an outbound Dotabuff link possible.
+   */
+  dotaMatchId: number | null;
   state: GameState;
   newcomerFriendly: boolean;
   published: boolean;
@@ -44,13 +71,15 @@ interface GameLike {
   id: string;
   gameNumber: number;
   initiatorName: string;
+  lobbyName?: string | null;
+  dotaMatchId?: number | null;
   state: GameState;
   newcomerFriendly: boolean;
   published: boolean;
   scheduledFor: string | null;
   createdAt: string;
   endedAt: string | null;
-  settings: { gameMode: number; serverRegion: number; dotaTvDelay: number };
+  settings: { gameMode: number; serverRegion: number; dotaTvDelay: number; leagueId?: number };
   slotSnapshot?: SlotSnapshot | null;
   result?: {
     radiantWin: boolean;
@@ -68,11 +97,17 @@ interface GameLike {
  * publishedByDiscordId, the full settings (leagueId, gates, ban ladder), and
  * `result.abandoners` (host/admin only).
  */
-export function toPublicGame(g: GameLike): PublicGame {
+export function toPublicGame(g: GameLike, roster: string[] = []): PublicGame {
   return {
     id: g.id,
     gameNumber: g.gameNumber,
     initiatorName: g.initiatorName,
+    lobbyName: g.lobbyName ?? null,
+    roster,
+    // Only while the match is actually running — a link that launches Dota into
+    // an empty league feed is worse than no link.
+    spectateUrl: g.state === 'in_progress' ? spectateUrl(g.settings.leagueId ?? 0) : null,
+    dotaMatchId: g.dotaMatchId ?? null,
     state: g.state,
     newcomerFriendly: g.newcomerFriendly,
     published: g.published,

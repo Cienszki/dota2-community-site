@@ -1,13 +1,18 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { Users, MapPin, Sparkles, Trophy, Clock } from 'lucide-react';
+import { MapPin, Sparkles, Trophy, Clock, Eye } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
-import { modeName, regionName, formatDuration } from '@/lib/inhouse/display';
+import { modeName, regionName, formatDuration, stateLabel } from '@/lib/inhouse/display';
 import Countdown from './Countdown';
-import JoinButton from './JoinButton';
+import JoinDialog from './JoinDialog';
 
 // A single game tile, shared by the live board (recruiting) and the recent
 // results list (finished). Pure — no hooks — so it renders on the server for
 // the finished list and inside the client LiveBoard alike.
+//
+// The heading is the *lobby* name, not the host's: it is the string a player
+// types into Dota's lobby browser, so it is the one piece of text on the card
+// that has a job to do. The host is demoted to a byline.
 
 export default function GameCard({ game }: { game: PublicGame }) {
   const finished = game.state === 'finished';
@@ -26,7 +31,12 @@ export default function GameCard({ game }: { game: PublicGame }) {
               </span>
             )}
           </div>
-          <h3 className="text-lg font-bold text-white truncate mt-0.5">{game.initiatorName}</h3>
+          <h3 className="text-lg font-bold text-white truncate mt-0.5">
+            {game.lobbyName ?? game.initiatorName}
+          </h3>
+          {game.lobbyName && (
+            <p className="text-[11px] text-slate-500 truncate">host: {game.initiatorName}</p>
+          )}
         </div>
         <StateBadge state={game.state} />
       </div>
@@ -41,10 +51,12 @@ export default function GameCard({ game }: { game: PublicGame }) {
         </span>
       </div>
 
+      {game.roster.length > 0 && <Roster names={game.roster} />}
+
       {finished ? (
         <FinishedBody game={game} />
       ) : inProgress ? (
-        <p className="text-sm text-amber-300/90 mb-4">Mecz w toku — kliknij, aby oglądać.</p>
+        <SpectateBody game={game} />
       ) : (
         <RecruitingBody game={game} />
       )}
@@ -58,9 +70,33 @@ export default function GameCard({ game }: { game: PublicGame }) {
           Szczegóły →
         </Link>
         {!finished && !inProgress && game.state === 'open' && (
-          <JoinButton gameId={game.id} full={(game.slots?.slotsOpen ?? 1) <= 0} />
+          <JoinDialog
+            gameId={game.id}
+            lobbyName={game.lobbyName}
+            full={(game.slots?.slotsOpen ?? 1) <= 0}
+          />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Who is sitting in the lobby right now, pipe-separated.
+ *
+ * The bot is the source of these names, and the list length always matches the
+ * in-lobby half of the "7/10" below it — the two are computed from the same
+ * membership set precisely so they can never disagree on the same card.
+ */
+function Roster({ names }: { names: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-4 text-xs text-slate-300">
+      {names.map((name, i) => (
+        <Fragment key={`${name}-${i}`}>
+          {i > 0 && <span className="text-slate-600">|</span>}
+          <span className="truncate max-w-[10rem]">{name}</span>
+        </Fragment>
+      ))}
     </div>
   );
 }
@@ -75,7 +111,6 @@ function RecruitingBody({ game }: { game: PublicGame }) {
     <div>
       {/* slot bar */}
       <div className="flex items-center gap-2 mb-2">
-        <Users className="w-4 h-4 text-slate-400" />
         <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
           <div
             className="h-full bg-[#E7000B] transition-[width] duration-500"
@@ -112,14 +147,43 @@ function RecruitingBody({ game }: { game: PublicGame }) {
   );
 }
 
+/**
+ * The watch action for a running match.
+ *
+ * `spectateUrl` is null when no League ID is configured, and there is nothing
+ * honest to offer in that case — the client has no way to find the game — so
+ * the card says so rather than rendering a button that does nothing.
+ */
+function SpectateBody({ game }: { game: PublicGame }) {
+  if (!game.spectateUrl) {
+    return <p className="text-sm text-amber-300/90">Mecz w toku.</p>;
+  }
+
+  return (
+    <div>
+      <a
+        href={game.spectateUrl}
+        className="inline-flex items-center h-9 px-5 font-bold text-[13px] uppercase tracking-wide
+                   border-[1.5px] border-amber-400/60 text-amber-200 hover:bg-amber-400/15
+                   -skew-x-[12deg] transition-colors"
+      >
+        <span className="flex items-center gap-2 skew-x-[12deg]">
+          <Eye className="w-4 h-4" /> Oglądaj mecz
+        </span>
+      </a>
+      <p className="text-[11px] text-slate-500 mt-2">
+        Otworzy Dotę 2 i włączy podgląd meczu z opóźnieniem transmisji.
+      </p>
+    </div>
+  );
+}
+
 function FinishedBody({ game }: { game: PublicGame }) {
   const r = game.result;
   if (!r) return <p className="text-sm text-slate-400 mb-1">Rozegrana</p>;
   return (
     <div className="flex items-center gap-4 text-sm">
-      <span
-        className={`font-bold ${r.radiantWin ? 'text-emerald-300' : 'text-red-300'}`}
-      >
+      <span className={`font-bold ${r.radiantWin ? 'text-emerald-300' : 'text-red-300'}`}>
         {r.radiantWin ? 'Radiant' : 'Dire'} wygrywa
       </span>
       <span className="inline-flex items-center gap-1.5 text-slate-400">
@@ -130,16 +194,19 @@ function FinishedBody({ game }: { game: PublicGame }) {
 }
 
 function StateBadge({ state }: { state: PublicGame['state'] }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    open: { label: 'nabór', cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25' },
-    ready: { label: 'gotowe', cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25' },
-    in_progress: { label: 'na żywo', cls: 'text-amber-300 bg-amber-500/10 border-amber-500/25' },
-    finished: { label: 'koniec', cls: 'text-slate-300 bg-white/5 border-white/15' },
+  const cls: Record<string, string> = {
+    open: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
+    ready: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25',
+    in_progress: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
+    finished: 'text-slate-300 bg-white/5 border-white/15',
   };
-  const s = map[state] ?? map.finished;
   return (
-    <span className={`shrink-0 text-[10px] uppercase tracking-wide border rounded px-2 py-0.5 ${s.cls}`}>
-      {s.label}
+    <span
+      className={`shrink-0 text-[10px] uppercase tracking-wide border rounded px-2 py-0.5 ${
+        cls[state] ?? cls.finished
+      }`}
+    >
+      {stateLabel(state)}
     </span>
   );
 }

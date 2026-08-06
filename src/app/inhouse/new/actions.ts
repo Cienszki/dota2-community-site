@@ -3,6 +3,8 @@
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getInhouseStore, resolveSettings, leaseAccount } from '@/lib/inhouse/store';
+import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
+import { randomLobbyName } from '@/lib/inhouse/lobby-names';
 
 // Create a game from the website (§5.4, §7.3). One press: everything but the
 // host comes from admin defaults, so a first-time host opens a correctly
@@ -39,6 +41,23 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
       initiatorSteamId32: viewer.steamId32,
       settings,
       newcomerFriendly: opts.newcomerFriendly,
+    });
+
+    // Name and password the lobby up front, so both are decided before the
+    // worker touches the Game Coordinator. The name is what players type into
+    // Dota's lobby browser, so it is drawn from the diacritic-free table rather
+    // than derived from the host's nickname — which may be unsearchable, or
+    // taken by three other people.
+    //
+    // Names in play right now are excluded so two live lobbies can't collide in
+    // that search box.
+    const taken = (await store.listPublishedOpenGames())
+      .map((g) => g.lobbyName)
+      .filter((n): n is string => Boolean(n));
+
+    await store.updateGame(game.id, {
+      lobbyName: randomLobbyName(taken),
+      lobbyPassword: (await getLobbyConfig()).password || null,
     });
 
     // Leasing must be transactional or two games claim the same account and one

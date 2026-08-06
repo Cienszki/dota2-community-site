@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp } from 'lucide-react';
+import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp, KeyRound } from 'lucide-react';
 import { isInhouseConfigured, getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
+import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import type { ResolvedSettings } from '@/lib/inhouse/core/types';
 import SettingsForm from './SettingsForm';
 import AdminsForm from './AdminsForm';
+import LobbyPasswordForm from './LobbyPasswordForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,10 +16,12 @@ export default async function InhouseAdminPage() {
   let defaults: ResolvedSettings | null = null;
   let discordIds: string[] = [];
   let steamIds: string[] = [];
+  let lobbyPassword = '';
 
   if (configured) {
     try {
       defaults = await getInhouseStore().getAdminDefaults();
+      lobbyPassword = (await getLobbyConfig()).password;
       const snap = await getDb().collection('inhouseConfig').doc('admins').get();
       const data = snap.data();
       if (data) {
@@ -69,6 +73,17 @@ export default async function InhouseAdminPage() {
               Każda gra dziedziczy te wartości w momencie utworzenia. Zmiana nie wpływa na gry już otwarte.
             </p>
             {defaults && <SettingsForm initial={defaults} />}
+          </section>
+
+          <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2 mb-1">
+              <KeyRound className="w-5 h-5 text-red-500" /> Hasło do lobby
+            </h2>
+            <p className="text-slate-500 text-sm mb-6">
+              Jedno hasło dla wszystkich lobby. Zmiana obowiązuje dla gier tworzonych od tego momentu —
+              lobby już otwarte zachowują hasło, z którym powstały.
+            </p>
+            <LobbyPasswordForm initial={lobbyPassword} />
           </section>
 
           <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">

@@ -1,6 +1,7 @@
 import 'server-only';
 import { getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from './store';
+import { toPublicGames } from './roster';
 import { toPublicGame, type PublicGame } from './public';
 import type { InhouseGame } from './core/types';
 
@@ -14,6 +15,7 @@ type Listener = (games: PublicGame[]) => void;
 let current: PublicGame[] = [];
 let hasData = false;
 let started = false;
+let latestGeneration = 0;
 let unsub: (() => void) | null = null;
 const listeners = new Set<Listener>();
 
@@ -31,15 +33,25 @@ function ensureStarted(): void {
       .where('state', 'in', ['open', 'ready'])
       .onSnapshot(
         (snap) => {
-          current = snap.docs.map((d) => toPublicGame(d.data() as InhouseGame)).sort(sortNewestFirst);
-          hasData = true;
-          for (const l of listeners) {
-            try {
-              l(current);
-            } catch {
-              /* one bad listener must not break the fan-out */
-            }
-          }
+          // Resolving rosters needs a read per game, so the fan-out is async.
+          // Snapshots are sequenced with a generation counter rather than
+          // awaited in order: a slow roster read must not be able to overwrite
+          // a newer slot picture with a stale one.
+          const generation = ++latestGeneration;
+          void toPublicGames(snap.docs.map((d) => d.data() as InhouseGame))
+            .then((games) => {
+              if (generation !== latestGeneration) return;
+              current = games.sort(sortNewestFirst);
+              hasData = true;
+              for (const l of listeners) {
+                try {
+                  l(current);
+                } catch {
+                  /* one bad listener must not break the fan-out */
+                }
+              }
+            })
+            .catch((err) => console.error('inhouse live projection failed', err));
         },
         (err) => {
           console.error('inhouse live listener error', err);
@@ -80,8 +92,11 @@ export async function getBoard(): Promise<{ open: PublicGame[]; recent: PublicGa
     store.listPublishedOpenGames(),
     store.listRecentFinishedGames(12),
   ]);
-  return {
-    open: open.map(toPublicGame),
-    recent: recent.map(toPublicGame),
-  };
+  const [openPublic, recentPublic] = await Promise.all([
+    toPublicGames(open),
+    // Finished games list a result, not a live roster, so they skip the
+    // per-game membership read entirely.
+    Promise.resolve(recent.map((g) => toPublicGame(g))),
+  ]);
+  return { open: openPublic, recent: recentPublic };
 }

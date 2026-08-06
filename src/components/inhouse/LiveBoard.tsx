@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Radio, Users } from 'lucide-react';
+import Link from 'next/link';
+import { Radio, Users, Plus } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import GameCard from './GameCard';
 
@@ -67,17 +68,29 @@ export default function LiveBoard({ initial }: { initial: PublicGame[] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          Gry na żywo
+        <h2 className="text-[22px] font-black text-white flex items-center gap-2">
+          Obecne mecze
           {live && (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-red-400">
               <Radio className="w-3 h-3 animate-pulse" /> live
             </span>
           )}
         </h2>
-        <span className="text-sm text-slate-500">
-          {games.length} {games.length === 1 ? 'gra' : 'gier'}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-500">
+            {games.length} {games.length === 1 ? 'gra' : 'gier'}
+          </span>
+          {/* The only route to hosting on this page, now that the hero is copy
+              only. Kept next to the board rather than in the hero: "nobody is
+              playing" is the moment opening a lobby is worth suggesting. */}
+          <Link
+            href="/inhouse/new"
+            prefetch={false}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Otwórz lobby
+          </Link>
+        </div>
       </div>
 
       {games.length === 0 ? (
