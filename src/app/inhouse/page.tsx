@@ -21,13 +21,13 @@ export const metadata: Metadata = {
 
 const STEPS = [
   <>
-    Znajdź grę w naborze poniżej — sprawdź, ile jest wolnych miejsc.
+    Kliknij &quot;Dołącz&quot; poniżej, pokażemy ci jak wejść do lobby w Docie - to bardzo proste.
   </>,
   <>
-    Kliknij <b className="text-white">Dołącz</b> — pokażemy Ci nazwę lobby i hasło.
+    Gdy zbierze się 10 graczy, Gra wystartuje.
   </>,
   <>
-    Wejdź do lobby w Docie i graj — drużyny dobieracie sami.
+    Składy wybieracie już w grze. Powodzenia!
   </>,
 ];
 
