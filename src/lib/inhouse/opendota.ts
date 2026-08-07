@@ -100,6 +100,45 @@ export async function fetchMatch(matchId: number): Promise<MatchFetch> {
   }
 }
 
+/** One row of a league's match list. Enough to decide whether to fetch it. */
+export interface LeagueMatchSummary {
+  match_id: number;
+  start_time: number;
+  duration: number;
+  radiant_win: boolean;
+}
+
+/**
+ * Every match OpenDota has for a league, newest first.
+ *
+ * This is what makes a backfill possible at all. OpenDota exposes no aggregate
+ * "totals for league X" — the totals have to be built by walking the league's
+ * matches and reading each one — but it does enumerate the matches, so nothing
+ * needs the Steam Web API for this.
+ *
+ * Unbounded: a long-running league returns its whole history in one response.
+ * The caller decides how much of it to act on.
+ */
+export async function fetchLeagueMatches(leagueId: number): Promise<LeagueMatchSummary[] | null> {
+  try {
+    const res = await fetch(url(`/leagues/${leagueId}/matches`), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      console.warn(`opendota: league ${leagueId} matches returned ${res.status}`);
+      return null;
+    }
+    const data = (await res.json()) as LeagueMatchSummary[] | null;
+    if (!Array.isArray(data)) return null;
+    return data.sort((a, b) => b.start_time - a.start_time);
+  } catch (err) {
+    console.error(`opendota: league match list failed for ${leagueId}`, err);
+    return null;
+  }
+}
+
 /**
  * Ask OpenDota to parse a match's replay.
  *

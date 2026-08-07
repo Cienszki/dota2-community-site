@@ -64,6 +64,7 @@ this site hits:
 | `inhouseModeration` | `kind` ASC, `subjectDiscordId` ASC |
 | `inhouseGames` | `state` ASC, `updatedAt` ASC |  ← ingest catch-up sweep |
 | `inhouseMatches` | `parseState` ASC, `ingestedAt` ASC | ← parse follow-up sweep |
+| `inhouseMatches` | `gameId` ASC | ← match record for a given game |
 
 ## 3a. Result ingestion
 
@@ -75,6 +76,17 @@ match record, replay-parse request. Two entry points:
 - `GET /api/cron/inhouse-ingest` — the sweep, authenticated with `CRON_SECRET`.
   Catches anything the webhook missed and polls for replay parses, which can take
   hours.
+- `GET /api/cron/inhouse-backfill` — league backfill, same secret. Walks
+  `/leagues/{id}/matches` and pulls in every match not already stored, so medals
+  can be derived across the league's whole history and not just games this site
+  created. Bounded per call; run it repeatedly until `ingested` comes back 0.
+  Not on a schedule — run it by hand after setting the League ID, and again
+  whenever you want to catch up:
+
+  ```bash
+  curl -sS -H "Authorization: Bearer $CRON_SECRET" \
+    "https://<site>/api/cron/inhouse-backfill?limit=50"
+  ```
 
 **Schedule the cron every 10–15 minutes.** Both passes are bounded per run, so a
 backlog drains over several runs. On Vercel, add to `vercel.json`:

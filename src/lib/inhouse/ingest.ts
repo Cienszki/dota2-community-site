@@ -4,6 +4,7 @@ import { writeMatchResult, selectAwards } from './core';
 import type { SteamMatchDetails } from './core';
 import type { InhouseGame } from './core/types';
 import {
+  fetchLeagueMatches,
   fetchMatch,
   isParsed,
   isParseJobDone,
@@ -11,6 +12,7 @@ import {
   type OpenDotaMatchDetail,
 } from './opendota';
 import {
+  extractStats,
   getMatchRecord,
   patchMatchRecord,
   putMatchRecord,
@@ -101,7 +103,7 @@ async function buildRoster(match: OpenDotaMatchDetail): Promise<MatchRosterEntry
       won: side === 'radiant' ? match.radiant_win : !match.radiant_win,
       playerSlot: p.player_slot ?? null,
       leaverStatus: p.leaver_status ?? null,
-      stats: null,
+      stats: extractStats(p as Record<string, unknown>),
     });
   }
   return roster;
@@ -120,14 +122,13 @@ export async function ingestFinishedMatch(
 ): Promise<IngestOutcome> {
   const store = getInhouseStore();
 
-  const existing = await getMatchRecord(gameId);
-  if (existing) return { status: 'already_done', gameId };
-
   const game = (await store.getGame(gameId)) as InhouseGame | null;
   if (!game) return { status: 'error', gameId, reason: 'game not found' };
 
   const matchId = dotaMatchId ?? game.dotaMatchId;
   if (!matchId) return { status: 'error', gameId, reason: 'no dotaMatchId' };
+
+  if (await getMatchRecord(matchId)) return { status: 'already_done', gameId };
 
   const fetched = await fetchMatch(matchId);
 
@@ -155,9 +156,9 @@ export async function ingestFinishedMatch(
   const roster = await buildRoster(match);
 
   const record: MatchRecord = {
+    dotaMatchId: match.match_id,
     gameId,
     gameNumber: game.gameNumber,
-    dotaMatchId: match.match_id,
     radiantWin: match.radiant_win,
     durationSeconds: match.duration,
     radiantScore: match.radiant_score ?? null,
@@ -182,7 +183,7 @@ export async function ingestFinishedMatch(
     // Nobody parses a replay unless it is asked for, so this is not optional
     // housekeeping — without it the awards data may never exist for our matches.
     const job = await requestParse(match.match_id);
-    await patchMatchRecord(gameId, {
+    await patchMatchRecord(match.match_id, {
       parseState: 'requested',
       parseJobId: job?.jobId ?? null,
       parseRequestedAt: nowIso,
@@ -198,6 +199,93 @@ export async function ingestFinishedMatch(
 }
 
 /**
+ * Ingest a league match that was never an inhouse game here.
+ *
+ * The medals are derived from every match played in the league, and plenty of
+ * those predate this website or were started from Discord — they have no
+ * `inhouseGames` document to hang off, which is why match records are keyed on
+ * the Dota match id rather than the game id.
+ *
+ * Deliberately narrower than `ingestFinishedMatch`: it writes the match record
+ * and nothing else. No attendance ledger, no player counters, no game state.
+ * Those belong to games this site actually ran; back-crediting `gamesPlayed`
+ * from an arbitrary league history would silently rewrite every profile on the
+ * site, and the ledger already has its own backfill-on-link path for that.
+ */
+export async function ingestLeagueMatch(matchId: number): Promise<'ingested' | 'skipped' | 'failed'> {
+  if (await getMatchRecord(matchId)) return 'skipped';
+
+  const fetched = await fetchMatch(matchId);
+  if (fetched.status !== 'ok') return 'failed';
+
+  const match = fetched.match;
+  const nowIso = new Date().toISOString();
+  const parsedAlready = isParsed(match);
+
+  await putMatchRecord({
+    dotaMatchId: match.match_id,
+    gameId: null,
+    gameNumber: null,
+    radiantWin: match.radiant_win,
+    durationSeconds: match.duration,
+    radiantScore: match.radiant_score ?? null,
+    direScore: match.dire_score ?? null,
+    startedAt: new Date(match.start_time * 1000).toISOString(),
+    gameMode: match.game_mode ?? null,
+    lobbyType: match.lobby_type ?? null,
+    leagueId: match.leagueid ?? null,
+    roster: await buildRoster(match),
+    parseState: parsedAlready ? 'parsed' : 'unparsed',
+    parseJobId: null,
+    parseRequestedAt: null,
+    parsedAt: parsedAlready ? nowIso : null,
+    ingestedAt: nowIso,
+    updatedAt: nowIso,
+  });
+
+  if (!parsedAlready) {
+    const job = await requestParse(match.match_id);
+    await patchMatchRecord(match.match_id, {
+      parseState: 'requested',
+      parseJobId: job?.jobId ?? null,
+      parseRequestedAt: nowIso,
+    });
+  }
+
+  return 'ingested';
+}
+
+/**
+ * Walk a league's match list and ingest whatever is missing.
+ *
+ * Bounded per call, because a long-running league is hundreds of matches and
+ * each one is a separate OpenDota fetch. Returns how far it got so the caller
+ * can run it again — the dedupe is a document get, so re-running is cheap and
+ * picks up where it left off.
+ */
+export async function backfillLeague(
+  leagueId: number,
+  limit = 25,
+): Promise<{ found: number; ingested: number; skipped: number; failed: number }> {
+  const matches = await fetchLeagueMatches(leagueId);
+  if (!matches) return { found: 0, ingested: 0, skipped: 0, failed: 0 };
+
+  let ingested = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const summary of matches) {
+    if (ingested + failed >= limit) break;
+    const outcome = await ingestLeagueMatch(summary.match_id);
+    if (outcome === 'ingested') ingested++;
+    else if (outcome === 'skipped') skipped++;
+    else failed++;
+  }
+
+  return { found: matches.length, ingested, skipped, failed };
+}
+
+/**
  * Phase 2 — check whether a requested parse has landed, and fold it in.
  *
  * Called by the cron sweep, once per pending record per run. Deliberately does
@@ -207,7 +295,7 @@ export async function ingestFinishedMatch(
 export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiting' | 'gave_up'> {
   const age = Date.now() - Date.parse(record.ingestedAt);
   if (age > PARSE_GIVE_UP_MS) {
-    await patchMatchRecord(record.gameId, { parseState: 'unavailable' });
+    await patchMatchRecord(record.dotaMatchId, { parseState: 'unavailable' });
     return 'gave_up';
   }
 
@@ -226,7 +314,7 @@ export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiti
     // Ask again; `unparsed` is what the sweep retries.
     if (record.parseState === 'requested') {
       const job = await requestParse(record.dotaMatchId);
-      await patchMatchRecord(record.gameId, {
+      await patchMatchRecord(record.dotaMatchId, {
         parseJobId: job?.jobId ?? null,
         parseRequestedAt: new Date().toISOString(),
       });
@@ -234,8 +322,17 @@ export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiti
     return 'waiting';
   }
 
-  await foldInAwards(record.gameId, fetched.match);
-  await patchMatchRecord(record.gameId, {
+  // Re-extract stats: the parse is precisely what makes the second half of the
+  // whitelist exist, so the roster written at ingestion is missing them.
+  const roster = record.roster.map((entry, i) => {
+    const player = fetched.match.players[i];
+    if (!player) return entry;
+    return { ...entry, stats: extractStats(player as Record<string, unknown>) };
+  });
+
+  if (record.gameId) await foldInAwards(record.gameId, fetched.match);
+  await patchMatchRecord(record.dotaMatchId, {
+    roster,
     parseState: 'parsed',
     parsedAt: new Date().toISOString(),
   });

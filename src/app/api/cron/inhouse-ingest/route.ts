@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
       const game = doc.data() as InhouseGame;
       if (!game.dotaMatchId) continue;
-      if (await getMatchRecord(game.id)) continue;
+      if (await getMatchRecord(game.dotaMatchId)) continue;
 
       const outcome = await ingestFinishedMatch(game.id, game.dotaMatchId);
       if (outcome.status === 'ingested') ingested.push(game.id);
@@ -85,8 +85,9 @@ export async function GET(request: Request) {
     // ── Pass 2: records waiting on a replay parse ──
     for (const record of await listAwaitingParse(PARSE_LIMIT)) {
       const outcome = await checkParse(record);
-      if (outcome === 'parsed') parsed.push(record.gameId);
-      else if (outcome === 'gave_up') gaveUp.push(record.gameId);
+      const label = record.gameId ?? `match:${record.dotaMatchId}`;
+      if (outcome === 'parsed') parsed.push(label);
+      else if (outcome === 'gave_up') gaveUp.push(label);
     }
 
     return NextResponse.json(

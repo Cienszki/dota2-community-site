@@ -7,7 +7,6 @@
 // is safe to import from both the SSE route and client components.
 
 import type { GameState, SlotSnapshot } from './core/types';
-import { spectateUrl } from './display';
 
 /** What a signed-out visitor is allowed to know about a game. */
 export interface PublicGame {
@@ -28,12 +27,6 @@ export interface PublicGame {
    * slot snapshot carries Steam IDs only, and a Steam ID is not a name.
    */
   roster: string[];
-  /**
-   * `steam://` link that launches Dota into spectating this game, or null when
-   * the game isn't running or no league is configured. Derived server-side so
-   * the league ID itself never crosses to the client.
-   */
-  spectateUrl: string | null;
   /**
    * Dota match ID, once the match has launched. Safe to publish — these are
    * league games, so the match is publicly retrievable by design, and this is
@@ -104,9 +97,6 @@ export function toPublicGame(g: GameLike, roster: string[] = []): PublicGame {
     initiatorName: g.initiatorName,
     lobbyName: g.lobbyName ?? null,
     roster,
-    // Only while the match is actually running — a link that launches Dota into
-    // an empty league feed is worse than no link.
-    spectateUrl: g.state === 'in_progress' ? spectateUrl(g.settings.leagueId ?? 0) : null,
     dotaMatchId: g.dotaMatchId ?? null,
     state: g.state,
     newcomerFriendly: g.newcomerFriendly,

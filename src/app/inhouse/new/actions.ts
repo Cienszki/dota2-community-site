@@ -69,7 +69,22 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
 
     const lobbyName = randomLobbyName(taken);
     const lobbyPassword = lobbyConfig.password || null;
-    await store.updateGame(game.id, { lobbyName, lobbyPassword });
+
+    // Website lobbies are public from the moment they exist.
+    //
+    // Unpublished exists so a host can choose who to hear about a game first,
+    // and that is a Discord affordance — someone who opened a lobby from the
+    // public board has already decided it is for everyone. Leaving it private
+    // meant a host pressed one button, saw an empty board, and never realised a
+    // second press was needed while the lobby held a bot account.
+    const nowPublished = new Date().toISOString();
+    await store.updateGame(game.id, {
+      lobbyName,
+      lobbyPassword,
+      published: true,
+      publishedAt: nowPublished,
+      publishedByDiscordId: viewer.discordId,
+    });
 
     // Leasing must be transactional or two games claim the same account and one
     // silently never gets a lobby (§5.4). leaseAccount handles that.
@@ -95,10 +110,13 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
     // Everything the worker needs to open the lobby travels with the command.
     // The game document stays authoritative — this is so the create contract is
     // one legible payload rather than an implied second read.
+    // `published: true` here is what makes the worker open the lobby as Public,
+    // so it is findable in Dota's in-game browser straight away.
     await requestLobbyCreation({
       ...game,
       lobbyName,
       lobbyPassword,
+      published: true,
       botAccountId: lease.botAccountId,
       settings,
     });

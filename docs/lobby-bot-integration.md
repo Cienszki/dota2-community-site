@@ -42,11 +42,12 @@ part that doesn't yet. In priority order:
 | 1 | **Stop ingesting match results.** Don't call `ingestMatchResult` / `writeMatchResult` any more. Write `dotaMatchId` and POST the webhook instead. | While both sides ingest, every player's `gamesPlayed` counts each match **twice**. The attendance ledger survives it; the counters don't. | [§4](#4-match-end--the-website-owns-ingestion) |
 | 2 | **Use the `lobbyName` and `lobbyPassword` the website already wrote.** Only generate your own when they are null — and write what you generated back. | The site shows the name it assigned. If you overwrite it, players search Dota's lobby browser for a lobby that doesn't exist under that name — and that is how most people join. | [§2.1](#21-create_inhouse_lobby) |
 | 3 | **Make `slotSnapshot.inLobby` and `reserved` disjoint and sum to `committed`.** | The lobby card paints a ten-segment ring: red per player in the lobby, amber per held slot. If they overlap the ring disagrees with the number in its own middle. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
-| 4 | **Touch the game document whenever anything the site renders changes** — including a side swap or a `displayName` refresh, not only when the head-count moves. | The website re-reads `memberships` only when the game document changes. Fingerprint `slotSnapshot` too narrowly and the visible player list goes stale. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
+| 4 | **Don't let `publishGateGames` block a website lobby.** The site publishes on the host's behalf at creation, for anyone. | A first-time host would otherwise create a lobby that silently refuses to go public. Set the gate to 0 in the admin panel and don't enforce it on the website path. | [§3](#3-what-the-website-expects-you-to-write) |
+| 5 | **Touch the game document whenever anything the site renders changes** — including a side swap or a `displayName` refresh, not only when the head-count moves. | The website re-reads `memberships` only when the game document changes. Fingerprint `slotSnapshot` too narrowly and the visible player list goes stale. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
 
-Nothing else in here needs work on your side today. Items 1 and 2 are the two
-that produce visibly wrong behaviour; 3 and 4 produce subtly wrong behaviour,
-which is worse to debug later.
+Items 1, 2 and 4 produce visibly wrong behaviour; 3 and 5 produce subtly wrong
+behaviour, which is worse to debug later. Immortal Draft is a sixth, and the
+field name you were missing is in [§9.4](#94-immortal-draft--the-field-is-do_player_draft).
 
 ---
 
@@ -127,7 +128,7 @@ the only command that carries a full payload.
     "dotaTvDelay": 120,          // seconds; one of 10 / 120 / 300 / 900
     "leagueId": 18234,           // 0 means "not configured" — see §9.3
     "selectionPriorityRules": 1, // 0 = manual, 1 = coin flip
-    "published": false,
+    "published": true,          // always true from the website; see below
     "cheatsEnabled": false,
     "fillWithBots": false,
     "allowSpectators": true,
@@ -148,6 +149,12 @@ loggable and replayable on its own.
 published === false  →  Unlisted (2)
 published === true   →  Public   (0)
 ```
+
+Note that **every lobby created from the website now arrives with
+`published: true`**, so in practice `lobby.published` is true on every
+`create_inhouse_lobby` you receive and the lobby should be Public from the
+moment it exists. Unpublished lobbies still happen — they are the Discord path,
+where a host chooses who to tell first — so keep handling both.
 
 The password gates entry either way; visibility only controls whether the lobby
 is discoverable in the in-game browser.
@@ -590,7 +597,64 @@ URL is **unverified** — there is no Valve-documented way to spectate a specifi
 match, and the league convar is the only surviving mechanism. If you know a
 better handle, say so and the website will use it instead.
 
-### 9.4 No web "start game" button
+### 9.4 Immortal Draft — the field is `do_player_draft`
+
+You asked how to set it. Valve's internal name is **Player Draft**, which is why
+searching for "immortal draft" in the protobufs finds nothing.
+
+From
+[`dota_gcmessages_client_match_management.proto`](https://github.com/SteamDatabase/GameTracking-Dota2/blob/master/Protobufs/dota_gcmessages_client_match_management.proto):
+
+```proto
+message CMsgPracticeLobbySetDetails {
+  …
+  optional .DOTASelectionPriorityRules selection_priority_rules = 46
+      [default = k_DOTASelectionPriorityRules_Manual];
+  …
+  optional bool do_player_draft = 53;      // ← Immortal Draft
+}
+```
+
+And the enum it interacts with, from `dota_shared_enums.proto`:
+
+```proto
+enum DOTASelectionPriorityRules {
+  k_DOTASelectionPriorityRules_Manual    = 0;
+  k_DOTASelectionPriorityRules_Automatic = 1;   // coin flip
+}
+```
+
+The same flag is observable after the fact as `is_player_draft` on
+`CMsgDOTAMatchMinimal` and the realtime-stats messages, which is a convenient
+way to confirm a lobby actually got created with it.
+
+**Why it doesn't work today.** `dota2@6.2.0` bundles an older schema that has no
+field 53, so `settings.immortalDraft` is stored and displayed by both halves and
+never reaches the GC. Two ways out, both yours to choose:
+
+- regenerate the protobufs from SteamDatabase's tracking repo (they are kept
+  current), or
+- add just field 53 to the bundled `CMsgPracticeLobbySetDetails` — it is an
+  `optional bool`, so this is wire-compatible and a much smaller change.
+
+**Constraints to verify against a live GC.** You mentioned Immortal Draft and
+coin-flip selection priority being mutually exclusive. The protobufs encode no
+such rule — they are independent fields — so if the constraint is real it is
+enforced by the GC or only by the client UI, and the failure mode matters: a GC
+that silently ignores `do_player_draft` when `selection_priority_rules = 1` is
+very different from one that rejects the lobby. Worth one experiment:
+
+1. `do_player_draft = true`, `selection_priority_rules = 0` (manual)
+2. `do_player_draft = true`, `selection_priority_rules = 1` (coin flip)
+
+and read back `is_player_draft` on the resulting match in each case. Tell us
+which combinations hold and the admin panel will refuse the invalid ones rather
+than letting an admin configure a lobby the GC will quietly reshape.
+
+Worth checking `game_mode` too — the client only offers the checkbox for some
+modes, and the website's default is All Pick (22).
+
+### 9.5 No web "start game" button
 
 Deliberate. `!start` requires a 5/5 split and can fail for reasons the website
 cannot see, so a web button would fail opaquely. If you want one, tell us what

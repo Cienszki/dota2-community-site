@@ -49,11 +49,12 @@ export function regionName(serverRegion: number): string {
 /**
  * A `steam://` link that launches Dota 2 straight into spectating this league.
  *
- * There is no Valve-documented URL for "spectate match #N" — the only surviving
- * mechanism is the `dota_spectator_auto_spectate_games` convar, which takes a
- * league ID and picks up that league's live game. Inhouse games are league
- * games (that is what makes their results publicly retrievable at all), so the
- * league ID is exactly the handle we have.
+ * NOT CURRENTLY USED — spectating is deferred to a later version and nothing
+ * renders this. Kept because the research is the hard part: there is no
+ * Valve-documented URL for "spectate match #N", and the
+ * `dota_spectator_auto_spectate_games` convar, which takes a league ID and
+ * picks up that league's live game, is the only surviving mechanism. Never
+ * verified against a real client.
  *
  * Returns null when no league is configured, since the convar would then have
  * nothing to latch onto and the button would silently do nothing.

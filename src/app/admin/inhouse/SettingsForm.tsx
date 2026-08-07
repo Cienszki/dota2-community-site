@@ -107,11 +107,13 @@ export default function SettingsForm({ initial }: { initial: ResolvedSettings })
           <Check name="allowSpectators" label="Obserwatorzy" checked={initial.allowSpectators} />
           <Check name="cheatsEnabled" label="Cheaty" checked={initial.cheatsEnabled} />
           <Check name="fillWithBots" label="Wypełnij botami" checked={initial.fillWithBots} />
-          <Check name="immortalDraft" label="Immortal Draft (nieaktywne)" checked={initial.immortalDraft} />
+          <Check name="immortalDraft" label="Immortal Draft" checked={initial.immortalDraft} />
         </div>
         <p className="text-slate-600 text-xs mt-3">
-          Immortal Draft jest zapisywany i wyświetlany, ale schemat Game Coordinatora w bibliotece bota
-          nie ma na niego pola — do lobby nie trafia.
+          Immortal Draft nie działa, dopóki bot nie zaktualizuje schematu Game Coordinatora — pole
+          nazywa się <code className="text-slate-400">do_player_draft</code> i biblioteka bota jest
+          na nie za stara. Wartość jest zapisywana i przekazywana, więc zadziała sama, gdy bot
+          nadgoni.
         </p>
       </Section>
 
