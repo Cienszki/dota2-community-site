@@ -57,9 +57,6 @@ export default function InhouseBoard({
           const data = (await res.json()) as { live?: PublicGame[]; recent?: PublicGame[] };
           if (cancelled) return;
           setLive(data.live ?? []);
-          // Only the polling path refreshes the finished list — SSE carries
-          // live games alone. A match that ends between polls leaves the cards
-          // and reappears in history on the next tick or navigation.
           if (data.recent) setRecent(data.recent);
         } catch {
           /* keep trying on the next tick */
@@ -73,9 +70,13 @@ export default function InhouseBoard({
       es = new EventSource('/api/inhouse/live');
       es.onmessage = (e) => {
         try {
-          const data = JSON.parse(e.data) as PublicGame[];
+          // Same { live, recent } shape as the polling response — the SSE feed
+          // now carries a finished match into history the moment it lands,
+          // instead of leaving it to the next poll or navigation.
+          const data = JSON.parse(e.data) as { live?: PublicGame[]; recent?: PublicGame[] };
           if (!cancelled) {
-            setLive(data);
+            setLive(data.live ?? []);
+            if (data.recent) setRecent(data.recent);
             setConnected(true);
           }
         } catch {

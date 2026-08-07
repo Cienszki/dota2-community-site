@@ -25,24 +25,50 @@ export const BOARD_STATES = ['open', 'ready', 'in_progress'] as const;
 /** Board states in which a game is still taking players. */
 export const RECRUITING_STATES: readonly string[] = ['open', 'ready'];
 
-type Listener = (games: PublicGame[]) => void;
+/** How many recently-finished games the "recent" side tracks — matches the
+ *  one-shot `listRecentFinishedGames` limit `getBoard()` already used, so SSE,
+ *  polling and the SSR snapshot all agree on how much history is "live". */
+const RECENT_LIMIT = 12;
 
-let current: PublicGame[] = [];
-let hasData = false;
-let started = false;
-let latestGeneration = 0;
-let unsub: (() => void) | null = null;
+export interface BoardSnapshot {
+  live: PublicGame[];
+  recent: PublicGame[];
+}
+
+type Listener = (board: BoardSnapshot) => void;
+
+let currentLive: PublicGame[] = [];
+let currentRecent: PublicGame[] = [];
+let hasLiveData = false;
+let hasRecentData = false;
+let startedLive = false;
+let startedRecent = false;
+let latestLiveGeneration = 0;
+let unsubLive: (() => void) | null = null;
+let unsubRecent: (() => void) | null = null;
 const listeners = new Set<Listener>();
 
 function sortNewestFirst(a: PublicGame, b: PublicGame): number {
   return b.createdAt.localeCompare(a.createdAt);
 }
 
-function ensureStarted(): void {
-  if (started) return;
-  started = true;
+function notify(): void {
+  if (!hasLiveData && !hasRecentData) return;
+  const snapshot: BoardSnapshot = { live: currentLive, recent: currentRecent };
+  for (const l of listeners) {
+    try {
+      l(snapshot);
+    } catch {
+      /* one bad listener must not break the fan-out */
+    }
+  }
+}
+
+function ensureLiveStarted(): void {
+  if (startedLive) return;
+  startedLive = true;
   try {
-    unsub = getDb()
+    unsubLive = getDb()
       .collection('inhouseGames')
       .where('published', '==', true)
       .where('state', 'in', [...BOARD_STATES])
@@ -52,50 +78,84 @@ function ensureStarted(): void {
           // Snapshots are sequenced with a generation counter rather than
           // awaited in order: a slow roster read must not be able to overwrite
           // a newer slot picture with a stale one.
-          const generation = ++latestGeneration;
+          const generation = ++latestLiveGeneration;
           void toPublicGames(snap.docs.map((d) => d.data() as InhouseGame))
             .then((games) => {
-              if (generation !== latestGeneration) return;
-              current = games.sort(sortNewestFirst);
-              hasData = true;
-              for (const l of listeners) {
-                try {
-                  l(current);
-                } catch {
-                  /* one bad listener must not break the fan-out */
-                }
-              }
+              if (generation !== latestLiveGeneration) return;
+              currentLive = games.sort(sortNewestFirst);
+              hasLiveData = true;
+              notify();
             })
             .catch((err) => console.error('inhouse live projection failed', err));
         },
         (err) => {
           console.error('inhouse live listener error', err);
           // Allow a later subscriber to restart the listener.
-          started = false;
-          hasData = false;
-          unsub?.();
-          unsub = null;
+          startedLive = false;
+          hasLiveData = false;
+          unsubLive?.();
+          unsubLive = null;
         },
       );
   } catch (err) {
     console.error('inhouse live listener failed to start', err);
-    started = false;
+    startedLive = false;
+  }
+}
+
+/**
+ * A finished match leaves `BOARD_STATES` the instant its state flips, so
+ * without a live view of "recent" too, it simply vanished from the board until
+ * the next poll or navigation — SSE only ever carried `live`. Bounded to
+ * `RECENT_LIMIT` docs, so this stays cheap: Firestore only re-evaluates the
+ * `limit()` window on a change, not every finished game ever played. Same
+ * query `listRecentFinishedGames` already runs, so no new composite index.
+ */
+function ensureRecentStarted(): void {
+  if (startedRecent) return;
+  startedRecent = true;
+  try {
+    unsubRecent = getDb()
+      .collection('inhouseGames')
+      .where('state', '==', 'finished')
+      .orderBy('endedAt', 'desc')
+      .limit(RECENT_LIMIT)
+      .onSnapshot(
+        (snap) => {
+          // Finished games show a result, not a live roster, so this skips the
+          // per-game membership read `toPublicGames` does for the live side.
+          currentRecent = snap.docs.map((d) => toPublicGame(d.data() as InhouseGame));
+          hasRecentData = true;
+          notify();
+        },
+        (err) => {
+          console.error('inhouse recent listener error', err);
+          startedRecent = false;
+          hasRecentData = false;
+          unsubRecent?.();
+          unsubRecent = null;
+        },
+      );
+  } catch (err) {
+    console.error('inhouse recent listener failed to start', err);
+    startedRecent = false;
   }
 }
 
 /**
  * Subscribe to live board updates. Pushes the current snapshot immediately if
- * one has already arrived (so a fresh SSE connection isn't blank), then on
- * every change. Returns an unsubscribe.
+ * either side has already arrived (so a fresh SSE connection isn't blank),
+ * then again whenever either side changes. Returns an unsubscribe.
  */
 export function subscribeBoard(listener: Listener): () => void {
-  ensureStarted();
+  ensureLiveStarted();
+  ensureRecentStarted();
   listeners.add(listener);
-  if (hasData) listener(current);
+  if (hasLiveData || hasRecentData) listener({ live: currentLive, recent: currentRecent });
   return () => {
     listeners.delete(listener);
-    // Deliberately keep the single onSnapshot alive between connections — it is
-    // cheap, and tearing it down on every disconnect would churn listeners.
+    // Deliberately keep both onSnapshots alive between connections — cheap,
+    // and tearing them down on every disconnect would churn listeners.
   };
 }
 
@@ -121,7 +181,7 @@ export async function getBoard(): Promise<{ live: PublicGame[]; recent: PublicGa
   const store = getInhouseStore();
   const [live, recent] = await Promise.all([
     listBoardGames(),
-    store.listRecentFinishedGames(12),
+    store.listRecentFinishedGames(RECENT_LIMIT),
   ]);
   const [livePublic, recentPublic] = await Promise.all([
     toPublicGames(live),
