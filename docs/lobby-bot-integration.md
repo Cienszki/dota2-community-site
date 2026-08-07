@@ -16,16 +16,58 @@ you haven't; the invariants in it are easy to break by accident.
 
 ## Contents
 
+- [0. Start here — what you must change](#0-start-here--what-you-must-change)
+- [0a. Configuration you need](#0a-configuration-you-need)
 - [1. The two channels](#1-the-two-channels)
 - [2. Commands the website sends](#2-commands-the-website-sends)
 - [3. What the website expects you to write](#3-what-the-website-expects-you-to-write)
-- [3a. Match end — the website now owns ingestion](#3a-match-end--the-website-now-owns-ingestion)
-- [4. The lobby lifecycle, end to end](#4-the-lobby-lifecycle-end-to-end)
-- [5. Reservations and the waitlist](#5-reservations-and-the-waitlist)
-- [6. Account leasing](#6-account-leasing)
-- [6a. Player identity and linking](#6a-player-identity-and-linking)
-- [7. Open items — decisions needed from you](#7-open-items--decisions-needed-from-you)
-- [8. Testing without the website](#8-testing-without-the-website)
+- [4. Match end — the website owns ingestion](#4-match-end--the-website-owns-ingestion)
+- [5. The lobby lifecycle, end to end](#5-the-lobby-lifecycle-end-to-end)
+- [6. Reservations and the waitlist](#6-reservations-and-the-waitlist)
+- [7. Account leasing](#7-account-leasing)
+- [8. Player identity and linking](#8-player-identity-and-linking)
+- [9. Open items — decisions needed from you](#9-open-items--decisions-needed-from-you)
+- [10. Testing without the website](#10-testing-without-the-website)
+- [Appendix: what we rely on from OpenDota](#appendix-what-we-rely-on-from-opendota)
+
+---
+
+## 0. Start here — what you must change
+
+Most of this document describes a seam that already works. This section is the
+part that doesn't yet. In priority order:
+
+| # | Change | Why it blocks | Where |
+|---|---|---|---|
+| 1 | **Stop ingesting match results.** Don't call `ingestMatchResult` / `writeMatchResult` any more. Write `dotaMatchId` and POST the webhook instead. | While both sides ingest, every player's `gamesPlayed` counts each match **twice**. The attendance ledger survives it; the counters don't. | [§4](#4-match-end--the-website-owns-ingestion) |
+| 2 | **Use the `lobbyName` and `lobbyPassword` the website already wrote.** Only generate your own when they are null — and write what you generated back. | The site shows the name it assigned. If you overwrite it, players search Dota's lobby browser for a lobby that doesn't exist under that name — and that is how most people join. | [§2.1](#21-create_inhouse_lobby) |
+| 3 | **Make `slotSnapshot.inLobby` and `reserved` disjoint and sum to `committed`.** | The lobby card paints a ten-segment ring: red per player in the lobby, amber per held slot. If they overlap the ring disagrees with the number in its own middle. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
+| 4 | **Touch the game document whenever anything the site renders changes** — including a side swap or a `displayName` refresh, not only when the head-count moves. | The website re-reads `memberships` only when the game document changes. Fingerprint `slotSnapshot` too narrowly and the visible player list goes stale. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
+
+Nothing else in here needs work on your side today. Items 1 and 2 are the two
+that produce visibly wrong behaviour; 3 and 4 produce subtly wrong behaviour,
+which is worse to debug later.
+
+---
+
+## 0a. Configuration you need
+
+Two values, and one of them is new.
+
+| Setting | Value | Notes |
+|---|---|---|
+| Firestore project | The same one you already use | Nothing changes; the website uses the Admin SDK against it |
+| `SITE_URL` | e.g. `https://pd2ih.pl` | Must match the website's `NEXT_PUBLIC_SITE_URL` exactly — www/non-www drift breaks OAuth returns |
+| `INHOUSE_BOT_WEBHOOK_SECRET` | **New.** A shared secret | Sent as `Authorization: Bearer <secret>` on the match-finished webhook. Same value on both sides |
+
+Generate one with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+The website will not accept the webhook at all until this is set on its side —
+it fails closed, so an unset secret is a 401 rather than an open endpoint.
 
 ---
 
@@ -83,7 +125,7 @@ the only command that carries a full payload.
     "gameMode": 22,              // DOTA_GameMode
     "serverRegion": 3,           // EServerRegion
     "dotaTvDelay": 120,          // seconds; one of 10 / 120 / 300 / 900
-    "leagueId": 18234,           // 0 means "not configured" — see §7.2
+    "leagueId": 18234,           // 0 means "not configured" — see §9.3
     "selectionPriorityRules": 1, // 0 = manual, 1 = coin flip
     "published": false,
     "cheatsEnabled": false,
@@ -281,7 +323,7 @@ it; a reservation is not a player.
 
 ### 3.4 Result ingestion — no longer yours
 
-See [§3a](#3a-match-end--the-website-now-owns-ingestion). The only field you
+See [§4](#4-match-end--the-website-owns-ingestion). The only field you
 still need to write at match end is `dotaMatchId`.
 
 ### 3.5 Settings changed from lobby chat
@@ -293,7 +335,7 @@ mode nobody is playing.
 
 ---
 
-## 3a. Match end — the website now owns ingestion
+## 4. Match end — the website owns ingestion
 
 > **This is a behaviour change.** Today `core/attendance.ts` runs inside the
 > worker: on lobby teardown it polls the Steam Web API, writes the attendance
@@ -306,7 +348,7 @@ mode nobody is playing.
 > `(gameId, steamId32)` — but **the player counters are not idempotent**, and
 > double ingestion inflates everyone's `gamesPlayed`.
 
-### 3a.1 What you do instead
+### 4.1 What you do instead
 
 When the match ends and you have the match ID:
 
@@ -325,7 +367,7 @@ Content-Type: application/json
 
 That is the whole contract. No ledger, no counters, no OpenDota, no awards.
 
-### 3a.2 Responses
+### 4.2 Responses
 
 | Status | Body `status` | Meaning |
 |---|---|---|
@@ -341,14 +383,14 @@ worth it; beyond that, let the sweep handle it.
 
 The call is idempotent, so at-least-once delivery is fine and preferred.
 
-### 3a.3 If the webhook never lands
+### 4.3 If the webhook never lands
 
 It is a fast path, not a dependency. A cron sweep on the website looks for any
 game in `in_progress` or `finished` that has a `dotaMatchId` but no match
 record, and ingests it. So the minimum you must do is **write `dotaMatchId`** —
 the webhook only makes it prompt instead of within-the-hour.
 
-### 3a.4 What the website does with it
+### 4.4 What the website does with it
 
 Worth knowing, because it explains what it needs from you:
 
@@ -367,11 +409,11 @@ Worth knowing, because it explains what it needs from you:
    minutes, hours, or never. Nothing waits on it.
 
 Since these are league matches, the roster comes back complete. `leagueId: 0`
-breaks step 1 entirely — see §7.2.
+breaks step 1 entirely — see §9.3.
 
 ---
 
-## 4. The lobby lifecycle, end to end
+## 5. The lobby lifecycle, end to end
 
 What the website does, in order, when someone presses **Otwórz lobby**:
 
@@ -393,7 +435,7 @@ gateway watches), players join, and you drive the game through to `finished`.
 
 ---
 
-## 5. Reservations and the waitlist
+## 6. Reservations and the waitlist
 
 The **website** creates reservations, inside a Firestore transaction that
 re-checks `committed < 10` (`inhouseGames/{id}/reservations/{discordId}`, with
@@ -414,7 +456,7 @@ The reservation TTL is `game.settings.reservationTtlSeconds` (default 300).
 
 ---
 
-## 6. Account leasing
+## 7. Account leasing
 
 `botAccounts/{id}`, fields the website reads and writes:
 
@@ -437,11 +479,11 @@ game and sends you `end_inhouse_session` first, then marks the account idle.
 
 ---
 
-## 6a. Player identity and linking
+## 8. Player identity and linking
 
 One person, one profile, whichever surface they used.
 
-### 6a.1 The player object
+### 8.1 The player object
 
 `inhousePlayers/{discordId}` — keyed on Discord ID, because that is the stable
 profile key. Everything you need is on it:
@@ -464,7 +506,7 @@ profile key. Everything you need is on it:
 `gamesPlayed` is maintained by ingestion — now the website's job (§3a). Don't
 increment it yourself, or it double-counts.
 
-### 6a.2 Resolving a Steam ID to a person
+### 8.2 Resolving a Steam ID to a person
 
 **Always `array-contains`, never equality:**
 
@@ -482,7 +524,7 @@ that is the majority case. Don't treat a missing document as an error. Their
 Steam ID still gets a membership row, still gets attendance, and still gets
 retroactive credit if they link later.
 
-### 6a.3 Linking — three entry points, one write
+### 8.3 Linking — three entry points, one write
 
 | Entry point | Who runs it | `linkSource` |
 |---|---|---|
@@ -511,7 +553,7 @@ by a different Discord profile, and triggers the retroactive backfill that
 stamps the new Discord ID onto that Steam ID's historical attendance rows. All
 three of those are easy to get wrong by hand.
 
-### 6a.4 Names
+### 8.4 Names
 
 Refresh `membership.displayName` and `player.discordName` whenever you see a
 current value. That nickname is the name every surface prefers — the website's
@@ -520,23 +562,23 @@ persona, and the website has no other way to learn it.
 
 ---
 
-## 7. Open items — decisions needed from you
+## 9. Open items — decisions needed from you
 
-### 7.1 Honouring `lobbyName` / `lobbyPassword`
+### 9.1 Honouring `lobbyName` / `lobbyPassword`
 
 Blocking. See the callout in §2.1. Until the worker uses the values the website
 wrote, the lobby name shown on the site will not be the name in Dota's browser,
 which breaks the primary join path.
 
-### 7.1a Stop ingesting results
+### 9.2 Stop ingesting results
 
-Blocking, and the one with a data-corruption failure mode. See §3a: stop calling
+Blocking, and the one with a data-corruption failure mode. See §4: stop calling
 `ingestMatchResult` / `writeMatchResult`, write `dotaMatchId`, call the webhook.
 While both sides ingest, every player's `gamesPlayed` counts each match twice.
 
 Needs a shared secret — `INHOUSE_BOT_WEBHOOK_SECRET`, same value both sides.
 
-### 7.2 League ID 0
+### 9.3 League ID 0
 
 `leagueId: 0` means the admin hasn't configured one. The lobby still runs, but
 the match is not publicly retrievable, which breaks the attendance ledger, match
@@ -548,7 +590,7 @@ URL is **unverified** — there is no Valve-documented way to spectate a specifi
 match, and the league convar is the only surviving mechanism. If you know a
 better handle, say so and the website will use it instead.
 
-### 7.3 No web "start game" button
+### 9.4 No web "start game" button
 
 Deliberate. `!start` requires a 5/5 split and can fail for reasons the website
 cannot see, so a web button would fail opaquely. If you want one, tell us what
@@ -556,7 +598,7 @@ preconditions you can expose on the game document and we'll gate on those.
 
 ---
 
-## 8. Testing without the website
+## 10. Testing without the website
 
 Every website action is a Firestore write, so you can drive the whole flow from
 a script or the console.
@@ -596,3 +638,47 @@ filters on exactly that (invariant 0.1). Then write a `slotSnapshot` and some
 Worth asserting once, early: create an **unpublished** game in state `open`, hit
 every public route, and confirm it appears nowhere. Then publish it and confirm
 it appears.
+
+To exercise ingestion without playing a match, set `dotaMatchId` to any real
+public match id and call the webhook. The website resolves it from OpenDota like
+any other — the roster won't match your lobby, but every code path runs.
+
+---
+
+## Appendix: what we rely on from OpenDota
+
+Recorded because it is the website's only source for match facts now, and
+because two of these are not obvious. All verified against the live API.
+
+| Call | Used for |
+|---|---|
+| `GET /api/matches/{match_id}` | Winner, duration, kill score, roster, heroes, `leaver_status` |
+| `POST /api/request/{match_id}` | Asking for a replay parse. Returns `{"job":{"jobId":…}}` |
+| `GET /api/request/{jobId}` | Job still queued, or `null` once it is gone |
+
+Two things worth knowing:
+
+- **A replay is not parsed unless someone asks.** This is the step that was
+  missing before: without the POST, the parsed fields the silly awards need may
+  never exist for our matches. The website now requests a parse for every game
+  it ingests.
+- **`version` is the readiness flag.** Non-null means the replay parsed. A 200
+  response is not enough on its own — OpenDota answers 200 with a near-empty body
+  for a match it has heard of but not yet ingested, so an empty `players` array
+  means "try again", not "no such match".
+
+Replays expire from Valve's servers after roughly two weeks, so a parse
+requested much later than that never succeeds. The website gives up on a pending
+parse after ten days and marks the record `unavailable`.
+
+Fields we read today: `match_id`, `radiant_win`, `duration`, `start_time`,
+`radiant_score`, `dire_score`, `game_mode`, `lobby_type`, `leagueid`, `version`,
+and per player `account_id`, `player_slot`, `hero_id`, `personaname`,
+`leaver_status`. Per-player performance stats (KDA, GPM, net worth) are
+deliberately **not** collected yet — the schema has a slot for them, and which
+ones to keep is an open product decision.
+
+Note `account_id` is absent for private profiles. Those players keep their slot
+in the match record but get no attendance row, because nothing can be attributed
+to them. In league matches this is rare; in public ones it can be most of the
+lobby.

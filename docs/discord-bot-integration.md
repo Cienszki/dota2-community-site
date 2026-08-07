@@ -15,6 +15,7 @@ the lobby worker. General design rules:
 
 ## Contents
 
+- [0. Start here — what you must change](#0-start-here--what-you-must-change)
 - [1. How the website reaches you](#1-how-the-website-reaches-you)
 - [2. Events the website emits](#2-events-the-website-emits)
 - [3. Document writes you should react to](#3-document-writes-you-should-react-to)
@@ -22,6 +23,23 @@ the lobby worker. General design rules:
 - [5. Configuration the website owns](#5-configuration-the-website-owns)
 - [6. What the website shows, and what it needs from you](#6-what-the-website-shows-and-what-it-needs-from-you)
 - [7. Open items — decisions needed from you](#7-open-items--decisions-needed-from-you)
+
+---
+
+## 0. Start here — what you must change
+
+Far less than the lobby worker. Most of this seam already works; this is the
+part that doesn't.
+
+| # | Change | Why it matters | Where |
+|---|---|---|---|
+| 1 | **Handle `inhouse_ban_lifted`.** Add the case to the `onWorkerEvent` switch in `src/discord/watcher.ts` and call the `liftBan()` that already exists. | Today an unban restores lobby access but silently leaves the Discord role removed. The person is told they're unbanned and still can't see the channels. ~10 lines. | [§2.2](#22-inhouse_ban_lifted) |
+| 2 | **Confirm website-created games get a host panel.** Check whether your card/panel creation triggers off the game document appearing, or only off a Discord-initiated flow. | A host who opens a lobby at `/inhouse/new` gets no DM panel if it's the latter. The website deliberately sends no command for this — creation is a document write you already watch. | [§3.1](#31-games-created-from-the-website-need-a-host-panel) |
+| 3 | **Don't increment `gamesPlayed`.** Result ingestion moved to the website. | Double-counting if both sides do it. | [§4](#4-identity-and-linking) |
+| 4 | **Apply the open-lobby cap if you add a Discord create path.** | Otherwise the cap is bypassed by starting a game from Discord instead of the site. | [§5.1](#51-the-open-lobby-cap) |
+
+No new configuration is needed on your side. The webhook secret in the lobby-bot
+document is for the worker, not the gateway.
 
 ---
 
