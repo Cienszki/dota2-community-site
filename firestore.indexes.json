@@ -1,0 +1,53 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "inhouseGames",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "state", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseGames",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "endedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseGames",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "state", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseModeration",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "subjectSteamId32", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseModeration",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "subjectDiscordId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parseState", "order": "ASCENDING" },
+        { "fieldPath": "ingestedAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
