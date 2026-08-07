@@ -18,16 +18,43 @@ const RING_SEGMENTS = 10;
 const RING_SEG_DEG = 360 / RING_SEGMENTS; // 36°
 const RING_GAP_DEG = 5;
 
-/** Conic-gradient donut: one red arc per committed slot, faint for the rest. */
-function ringGradient(committed: number): string {
+const SEATED = '#E7000B'; // in the lobby right now
+const HELD = '#fbbf24'; // slot reserved, player hasn't walked in yet
+const EMPTY = 'rgba(255,255,255,0.1)';
+
+/**
+ * Conic-gradient donut, one arc per slot.
+ *
+ * Two colours, because "9/10" means two different things depending on how it
+ * is made up: red is someone standing in the lobby, amber is a slot being held
+ * for someone who pressed Join and hasn't arrived. A held slot can still lapse,
+ * so a card that painted both the same would promise a game that is readier
+ * than it is. The bot decides which is which — the website only renders the
+ * split it is given.
+ */
+function ringGradient(seated: number, held: number): string {
   const stops: string[] = [];
   for (let i = 0; i < RING_SEGMENTS; i++) {
     const start = i * RING_SEG_DEG;
     const end = start + RING_SEG_DEG - RING_GAP_DEG;
-    const color = i < committed ? '#E7000B' : 'rgba(255,255,255,0.1)';
+    const color = i < seated ? SEATED : i < seated + held ? HELD : EMPTY;
     stops.push(`${color} ${start}deg ${end}deg`, `transparent ${end}deg ${start + RING_SEG_DEG}deg`);
   }
   return `conic-gradient(from 0deg, ${stops.join(', ')})`;
+}
+
+/**
+ * Split `committed` into people present and slots merely held.
+ *
+ * `committed` is the number the card shows, and it counts both (§4.4). The
+ * seated count is preferred from `inLobby` and only derived by subtraction as a
+ * fallback, so a snapshot where the two disagree still renders something
+ * coherent rather than an over-long ring.
+ */
+function slotSplit(slots: PublicGame['slots'], committed: number): { seated: number; held: number } {
+  const held = Math.min(slots?.reserved?.length ?? 0, committed);
+  const seated = Math.min(slots?.inLobby?.length ?? committed - held, committed - held);
+  return { seated: Math.max(0, seated), held };
 }
 
 interface BadgeStyle {
@@ -68,24 +95,37 @@ export default function GameCard({ game }: { game: PublicGame }) {
   const committed = game.slots?.committed ?? 0;
   const slotsOpen = game.slots?.slotsOpen ?? Math.max(0, 10 - committed);
   const showRing = recruiting || inProgress;
+  const { seated, held } = slotSplit(game.slots, committed);
   const rows = chunk(game.roster, 5);
 
   return (
     <div className="relative bg-zinc-900/40 border border-white/10 hover:border-[#E7000B]/40 rounded-2xl p-5 backdrop-blur-md transition-colors">
       {/* header: host + state pill, and the committed ring */}
       <div className="flex items-start justify-between gap-3 mb-2 min-h-[40px]">
-        <h3 className="mt-0.5 min-w-0 flex items-center gap-2 text-[22px] font-bold text-white">
-          <span className="truncate">{game.initiatorName}</span>
-          <Pill badge={stateBadge(game.state)} />
-          {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
-        </h3>
+        <div className="min-w-0">
+          {/* The lobby name, not the host's — this is the string a player types
+              into Dota's lobby browser, so it is the one line on the card that
+              has a job beyond identification. */}
+          <h3 className="mt-0.5 min-w-0 flex items-center gap-2 text-[22px] font-bold text-white">
+            <span className="truncate">{game.lobbyName ?? game.initiatorName}</span>
+            <Pill badge={stateBadge(game.state)} />
+            {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
+          </h3>
+          {game.lobbyName && (
+            <p className="text-[11px] text-slate-500 truncate">host: {game.initiatorName}</p>
+          )}
+        </div>
 
         {showRing && (
-          <div className="relative shrink-0 -mt-2" style={{ width: 84, height: 84 }}>
+          <div
+            className="relative shrink-0 -mt-2"
+            style={{ width: 84, height: 84 }}
+            title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
+          >
             <div
               className="w-full h-full rounded-full"
               style={{
-                background: ringGradient(committed),
+                background: ringGradient(seated, held),
                 WebkitMask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
                 mask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
               }}
@@ -160,6 +200,10 @@ export default function GameCard({ game }: { game: PublicGame }) {
             {slotsOpen > 0
               ? `${slotsOpen} ${slotsOpen === 1 ? 'wolne miejsce' : 'wolnych miejsc'}`
               : 'Lobby pełne — kolejka'}
+            {/* Names the amber arcs, so the two-tone ring reads without a legend. */}
+            {held > 0 && (
+              <span className="font-normal text-amber-300/90"> · {held} zarezerwowane</span>
+            )}
           </p>
           {game.state === 'open' && (
             <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />

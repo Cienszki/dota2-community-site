@@ -5,6 +5,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getInhouseStore, resolveSettings, leaseAccount } from '@/lib/inhouse/store';
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import { randomLobbyName } from '@/lib/inhouse/lobby-names';
+import { countRecruitingLobbies, MAX_OPEN_LOBBIES } from '@/lib/inhouse/live';
 
 // Create a game from the website (§5.4, §7.3). One press: everything but the
 // host comes from admin defaults, so a first-time host opens a correctly
@@ -16,6 +17,7 @@ export type CreateResult =
   | { status: 'needs_link' }
   | { status: 'banned' }
   | { status: 'no_bots' }
+  | { status: 'too_many_open'; max: number }
   | { status: 'unavailable' }
   | { status: 'error' };
 
@@ -32,6 +34,14 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
   if (ban.banned) return { status: 'banned' };
 
   try {
+    // Two lobbies filling at once is already a stretch for the player pool; a
+    // third splits it three ways and none of them reach ten. Enforced here
+    // rather than only in the UI — this is the check that actually holds when
+    // two people press Create at the same moment.
+    if ((await countRecruitingLobbies()) >= MAX_OPEN_LOBBIES) {
+      return { status: 'too_many_open', max: MAX_OPEN_LOBBIES };
+    }
+
     const defaults = await store.getAdminDefaults();
     const settings = resolveSettings(defaults, { mode: 'inhouse' });
 

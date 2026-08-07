@@ -10,6 +10,25 @@ import type { InhouseGame } from './core/types';
 // concurrent-listener limits under any real traffic. The published filter is
 // invariant 0.1: an unpublished game must never reach the live board.
 
+/**
+ * States that belong on the board.
+ *
+ * `in_progress` is included so a running match keeps its place in the newest-
+ * first feed instead of vanishing between "filling" and "finished" — the board
+ * shows the three most recent games whatever they happen to be doing.
+ *
+ * The `published` filter still applies to all three (invariant 0.1). An
+ * unpublished in-progress game stays hidden: nobody can join it anyway.
+ */
+export const BOARD_STATES = ['open', 'ready', 'in_progress'] as const;
+
+/** Board states in which a game is still taking players. */
+export const RECRUITING_STATES: readonly string[] = ['open', 'ready'];
+
+/** How many lobbies may be recruiting at once before the site stops offering
+ *  to open another (§ product rule: two is enough, join one instead). */
+export const MAX_OPEN_LOBBIES = 2;
+
 type Listener = (games: PublicGame[]) => void;
 
 let current: PublicGame[] = [];
@@ -30,7 +49,7 @@ function ensureStarted(): void {
     unsub = getDb()
       .collection('inhouseGames')
       .where('published', '==', true)
-      .where('state', 'in', ['open', 'ready'])
+      .where('state', 'in', [...BOARD_STATES])
       .onSnapshot(
         (snap) => {
           // Resolving rosters needs a read per game, so the fan-out is async.
@@ -84,19 +103,48 @@ export function subscribeBoard(listener: Listener): () => void {
   };
 }
 
+/**
+ * Published games that are filling or being played.
+ *
+ * Deliberately not `store.listPublishedOpenGames()`: that helper is fixed to
+ * open/ready, and it lives in the vendored core copy which must not be edited
+ * (see core/VENDORED.md). Same index, one more state.
+ */
+async function listBoardGames(): Promise<InhouseGame[]> {
+  const snap = await getDb()
+    .collection('inhouseGames')
+    .where('published', '==', true)
+    .where('state', 'in', [...BOARD_STATES])
+    .get();
+  return snap.docs.map((d) => d.data() as InhouseGame);
+}
+
 /** One-shot board for SSR and the polling fallback: the two non-interchangeable
- *  listings (§4.1) — published-open for the live board, finished for results. */
-export async function getBoard(): Promise<{ open: PublicGame[]; recent: PublicGame[] }> {
+ *  listings (§4.1) — published live games for the board, finished for results. */
+export async function getBoard(): Promise<{ live: PublicGame[]; recent: PublicGame[] }> {
   const store = getInhouseStore();
-  const [open, recent] = await Promise.all([
-    store.listPublishedOpenGames(),
+  const [live, recent] = await Promise.all([
+    listBoardGames(),
     store.listRecentFinishedGames(12),
   ]);
-  const [openPublic, recentPublic] = await Promise.all([
-    toPublicGames(open),
+  const [livePublic, recentPublic] = await Promise.all([
+    toPublicGames(live),
     // Finished games list a result, not a live roster, so they skip the
     // per-game membership read entirely.
     Promise.resolve(recent.map((g) => toPublicGame(g))),
   ]);
-  return { open: openPublic, recent: recentPublic };
+  return { live: livePublic, recent: recentPublic };
+}
+
+/**
+ * How many lobbies are currently recruiting, published or not.
+ *
+ * The cap counts unpublished lobbies too. Publishing decides who *hears* about
+ * a game, not whether it exists — three lobbies split the same handful of
+ * players however quiet two of them are, and each one is holding a bot account
+ * hostage besides.
+ */
+export async function countRecruitingLobbies(): Promise<number> {
+  const active = await getInhouseStore().listActiveGames();
+  return active.filter((g) => RECRUITING_STATES.includes(g.state)).length;
 }
