@@ -19,9 +19,11 @@ you haven't; the invariants in it are easy to break by accident.
 - [1. The two channels](#1-the-two-channels)
 - [2. Commands the website sends](#2-commands-the-website-sends)
 - [3. What the website expects you to write](#3-what-the-website-expects-you-to-write)
+- [3a. Match end — the website now owns ingestion](#3a-match-end--the-website-now-owns-ingestion)
 - [4. The lobby lifecycle, end to end](#4-the-lobby-lifecycle-end-to-end)
 - [5. Reservations and the waitlist](#5-reservations-and-the-waitlist)
 - [6. Account leasing](#6-account-leasing)
+- [6a. Player identity and linking](#6a-player-identity-and-linking)
 - [7. Open items — decisions needed from you](#7-open-items--decisions-needed-from-you)
 - [8. Testing without the website](#8-testing-without-the-website)
 
@@ -277,31 +279,10 @@ Always set `updatedAt` alongside — the stuck-game sweeper keys off it.
 `ready` means **ten humans physically in the lobby**. Reservations never satisfy
 it; a reservation is not a player.
 
-### 3.4 Result ingestion
+### 3.4 Result ingestion — no longer yours
 
-On `inhouseGames/{gameId}`:
-
-```jsonc
-{
-  "dotaMatchId": 7123456789,
-  "result": {
-    "radiantWin": true,
-    "durationSeconds": 2292,
-    "parsed": false,               // true once OpenDota's replay data lands
-    "awards": [],                  // empty until parsed
-    "abandoners": ["…"],           // admin/host only — never rendered publicly
-    "ingestedAt": "…"
-  }
-}
-```
-
-`dotaMatchId` is what the website turns into the Dotabuff link in the match
-history, so a finished game without it silently loses that link. `parsed: false`
-must render fine — awards may appear later and the page must not block on them.
-
-Also write the `inhouseAttendance/{gameId}__{steamId32}` ledger. Every
-participation stat on the site derives from it, and it is deliberately built
-from the **match roster**, not from signups — signing up isn't playing.
+See [§3a](#3a-match-end--the-website-now-owns-ingestion). The only field you
+still need to write at match end is `dotaMatchId`.
 
 ### 3.5 Settings changed from lobby chat
 
@@ -309,6 +290,84 @@ When `!mode`, `!region` or `!delay` changes a setting, write it back to
 `game.settings`. The live board re-renders the mode and region from that
 document, so a lobby whose mode changed in chat but not in Firestore displays a
 mode nobody is playing.
+
+---
+
+## 3a. Match end — the website now owns ingestion
+
+> **This is a behaviour change.** Today `core/attendance.ts` runs inside the
+> worker: on lobby teardown it polls the Steam Web API, writes the attendance
+> ledger, bumps player counters, sets `result` and moves the game to `finished`,
+> then chases OpenDota for the awards.
+>
+> **Stop doing that.** The website now does all of it, from OpenDota, so there
+> is one source for who played and one place that owns the numbers. Two copies
+> writing the same ledger is survivable — the attendance write is keyed on
+> `(gameId, steamId32)` — but **the player counters are not idempotent**, and
+> double ingestion inflates everyone's `gamesPlayed`.
+
+### 3a.1 What you do instead
+
+When the match ends and you have the match ID:
+
+1. Write `dotaMatchId` onto the game document. Leave `state` as `in_progress` —
+   the website sets `finished`. (If you set it anyway, nothing breaks; the
+   transition is a no-op when the state already matches.)
+2. Call the webhook:
+
+```http
+POST https://<site>/api/inhouse/matches/finished
+Authorization: Bearer <INHOUSE_BOT_WEBHOOK_SECRET>
+Content-Type: application/json
+
+{ "gameId": "kQ2f…", "dotaMatchId": 7123456789 }
+```
+
+That is the whole contract. No ledger, no counters, no OpenDota, no awards.
+
+### 3a.2 Responses
+
+| Status | Body `status` | Meaning |
+|---|---|---|
+| 200 | `ingested` | Done. Ledger, counters, match record all written |
+| 200 | `already_done` | A match record already exists — safe repeat |
+| 202 | `not_ready` | OpenDota hasn't ingested the match yet. **Normal** in the first minute or two; the cron sweep finishes it |
+| 422 | `error` | Bad `gameId`, or no match ID anywhere |
+| 401 | — | Bad or missing secret |
+
+**202 is not a failure.** Don't retry it in a tight loop — the sweep runs every
+10–15 minutes and will pick it up. Retrying a 5xx a few times with backoff is
+worth it; beyond that, let the sweep handle it.
+
+The call is idempotent, so at-least-once delivery is fine and preferred.
+
+### 3a.3 If the webhook never lands
+
+It is a fast path, not a dependency. A cron sweep on the website looks for any
+game in `in_progress` or `finished` that has a `dotaMatchId` but no match
+record, and ingests it. So the minimum you must do is **write `dotaMatchId`** —
+the webhook only makes it prompt instead of within-the-hour.
+
+### 3a.4 What the website does with it
+
+Worth knowing, because it explains what it needs from you:
+
+1. Fetches the match from OpenDota. Winner, duration, kill score, roster,
+   heroes, `leaver_status`.
+2. Writes the attendance ledger and bumps `gamesPlayed`, `nightsPlayed`,
+   `distinctTeammates` — via the *shared core's* `writeMatchResult`, so this is
+   still your logic, just called from the other side.
+3. Writes a detailed match record to `inhouseMatches/{gameId}` (website-owned;
+   you never need to read or write it).
+4. Sets `result` on the game document and transitions it to `finished`.
+5. **Asks OpenDota to parse the replay** (`POST /request/{matchId}`). Nobody
+   parses a replay unless it is requested, so without this the awards data would
+   never exist for our matches. This was the missing step.
+6. A cron sweep polls for the parse and folds the awards in whenever they land —
+   minutes, hours, or never. Nothing waits on it.
+
+Since these are league matches, the roster comes back complete. `leagueId: 0`
+breaks step 1 entirely — see §7.2.
 
 ---
 
@@ -378,13 +437,104 @@ game and sends you `end_inhouse_session` first, then marks the account idle.
 
 ---
 
+## 6a. Player identity and linking
+
+One person, one profile, whichever surface they used.
+
+### 6a.1 The player object
+
+`inhousePlayers/{discordId}` — keyed on Discord ID, because that is the stable
+profile key. Everything you need is on it:
+
+```jsonc
+{
+  "discordId": "2489…",
+  "discordName": "Wichura",            // per-server nickname; the name shown everywhere
+  "steamIds": ["123456789", "98765"],  // ALL their accounts — people have alts
+  "steamId32": "123456789",            // primary, denormalized from steamIds[0]
+  "linkedAt": "…", "linkSource": "lobby_code",
+  "gamesPlayed": 58,                   // finished matches — the count you asked about
+  "gamesPublished": 12, "nightsPlayed": 21,
+  "distinctTeammates": 34, "heroesPlayed": 41,
+  "firstSeenAt": "…", "lastPlayedAt": "…",
+  "noShowCount": 0, "lastNoShowAt": null
+}
+```
+
+`gamesPlayed` is maintained by ingestion — now the website's job (§3a). Don't
+increment it yourself, or it double-counts.
+
+### 6a.2 Resolving a Steam ID to a person
+
+**Always `array-contains`, never equality:**
+
+```ts
+const player = await store.findPlayerBySteamId(steamId32);   // handles alts
+```
+
+An equality lookup on `steamId32` matches only the primary account, which means
+the same person reads as a stranger the moment they log into their smurf — and,
+much worse, lets a banned player walk straight back in. The shared core's helper
+already does this correctly; use it rather than writing the query.
+
+A player who has never linked has **no** `inhousePlayers` document at all, and
+that is the majority case. Don't treat a missing document as an error. Their
+Steam ID still gets a membership row, still gets attendance, and still gets
+retroactive credit if they link later.
+
+### 6a.3 Linking — three entry points, one write
+
+| Entry point | Who runs it | `linkSource` |
+|---|---|---|
+| Discord OAuth on the website, incl. the free Steam link from Discord connections | website | `discord_connection` |
+| Steam OpenID on the website (join dialog or `/inhouse/link`) | website | `steam_openid` |
+| `!link` in lobby chat → 4-char code typed on the website | **you** + website | `lobby_code` |
+| Admin fixing a mistake | website | `manual` |
+
+**Your part is the code.** `!link` issues a short-lived code with
+`issueLinkCode` from the shared core, which writes
+`inhouseLinkCodes/{CODE}`:
+
+```jsonc
+{ "code": "K7QP", "steamId32": "123456789", "playerName": "Wichura",
+  "createdAt": "…", "expiresAt": "…", "consumedAt": null, "consumedByDiscordId": null }
+```
+
+The player types that code on the website, which redeems it in a transaction —
+so a code can only ever be used once, even if two people race it — and then
+calls `linkSteamAccount`.
+
+**Never write `inhousePlayers.steamIds` directly.** `linkSteamAccount` is
+additive (a second account joins the list rather than replacing the first, and
+the primary stays whatever was linked first), refuses an account already claimed
+by a different Discord profile, and triggers the retroactive backfill that
+stamps the new Discord ID onto that Steam ID's historical attendance rows. All
+three of those are easy to get wrong by hand.
+
+### 6a.4 Names
+
+Refresh `membership.displayName` and `player.discordName` whenever you see a
+current value. That nickname is the name every surface prefers — the website's
+lobby cards, leaderboards and join dialog all show it ahead of the Steam
+persona, and the website has no other way to learn it.
+
+---
+
 ## 7. Open items — decisions needed from you
 
 ### 7.1 Honouring `lobbyName` / `lobbyPassword`
 
-The blocking one. See the callout in §2.1. Until the worker uses the values the
-website wrote, the lobby name shown on the site will not be the name in Dota's
-browser, which breaks the primary join path.
+Blocking. See the callout in §2.1. Until the worker uses the values the website
+wrote, the lobby name shown on the site will not be the name in Dota's browser,
+which breaks the primary join path.
+
+### 7.1a Stop ingesting results
+
+Blocking, and the one with a data-corruption failure mode. See §3a: stop calling
+`ingestMatchResult` / `writeMatchResult`, write `dotaMatchId`, call the webhook.
+While both sides ingest, every player's `gamesPlayed` counts each match twice.
+
+Needs a shared secret — `INHOUSE_BOT_WEBHOOK_SECRET`, same value both sides.
 
 ### 7.2 League ID 0
 

@@ -145,7 +145,33 @@ main guide).
 ## 4. Identity and linking
 
 `inhousePlayers/{discordId}` is shared between you and the website. Both sides
-write it.
+write it. This is the player object — one per person, Discord ID as the key:
+
+```jsonc
+{
+  "discordId": "2489…",
+  "discordName": "Wichura",            // per-server nickname; the name shown everywhere
+  "steamIds": ["123456789", "98765"],  // ALL their accounts — people have alts
+  "steamId32": "123456789",            // primary, denormalized from steamIds[0]
+  "linkedAt": "…", "linkSource": "discord_connection",
+  "gamesPlayed": 58,                   // finished matches
+  "gamesPublished": 12, "nightsPlayed": 21,
+  "distinctTeammates": 34, "heroesPlayed": 41,
+  "firstSeenAt": "…", "lastPlayedAt": "…",
+  "noShowCount": 0, "lastNoShowAt": null
+}
+```
+
+Two rules that matter more than they look:
+
+- **Resolve Steam IDs with `array-contains`, never equality.** Use
+  `store.findPlayerBySteamId`. Matching only `steamId32` treats someone as a
+  stranger on their smurf and lets a banned player back in on an alt.
+- **A player who never linked has no document at all**, and that is the majority
+  case. A missing document is normal, not an error.
+
+`gamesPlayed` is maintained by result ingestion, which is now the **website's**
+job — see §3a of the lobby-bot document. Don't increment it.
 
 **The website writes it when:**
 
@@ -158,14 +184,25 @@ write it.
 - someone redeems a 4-character code from `!link` — `linkSource: 'lobby_code'`,
   consumed transactionally out of `inhouseLinkCodes/{CODE}`
 
-All three paths call `linkSteamAccount`, which is **additive**: a second or third
-Steam account joins `steamIds` rather than replacing the first, and the primary
-stays whatever was linked first. Look accounts up with `array-contains`, never
-equality — a lookup that only checks the primary treats the same person as a
-stranger on their smurf, and lets a banned player back in.
+**If you add a link path of your own** — a `/link` slash command, or writing the
+Steam ID straight from a Discord connection you already have — route it through
+`linkSteamAccount` from the shared core rather than writing `steamIds` yourself.
+It is additive (a second or third account joins the list rather than replacing
+the first, and the primary stays whatever was linked first), it refuses an
+account already claimed by a different Discord profile, and it triggers the
+retroactive backfill that stamps the new Discord ID onto that Steam ID's
+historical `inhouseAttendance` rows. Hand-writing the array skips all three, and
+the third is the thing that converts holdouts — *"we found your 34 previous
+games"* is the whole pitch.
 
-Every link also runs the retroactive backfill, stamping the new Discord ID onto
-that Steam ID's historical `inhouseAttendance` rows.
+So, all four entry points, and who runs each:
+
+| Entry point | Runs in | `linkSource` |
+|---|---|---|
+| Discord OAuth on the website (+ free Steam link from connections) | website | `discord_connection` |
+| Steam OpenID on the website | website | `steam_openid` |
+| `!link` in lobby chat → code redeemed on the website | lobby bot + website | `lobby_code` |
+| Anything you add in Discord | **you** | pick one, or `manual` |
 
 **Keep `discordName` current.** It is the per-server nickname, and it is the name
 every surface prefers — Discord embeds, the website, lobby chat — over the Steam

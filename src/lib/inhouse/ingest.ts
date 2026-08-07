@@ -1,0 +1,270 @@
+import 'server-only';
+import { getInhouseStore } from './store';
+import { writeMatchResult, selectAwards } from './core';
+import type { SteamMatchDetails } from './core';
+import type { InhouseGame } from './core/types';
+import {
+  fetchMatch,
+  isParsed,
+  isParseJobDone,
+  requestParse,
+  type OpenDotaMatchDetail,
+} from './opendota';
+import {
+  getMatchRecord,
+  patchMatchRecord,
+  putMatchRecord,
+  type MatchRecord,
+  type MatchRosterEntry,
+} from './match-record';
+
+// Result ingestion, website side.
+//
+// The lobby bot tells us a match finished; everything after that happens here.
+// Two phases, deliberately separated because they run on wildly different
+// timescales:
+//
+//   Phase 1 (seconds)  resolve the match from OpenDota, write the attendance
+//                      ledger and player counters, write the match record, and
+//                      ask OpenDota to parse the replay.
+//   Phase 2 (minutes→hours, or never) once the parse lands, fold in the awards
+//                      and mark the record parsed. Driven by the cron sweep.
+//
+// Phase 1 is what makes the game show up as played. Phase 2 is cosmetic — a
+// match that never parses keeps its result, its ledger and its counters, and
+// loses only the silly awards. Nothing waits on it.
+//
+// The ledger write and the counter bumps go through the vendored core's
+// `writeMatchResult` rather than being reimplemented here. That function is
+// idempotent on (gameId, steamId32) and is shared with the bot; a second copy
+// of "who played and what does it add to their profile" is exactly the kind of
+// drift core/VENDORED.md exists to prevent.
+
+/** How long after a match we keep retrying the initial OpenDota resolve. */
+const RESOLVE_GIVE_UP_MS = 6 * 60 * 60_000;
+
+/**
+ * Replays expire from Valve's servers after roughly two weeks, after which no
+ * parse will ever succeed. Well inside that, so a stuck record stops consuming
+ * sweep budget rather than being retried forever.
+ */
+const PARSE_GIVE_UP_MS = 10 * 24 * 60 * 60_000;
+
+export type IngestOutcome =
+  | { status: 'ingested'; gameId: string; matchId: number; players: number }
+  | { status: 'already_done'; gameId: string }
+  | { status: 'not_ready'; gameId: string }
+  | { status: 'gave_up'; gameId: string; reason: string }
+  | { status: 'error'; gameId: string; reason: string };
+
+/**
+ * OpenDota's match shape is structurally what `writeMatchResult` expects from
+ * the Steam Web API — same field names, same slot convention, same
+ * `leaver_status`. Adapting rather than reimplementing means the ledger, the
+ * counters and the abandon detection stay the bot's logic, not a lookalike.
+ */
+function toSteamShape(match: OpenDotaMatchDetail): SteamMatchDetails {
+  return {
+    match_id: match.match_id,
+    radiant_win: match.radiant_win,
+    duration: match.duration,
+    start_time: match.start_time,
+    lobby_type: match.lobby_type,
+    leagueid: match.leagueid,
+    players: match.players.map((p) => ({
+      account_id: p.account_id ?? undefined,
+      player_slot: p.player_slot,
+      hero_id: p.hero_id,
+      leaver_status: p.leaver_status,
+    })),
+  } as SteamMatchDetails;
+}
+
+async function buildRoster(match: OpenDotaMatchDetail): Promise<MatchRosterEntry[]> {
+  const store = getInhouseStore();
+  const roster: MatchRosterEntry[] = [];
+
+  for (const p of match.players) {
+    // Anonymous or private profiles arrive as account_id 0 or absent. They
+    // played, but nothing can be attributed to them, so they are recorded
+    // without an identity rather than against a bogus one.
+    const steamId32 = p.account_id ? String(p.account_id) : null;
+    const side = (p.player_slot ?? 0) < 128 ? 'radiant' : 'dire';
+    const linked = steamId32 ? await store.findPlayerBySteamId(steamId32) : null;
+
+    roster.push({
+      steamId32,
+      discordId: linked?.discordId ?? null,
+      playerName: p.personaname ?? null,
+      heroId: p.hero_id ?? null,
+      side,
+      won: side === 'radiant' ? match.radiant_win : !match.radiant_win,
+      playerSlot: p.player_slot ?? null,
+      leaverStatus: p.leaver_status ?? null,
+      stats: null,
+    });
+  }
+  return roster;
+}
+
+/**
+ * Phase 1 — resolve a finished match and write everything derived from it.
+ *
+ * Safe to call repeatedly for the same game: it short-circuits once a match
+ * record exists, and the underlying ledger write is keyed on (gameId, steamId32)
+ * so even a racing duplicate cannot double-count attendance.
+ */
+export async function ingestFinishedMatch(
+  gameId: string,
+  dotaMatchId?: number | null,
+): Promise<IngestOutcome> {
+  const store = getInhouseStore();
+
+  const existing = await getMatchRecord(gameId);
+  if (existing) return { status: 'already_done', gameId };
+
+  const game = (await store.getGame(gameId)) as InhouseGame | null;
+  if (!game) return { status: 'error', gameId, reason: 'game not found' };
+
+  const matchId = dotaMatchId ?? game.dotaMatchId;
+  if (!matchId) return { status: 'error', gameId, reason: 'no dotaMatchId' };
+
+  const fetched = await fetchMatch(matchId);
+
+  if (fetched.status !== 'ok') {
+    // A match OpenDota has not ingested yet is the normal case in the first
+    // minute or two. Only give up once it is old enough that it never will be.
+    const age = Date.now() - Date.parse(game.endedAt ?? game.updatedAt ?? game.createdAt);
+    if (fetched.status === 'not_found' && age > RESOLVE_GIVE_UP_MS) {
+      await store.transitionState(gameId, 'abandoned', {
+        endReason: 'wynik meczu nigdy nie dotarł',
+      });
+      return { status: 'gave_up', gameId, reason: 'match never appeared on OpenDota' };
+    }
+    return { status: 'not_ready', gameId };
+  }
+
+  const match = fetched.match;
+
+  // Ledger, player counters, game.result and the transition to `finished` — all
+  // of it the shared core's job, not ours.
+  await writeMatchResult(store, game, toSteamShape(match));
+
+  const nowIso = new Date().toISOString();
+  const parsedAlready = isParsed(match);
+  const roster = await buildRoster(match);
+
+  const record: MatchRecord = {
+    gameId,
+    gameNumber: game.gameNumber,
+    dotaMatchId: match.match_id,
+    radiantWin: match.radiant_win,
+    durationSeconds: match.duration,
+    radiantScore: match.radiant_score ?? null,
+    direScore: match.dire_score ?? null,
+    startedAt: new Date(match.start_time * 1000).toISOString(),
+    gameMode: match.game_mode ?? null,
+    lobbyType: match.lobby_type ?? null,
+    leagueId: match.leagueid ?? null,
+    roster,
+    parseState: parsedAlready ? 'parsed' : 'unparsed',
+    parseJobId: null,
+    parseRequestedAt: null,
+    parsedAt: parsedAlready ? nowIso : null,
+    ingestedAt: nowIso,
+    updatedAt: nowIso,
+  };
+  await putMatchRecord(record);
+
+  if (parsedAlready) {
+    await foldInAwards(gameId, match);
+  } else {
+    // Nobody parses a replay unless it is asked for, so this is not optional
+    // housekeeping — without it the awards data may never exist for our matches.
+    const job = await requestParse(match.match_id);
+    await patchMatchRecord(gameId, {
+      parseState: 'requested',
+      parseJobId: job?.jobId ?? null,
+      parseRequestedAt: nowIso,
+    });
+  }
+
+  return {
+    status: 'ingested',
+    gameId,
+    matchId: match.match_id,
+    players: roster.length,
+  };
+}
+
+/**
+ * Phase 2 — check whether a requested parse has landed, and fold it in.
+ *
+ * Called by the cron sweep, once per pending record per run. Deliberately does
+ * not loop or sleep: the website is request-scoped, and a job that may take
+ * hours cannot be waited on inside one invocation.
+ */
+export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiting' | 'gave_up'> {
+  const age = Date.now() - Date.parse(record.ingestedAt);
+  if (age > PARSE_GIVE_UP_MS) {
+    await patchMatchRecord(record.gameId, { parseState: 'unavailable' });
+    return 'gave_up';
+  }
+
+  // The job endpoint is a cheap hint, not proof — it returns null for a job that
+  // was dropped as well as one that finished. The match itself is authoritative,
+  // so a "done" job only earns us a re-fetch.
+  if (record.parseJobId && !(await isParseJobDone(record.parseJobId))) {
+    return 'waiting';
+  }
+
+  const fetched = await fetchMatch(record.dotaMatchId);
+  if (fetched.status !== 'ok') return 'waiting';
+
+  if (!isParsed(fetched.match)) {
+    // Job gone but the match still isn't parsed — the request was dropped.
+    // Ask again; `unparsed` is what the sweep retries.
+    if (record.parseState === 'requested') {
+      const job = await requestParse(record.dotaMatchId);
+      await patchMatchRecord(record.gameId, {
+        parseJobId: job?.jobId ?? null,
+        parseRequestedAt: new Date().toISOString(),
+      });
+    }
+    return 'waiting';
+  }
+
+  await foldInAwards(record.gameId, fetched.match);
+  await patchMatchRecord(record.gameId, {
+    parseState: 'parsed',
+    parsedAt: new Date().toISOString(),
+  });
+  return 'parsed';
+}
+
+/**
+ * Put the silly awards on the game document.
+ *
+ * These live on the game rather than the match record because the public match
+ * page already reads `game.result` for them, and because they are the one piece
+ * of parsed data §10 sanctions: non-comparative, per-match, and forgotten by
+ * the next game.
+ */
+async function foldInAwards(gameId: string, match: OpenDotaMatchDetail): Promise<void> {
+  const store = getInhouseStore();
+  const awards = selectAwards(
+    match.players
+      .filter((p) => p.account_id)
+      .map((p) => ({
+        steamId32: String(p.account_id),
+        name: p.personaname || String(p.account_id),
+        data: p as Record<string, unknown>,
+      })),
+  );
+
+  const game = await store.getGame(gameId);
+  if (!game?.result) return;
+  await store.updateGame(gameId, {
+    result: { ...game.result, parsed: true, awards },
+  });
+}

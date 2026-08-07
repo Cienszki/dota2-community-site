@@ -22,6 +22,13 @@ Add these to `.env.local` (and to the hosting provider in production):
 | `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` | Discord OAuth app | Discord developer portal. Scopes: `identify`, `connections` |
 | `DISCORD_GUILD_ID` | The community's Discord server ID | Server → Copy Server ID |
 | `NEXT_PUBLIC_SITE_URL` | Public origin, e.g. `https://dota2inhouse.pl` | Must equal the bot's own `SITE_URL` |
+| `INHOUSE_BOT_WEBHOOK_SECRET` | Shared secret for the lobby bot's match-finished webhook | Generate one; set the **same value** on the bot |
+| `CRON_SECRET` | Bearer token for `/api/cron/inhouse-ingest` | Generate one; set it on whatever runs the schedule |
+| `OPENDOTA_API_KEY` | Optional. Raises the OpenDota rate limit | opendota.com → API keys. Unset works fine at this volume |
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"   # a secret
+```
 
 Base64 a service-account file:
 
@@ -55,6 +62,36 @@ this site hits:
 | `inhouseAttendance` | `steamId32` ASC |
 | `inhouseModeration` | `kind` ASC, `subjectSteamId32` ASC |
 | `inhouseModeration` | `kind` ASC, `subjectDiscordId` ASC |
+| `inhouseGames` | `state` ASC, `updatedAt` ASC |  ← ingest catch-up sweep |
+| `inhouseMatches` | `parseState` ASC, `ingestedAt` ASC | ← parse follow-up sweep |
+
+## 3a. Result ingestion
+
+The website resolves finished matches from OpenDota — ledger, player counters,
+match record, replay-parse request. Two entry points:
+
+- `POST /api/inhouse/matches/finished` — the lobby bot's push, authenticated with
+  `INHOUSE_BOT_WEBHOOK_SECRET`. Fast path.
+- `GET /api/cron/inhouse-ingest` — the sweep, authenticated with `CRON_SECRET`.
+  Catches anything the webhook missed and polls for replay parses, which can take
+  hours.
+
+**Schedule the cron every 10–15 minutes.** Both passes are bounded per run, so a
+backlog drains over several runs. On Vercel, add to `vercel.json`:
+
+```jsonc
+{ "crons": [{ "path": "/api/cron/inhouse-ingest", "schedule": "*/10 * * * *" }] }
+```
+
+Vercel sends its own `Authorization: Bearer $CRON_SECRET`, so no extra wiring is
+needed there. Anywhere else, a `curl` from any scheduler works:
+
+```bash
+curl -sS -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/inhouse-ingest
+```
+
+Without the cron, matches still ingest via the webhook — but replay parses never
+get folded in, so the silly awards never appear.
 
 ## 4. Shared domain code
 
