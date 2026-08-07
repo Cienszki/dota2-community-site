@@ -4,6 +4,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
+import { requestInvite } from '@/lib/inhouse/commands';
 import { InhouseStore } from '@/lib/inhouse/core';
 
 // Web Join (§7.2). This is ban-enforcement point 3 of 4 (invariant 0.4): the
@@ -137,13 +138,11 @@ export async function joinGame(gameId: string): Promise<JoinResult> {
   if (res.ok) {
     // Pull the player in — fire the Steam invite so they actually get dragged
     // into the lobby, not just counted (§5.3).
-    if (game.botAccountId) {
-      await store.enqueueBotCommand(game.botAccountId, {
-        type: 'invite_player',
-        gameId,
-        steamId32: viewer.steamId32,
-      });
-    }
+    await requestInvite(game, {
+      steamId32: viewer.steamId32,
+      discordId: viewer.discordId,
+      playerName: viewer.discordName,
+    });
     return reveal('reserved', res.slotsOpen, res.reservation.expiresAt);
   }
 
@@ -154,13 +153,14 @@ export async function joinGame(gameId: string): Promise<JoinResult> {
         steamId32: viewer.steamId32,
         playerName: viewer.discordName,
       });
-      if (game.botAccountId) {
-        await store.enqueueBotCommand(game.botAccountId, {
-          type: 'invite_player',
-          gameId,
-          steamId32: viewer.steamId32,
-        });
-      }
+      // Invited even from the waitlist: the lobby can empty out between the
+      // reservation failing and the player opening Dota, and an invite they
+      // already hold is what lets them walk straight in when it does.
+      await requestInvite(game, {
+        steamId32: viewer.steamId32,
+        discordId: viewer.discordId,
+        playerName: viewer.discordName,
+      });
       const waitlist = await store.listWaitlist(gameId);
       const position = waitlist.findIndex((w) => w.discordId === viewer.discordId) + 1;
       return { status: 'waitlisted', position: position > 0 ? position : waitlist.length };

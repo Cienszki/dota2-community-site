@@ -4,6 +4,14 @@ The website talks to the lobby bot **only through Firestore** (the same database
 the bot's Discord gateway and lobby workers use). There is no HTTP API on the
 bot. See the full spec in [`website-integration.md`](../website-integration.md).
 
+**Handing work to the bot developers?** Give them these two, which describe the
+seam from their side and list what each still needs to implement:
+
+- [`lobby-bot-integration.md`](./lobby-bot-integration.md) — the lobby worker:
+  commands it receives, documents the website expects it to write.
+- [`discord-bot-integration.md`](./discord-bot-integration.md) — the gateway:
+  events, document writes to react to, shared configuration.
+
 ## 1. Environment variables
 
 Add these to `.env.local` (and to the hosting provider in production):

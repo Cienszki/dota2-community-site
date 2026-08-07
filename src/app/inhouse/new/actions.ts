@@ -6,6 +6,7 @@ import { getInhouseStore, resolveSettings, leaseAccount } from '@/lib/inhouse/st
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import { randomLobbyName } from '@/lib/inhouse/lobby-names';
 import { countRecruitingLobbies } from '@/lib/inhouse/live';
+import { requestLobbyCreation } from '@/lib/inhouse/commands';
 
 // Create a game from the website (§5.4, §7.3). One press: everything but the
 // host comes from admin defaults, so a first-time host opens a correctly
@@ -66,10 +67,9 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
       .map((g) => g.lobbyName)
       .filter((n): n is string => Boolean(n));
 
-    await store.updateGame(game.id, {
-      lobbyName: randomLobbyName(taken),
-      lobbyPassword: lobbyConfig.password || null,
-    });
+    const lobbyName = randomLobbyName(taken);
+    const lobbyPassword = lobbyConfig.password || null;
+    await store.updateGame(game.id, { lobbyName, lobbyPassword });
 
     // Leasing must be transactional or two games claim the same account and one
     // silently never gets a lobby (§5.4). leaseAccount handles that.
@@ -92,9 +92,15 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
       updatedAt: nowIso,
     });
 
-    await store.enqueueBotCommand(lease.botAccountId, {
-      type: 'create_inhouse_lobby',
-      gameId: game.id,
+    // Everything the worker needs to open the lobby travels with the command.
+    // The game document stays authoritative — this is so the create contract is
+    // one legible payload rather than an implied second read.
+    await requestLobbyCreation({
+      ...game,
+      lobbyName,
+      lobbyPassword,
+      botAccountId: lease.botAccountId,
+      settings,
     });
 
     return { status: 'ok', gameId: game.id };

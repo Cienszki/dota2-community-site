@@ -11,6 +11,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { modeName, regionName, delayLabel, formatDuration, resolveDisplayName } from '@/lib/inhouse/display';
 import type { InhouseGame, Membership } from '@/lib/inhouse/core/types';
 import PublishButton from './PublishButton';
+import CancelButton from './CancelButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -175,6 +176,7 @@ function RecruitingView({ game, isHost }: { game: InhouseGame; isHost: boolean }
             <Radio className="w-4 h-4" /> Gra jest publiczna.
           </p>
         )}
+        {isHost && <CancelButton gameId={game.id} />}
       </div>
     </div>
   );
