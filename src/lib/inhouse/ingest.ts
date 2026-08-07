@@ -19,6 +19,7 @@ import {
   type MatchRecord,
   type MatchRosterEntry,
 } from './match-record';
+import { mirrorMatchRecord } from './match-mirror';
 
 // Result ingestion, website side.
 //
@@ -35,6 +36,11 @@ import {
 // Phase 1 is what makes the game show up as played. Phase 2 is cosmetic — a
 // match that never parses keeps its result, its ledger and its counters, and
 // loses only the silly awards. Nothing waits on it.
+//
+// Every match record write here is followed by a best-effort mirror into
+// Supabase (match-mirror.ts, migration 021) — Firestore is still the source
+// of truth, the mirror exists purely so match data is queryable in plain SQL.
+// A mirror failure never fails ingestion.
 //
 // The ledger write and the counter bumps go through the vendored core's
 // `writeMatchResult` rather than being reimplemented here. That function is
@@ -176,6 +182,7 @@ export async function ingestFinishedMatch(
     updatedAt: nowIso,
   };
   await putMatchRecord(record);
+  await mirrorMatchRecord(record);
 
   if (parsedAlready) {
     await foldInAwards(gameId, match);
@@ -222,7 +229,7 @@ export async function ingestLeagueMatch(matchId: number): Promise<'ingested' | '
   const nowIso = new Date().toISOString();
   const parsedAlready = isParsed(match);
 
-  await putMatchRecord({
+  const record: MatchRecord = {
     dotaMatchId: match.match_id,
     gameId: null,
     gameNumber: null,
@@ -241,7 +248,9 @@ export async function ingestLeagueMatch(matchId: number): Promise<'ingested' | '
     parsedAt: parsedAlready ? nowIso : null,
     ingestedAt: nowIso,
     updatedAt: nowIso,
-  });
+  };
+  await putMatchRecord(record);
+  await mirrorMatchRecord(record);
 
   if (!parsedAlready) {
     const job = await requestParse(match.match_id);
@@ -330,12 +339,10 @@ export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiti
     return { ...entry, stats: extractStats(player as Record<string, unknown>) };
   });
 
+  const parsedAt = new Date().toISOString();
   if (record.gameId) await foldInAwards(record.gameId, fetched.match);
-  await patchMatchRecord(record.dotaMatchId, {
-    roster,
-    parseState: 'parsed',
-    parsedAt: new Date().toISOString(),
-  });
+  await patchMatchRecord(record.dotaMatchId, { roster, parseState: 'parsed', parsedAt });
+  await mirrorMatchRecord({ ...record, roster, parseState: 'parsed', parsedAt, updatedAt: parsedAt });
   return 'parsed';
 }
 
