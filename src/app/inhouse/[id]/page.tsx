@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { Trophy, MapPin, Clock, Sparkles, Radio, Eye, Award } from 'lucide-react';
+import { Trophy, MapPin, Clock, Sparkles, Radio, Eye, Award, Swords } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import JoinButton from '@/components/inhouse/JoinButton';
 import Countdown from '@/components/inhouse/Countdown';
@@ -10,6 +11,8 @@ import { getInhouseStore, InhouseStore } from '@/lib/inhouse/store';
 import { getInhouseViewer } from '@/lib/inhouse/session';
 import { modeName, regionName, delayLabel, formatDuration, resolveDisplayName } from '@/lib/inhouse/display';
 import type { InhouseGame, Membership } from '@/lib/inhouse/core/types';
+import { getMatchRecordForGame, type MatchRecord } from '@/lib/inhouse/match-record';
+import { getHeroMap, type HeroInfo } from '@/lib/inhouse/heroes';
 import PublishButton from './PublishButton';
 import CancelButton from './CancelButton';
 
@@ -68,12 +71,26 @@ export default async function GamePage({ params }: { params: Params }) {
 
   const isHost = !!viewer.discordId && game.initiatorDiscordId === viewer.discordId;
 
+  // The detailed roster (heroes, kill score) lives on the match record, which
+  // only exists once ingestion has resolved the match from OpenDota — that can
+  // trail a few minutes behind `finished`. A missing record degrades to the
+  // thin `game.result` view rather than blocking the page.
+  let matchRecord: Awaited<ReturnType<typeof getMatchRecordForGame>> = null;
+  let heroMap: Record<number, HeroInfo> = {};
+  if (game.state === 'finished') {
+    try {
+      [matchRecord, heroMap] = await Promise.all([getMatchRecordForGame(game.id), getHeroMap()]);
+    } catch (err) {
+      console.error('inhouse match record load failed', err);
+    }
+  }
+
   return (
     <InhouseShell width="default">
       <Header game={game} />
 
       {game.state === 'finished' ? (
-        <FinishedView game={game} memberships={memberships} />
+        <FinishedView game={game} memberships={memberships} matchRecord={matchRecord} heroMap={heroMap} />
       ) : game.state === 'in_progress' ? (
         <InProgressView game={game} memberships={memberships} />
       ) : (
@@ -200,8 +217,31 @@ function InProgressView({ game, memberships }: { game: InhouseGame; memberships:
 
 /* ─── State 3 — Finished ─────────────────────────────────────────────────── */
 
-function FinishedView({ game, memberships }: { game: InhouseGame; memberships: Membership[] }) {
+function FinishedView({
+  game,
+  memberships,
+  matchRecord,
+  heroMap,
+}: {
+  game: InhouseGame;
+  memberships: Membership[];
+  matchRecord: MatchRecord | null;
+  heroMap: Record<number, HeroInfo>;
+}) {
   const r = game.result;
+
+  // steamId32 → heroId, so Teams can show what each player picked without
+  // threading the whole match record through. Kill score is team-level (not a
+  // per-player ranking), so it is fine to show alongside the result (§8 only
+  // rules out comparative *player* performance, not the match's own scoreline).
+  const heroBySteamId: Record<string, number> = {};
+  if (matchRecord) {
+    for (const entry of matchRecord.roster) {
+      if (entry.steamId32 && entry.heroId) heroBySteamId[entry.steamId32] = entry.heroId;
+    }
+  }
+  const hasScore = matchRecord && matchRecord.radiantScore !== null && matchRecord.direScore !== null;
+
   return (
     <div>
       {r ? (
@@ -211,6 +251,12 @@ function FinishedView({ game, memberships }: { game: InhouseGame; memberships: M
           >
             {r.radiantWin ? 'Radiant' : 'Dire'} wygrywa
           </span>
+          {hasScore && (
+            <span className="inline-flex items-center gap-1.5 text-slate-300 font-bold tabular-nums">
+              <Swords className="w-4 h-4 text-slate-500" />
+              {matchRecord!.radiantScore} : {matchRecord!.direScore}
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5 text-slate-400">
             <Clock className="w-4 h-4" /> {formatDuration(r.durationSeconds)}
           </span>
@@ -219,7 +265,7 @@ function FinishedView({ game, memberships }: { game: InhouseGame; memberships: M
         <p className="text-slate-400 mb-8">Gra rozegrana — wynik jest przetwarzany.</p>
       )}
 
-      <Teams memberships={memberships} radiantWin={r?.radiantWin} />
+      <Teams memberships={memberships} radiantWin={r?.radiantWin} heroBySteamId={heroBySteamId} heroMap={heroMap} />
 
       {r && r.awards.length > 0 && (
         <div className="mt-10">
@@ -249,18 +295,28 @@ function FinishedView({ game, memberships }: { game: InhouseGame; memberships: M
 
 /* ─── Shared ─────────────────────────────────────────────────────────────── */
 
-function Teams({ memberships, radiantWin }: { memberships: Membership[]; radiantWin?: boolean }) {
+function Teams({
+  memberships,
+  radiantWin,
+  heroBySteamId,
+  heroMap,
+}: {
+  memberships: Membership[];
+  radiantWin?: boolean;
+  heroBySteamId?: Record<string, number>;
+  heroMap?: Record<number, HeroInfo>;
+}) {
   const radiant = memberships.filter((m) => m.side === 'radiant');
   const dire = memberships.filter((m) => m.side === 'dire');
   const unassigned = memberships.filter((m) => m.side === 'unassigned' && m.leftAt === null);
 
   return (
     <div className="grid gap-6 sm:grid-cols-2">
-      <TeamColumn title="Radiant" players={radiant} win={radiantWin === true} accent="emerald" />
-      <TeamColumn title="Dire" players={dire} win={radiantWin === false} accent="red" />
+      <TeamColumn title="Radiant" players={radiant} win={radiantWin === true} accent="emerald" heroBySteamId={heroBySteamId} heroMap={heroMap} />
+      <TeamColumn title="Dire" players={dire} win={radiantWin === false} accent="red" heroBySteamId={heroBySteamId} heroMap={heroMap} />
       {unassigned.length > 0 && (
         <div className="sm:col-span-2">
-          <TeamColumn title="Bez drużyny" players={unassigned} win={false} accent="slate" />
+          <TeamColumn title="Bez drużyny" players={unassigned} win={false} accent="slate" heroBySteamId={heroBySteamId} heroMap={heroMap} />
         </div>
       )}
     </div>
@@ -272,11 +328,15 @@ function TeamColumn({
   players,
   win,
   accent,
+  heroBySteamId,
+  heroMap,
 }: {
   title: string;
   players: Membership[];
   win: boolean;
   accent: 'emerald' | 'red' | 'slate';
+  heroBySteamId?: Record<string, number>;
+  heroMap?: Record<number, HeroInfo>;
 }) {
   const ring =
     accent === 'emerald'
@@ -298,18 +358,33 @@ function TeamColumn({
         <p className="text-slate-600 text-sm">—</p>
       ) : (
         <ul className="space-y-1.5">
-          {players.map((m) => (
-            <li key={m.steamId32} className="text-sm text-slate-300 flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${m.leftAt === null ? 'bg-emerald-400' : 'bg-slate-600'}`} />
-              <Link href={`/players/${m.steamId32}`} className="hover:text-white transition-colors">
-                {resolveDisplayName({
-                  displayName: m.displayName,
-                  playerName: m.playerName,
-                  steamId32: m.steamId32,
-                })}
-              </Link>
-            </li>
-          ))}
+          {players.map((m) => {
+            const heroId = heroBySteamId?.[m.steamId32];
+            const hero = heroId ? heroMap?.[heroId] : undefined;
+            return (
+              <li key={m.steamId32} className="text-sm text-slate-300 flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${m.leftAt === null ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                {hero?.icon && (
+                  <Image
+                    src={hero.icon}
+                    alt={hero.name}
+                    title={hero.name}
+                    width={22}
+                    height={22}
+                    className="rounded-sm shrink-0"
+                  />
+                )}
+                <Link href={`/players/${m.steamId32}`} className="hover:text-white transition-colors truncate">
+                  {resolveDisplayName({
+                    displayName: m.displayName,
+                    playerName: m.playerName,
+                    steamId32: m.steamId32,
+                  })}
+                </Link>
+                {hero && !hero.icon && <span className="text-slate-500 text-xs truncate">({hero.name})</span>}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

@@ -139,6 +139,36 @@ export async function fetchLeagueMatches(leagueId: number): Promise<LeagueMatchS
   }
 }
 
+/** One row of OpenDota's hero constants list. */
+export interface OpenDotaHero {
+  id: number;
+  /** Valve's internal name, e.g. `npc_dota_hero_antimage`. */
+  name: string;
+  localized_name: string;
+}
+
+/**
+ * The full hero list. Unauthenticated, unkeyed to a match, and effectively
+ * static — it only changes on a patch — so the caller is expected to cache
+ * this well beyond a single request (see `heroes.ts`) rather than call it
+ * inline per render.
+ */
+export async function fetchHeroes(): Promise<OpenDotaHero[] | null> {
+  try {
+    const res = await fetch(url('/heroes'), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      next: { revalidate: 24 * 60 * 60 },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as OpenDotaHero[] | null;
+    return Array.isArray(data) ? data : null;
+  } catch (err) {
+    console.error('opendota: heroes fetch failed', err);
+    return null;
+  }
+}
+
 /**
  * Ask OpenDota to parse a match's replay.
  *
