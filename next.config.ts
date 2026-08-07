@@ -1,9 +1,30 @@
 import type { NextConfig } from "next";
 
+// The Firebase-hosted tournament SPA (tournament-tracker-f35tb.web.app). It
+// serves dota2inhouse.pl/<tournament-slug> pages; new slugs are added straight
+// from its own database, so they cannot be enumerated here.
+const TOURNAMENT_ORIGIN = 'https://tournament-tracker-f35tb.web.app';
+
 const nextConfig: NextConfig = {
   reactCompiler: true,
   turbopack: {
     root: process.cwd(),
+  },
+  // Anything this app doesn't own falls through to the tournament SPA, so the
+  // dynamic /<tournament> pages keep working under the main domain with no slug
+  // list to maintain. `fallback` runs AFTER all pages/static/dynamic routes and
+  // just before the 404 (see next.config rewrites docs), which is exactly why
+  // the old greedy `app/[slug]` route had to go: a dynamic route matches before
+  // fallback, so it would have 404'd every tournament path first.
+  //
+  // Only the SPA's HTML shell + JS/CSS bundle are proxied here; its data
+  // (Firestore) and images (Firebase Storage) load straight from Google.
+  async rewrites() {
+    return {
+      fallback: [
+        { source: '/:path*', destination: `${TOURNAMENT_ORIGIN}/:path*` },
+      ],
+    };
   },
   experimental: {
     serverActions: {

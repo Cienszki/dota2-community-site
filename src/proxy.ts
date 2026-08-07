@@ -69,8 +69,11 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (images, fonts, etc.)
+     * - any request ending in a static asset extension — images, plus the
+     *   scripts/styles/fonts/maps of the Firebase tournament SPA that get
+     *   proxied through here via the next.config fallback rewrite. Skipping
+     *   them avoids running a Supabase session refresh on every asset request.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|mjs|map|woff|woff2|ttf|otf|eot)$).*)',
   ],
 };
