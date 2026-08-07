@@ -2,11 +2,11 @@ import Link from 'next/link';
 import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp, KeyRound } from 'lucide-react';
 import { isInhouseConfigured, getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
-import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
+import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES, type LobbyConfig } from '@/lib/inhouse/lobby-config';
 import type { ResolvedSettings } from '@/lib/inhouse/core/types';
 import SettingsForm from './SettingsForm';
 import AdminsForm from './AdminsForm';
-import LobbyPasswordForm from './LobbyPasswordForm';
+import LobbyForm from './LobbyForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,12 +16,16 @@ export default async function InhouseAdminPage() {
   let defaults: ResolvedSettings | null = null;
   let discordIds: string[] = [];
   let steamIds: string[] = [];
-  let lobbyPassword = '';
+  let lobbyConfig: LobbyConfig = {
+    password: '',
+    maxOpenLobbies: DEFAULT_MAX_OPEN_LOBBIES,
+    updatedAt: null,
+  };
 
   if (configured) {
     try {
       defaults = await getInhouseStore().getAdminDefaults();
-      lobbyPassword = (await getLobbyConfig()).password;
+      lobbyConfig = await getLobbyConfig();
       const snap = await getDb().collection('inhouseConfig').doc('admins').get();
       const data = snap.data();
       if (data) {
@@ -77,13 +81,14 @@ export default async function InhouseAdminPage() {
 
           <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">
             <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2 mb-1">
-              <KeyRound className="w-5 h-5 text-red-500" /> Hasło do lobby
+              <KeyRound className="w-5 h-5 text-red-500" /> Lobby i limity
             </h2>
             <p className="text-slate-500 text-sm mb-6">
-              Jedno hasło dla wszystkich lobby. Zmiana obowiązuje dla gier tworzonych od tego momentu —
-              lobby już otwarte zachowują hasło, z którym powstały.
+              Hasło wspólne dla wszystkich lobby oraz limit gier zbierających jednocześnie. Zmiana hasła
+              obowiązuje dla gier tworzonych od tego momentu — lobby już otwarte zachowują to, z którym
+              powstały.
             </p>
-            <LobbyPasswordForm initial={lobbyPassword} />
+            <LobbyForm initial={lobbyConfig} />
           </section>
 
           <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">

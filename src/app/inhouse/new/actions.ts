@@ -5,7 +5,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getInhouseStore, resolveSettings, leaseAccount } from '@/lib/inhouse/store';
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import { randomLobbyName } from '@/lib/inhouse/lobby-names';
-import { countRecruitingLobbies, MAX_OPEN_LOBBIES } from '@/lib/inhouse/live';
+import { countRecruitingLobbies } from '@/lib/inhouse/live';
 
 // Create a game from the website (§5.4, §7.3). One press: everything but the
 // host comes from admin defaults, so a first-time host opens a correctly
@@ -38,8 +38,9 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
     // third splits it three ways and none of them reach ten. Enforced here
     // rather than only in the UI — this is the check that actually holds when
     // two people press Create at the same moment.
-    if ((await countRecruitingLobbies()) >= MAX_OPEN_LOBBIES) {
-      return { status: 'too_many_open', max: MAX_OPEN_LOBBIES };
+    const lobbyConfig = await getLobbyConfig();
+    if ((await countRecruitingLobbies()) >= lobbyConfig.maxOpenLobbies) {
+      return { status: 'too_many_open', max: lobbyConfig.maxOpenLobbies };
     }
 
     const defaults = await store.getAdminDefaults();
@@ -67,7 +68,7 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
 
     await store.updateGame(game.id, {
       lobbyName: randomLobbyName(taken),
-      lobbyPassword: (await getLobbyConfig()).password || null,
+      lobbyPassword: lobbyConfig.password || null,
     });
 
     // Leasing must be transactional or two games claim the same account and one

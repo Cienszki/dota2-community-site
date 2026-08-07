@@ -25,10 +25,6 @@ export const BOARD_STATES = ['open', 'ready', 'in_progress'] as const;
 /** Board states in which a game is still taking players. */
 export const RECRUITING_STATES: readonly string[] = ['open', 'ready'];
 
-/** How many lobbies may be recruiting at once before the site stops offering
- *  to open another (§ product rule: two is enough, join one instead). */
-export const MAX_OPEN_LOBBIES = 2;
-
 type Listener = (games: PublicGame[]) => void;
 
 let current: PublicGame[] = [];
@@ -137,14 +133,14 @@ export async function getBoard(): Promise<{ live: PublicGame[]; recent: PublicGa
 }
 
 /**
- * How many lobbies are currently recruiting, published or not.
+ * How many *published* lobbies are currently recruiting.
  *
- * The cap counts unpublished lobbies too. Publishing decides who *hears* about
- * a game, not whether it exists — three lobbies split the same handful of
- * players however quiet two of them are, and each one is holding a bot account
- * hostage besides.
+ * Unpublished lobbies are deliberately not counted. An unpublished game is one
+ * the host is still deciding who to tell (invariant 0.1) — it isn't competing
+ * for the same players yet, and counting it would let two private lobbies lock
+ * the whole community out of opening a public one.
  */
 export async function countRecruitingLobbies(): Promise<number> {
   const active = await getInhouseStore().listActiveGames();
-  return active.filter((g) => RECRUITING_STATES.includes(g.state)).length;
+  return active.filter((g) => g.published && RECRUITING_STATES.includes(g.state)).length;
 }

@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
-import { getBoard, MAX_OPEN_LOBBIES } from '@/lib/inhouse/live';
+import { getBoard } from '@/lib/inhouse/live';
+import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
 import type { PublicGame } from '@/lib/inhouse/public';
 
@@ -31,10 +32,16 @@ export default async function InhousePage() {
   let live: PublicGame[] = [];
   let recent: PublicGame[] = [];
   let topPlayers: Array<{ name: string; value: number }> = [];
+  let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
 
   if (isInhouseConfigured()) {
     try {
-      const [board, leaderboards] = await Promise.all([getBoard(), getLeaderboards()]);
+      const [board, leaderboards, lobbyConfig] = await Promise.all([
+        getBoard(),
+        getLeaderboards(),
+        getLobbyConfig(),
+      ]);
+      maxOpenLobbies = lobbyConfig.maxOpenLobbies;
       live = board.live;
       recent = board.recent;
       topPlayers = leaderboards.gamesPlayed.slice(0, 5).map((row) => ({
@@ -83,7 +90,7 @@ export default async function InhousePage() {
         initialLive={live}
         initialRecent={recent}
         topPlayers={topPlayers}
-        maxOpenLobbies={MAX_OPEN_LOBBIES}
+        maxOpenLobbies={maxOpenLobbies}
       />
 
       {!isInhouseConfigured() && (

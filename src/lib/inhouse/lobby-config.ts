@@ -18,29 +18,51 @@ import { COLLECTIONS } from './core/store';
 
 const DOC = 'lobby';
 
+/** How many lobbies may recruit at once when nothing is configured. */
+export const DEFAULT_MAX_OPEN_LOBBIES = 2;
+
 export interface LobbyConfig {
   /** Password players type into Dota's lobby browser. Empty means "unset". */
   password: string;
+  /**
+   * Published lobbies allowed to recruit simultaneously. A third splits the
+   * same players three ways and none of them reaches ten — but the right
+   * number depends on how big the community has got, so it is a setting.
+   */
+  maxOpenLobbies: number;
   updatedAt: string | null;
 }
+
+const FALLBACK: LobbyConfig = {
+  password: '',
+  maxOpenLobbies: DEFAULT_MAX_OPEN_LOBBIES,
+  updatedAt: null,
+};
 
 export async function getLobbyConfig(): Promise<LobbyConfig> {
   try {
     const snap = await getDb().collection(COLLECTIONS.config).doc(DOC).get();
     const data = snap.exists ? snap.data() ?? {} : {};
+    const max = Number(data.maxOpenLobbies);
     return {
       password: typeof data.password === 'string' ? data.password : '',
+      maxOpenLobbies:
+        Number.isInteger(max) && max >= 1 ? max : DEFAULT_MAX_OPEN_LOBBIES,
       updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : null,
     };
   } catch (err) {
+    // A config read that fails must not take hosting down with it.
     console.error('inhouse lobby config read failed', err);
-    return { password: '', updatedAt: null };
+    return FALLBACK;
   }
 }
 
-export async function setLobbyPassword(password: string): Promise<void> {
+export async function saveLobbyConfig(patch: {
+  password?: string;
+  maxOpenLobbies?: number;
+}): Promise<void> {
   await getDb()
     .collection(COLLECTIONS.config)
     .doc(DOC)
-    .set({ password, updatedAt: new Date().toISOString() }, { merge: true });
+    .set({ ...patch, updatedAt: new Date().toISOString() }, { merge: true });
 }

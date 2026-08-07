@@ -4,7 +4,8 @@ import InhouseShell from '@/components/inhouse/InhouseShell';
 import SkewButton from '@/components/inhouse/SkewButton';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getInhouseViewer } from '@/lib/inhouse/session';
-import { countRecruitingLobbies, MAX_OPEN_LOBBIES } from '@/lib/inhouse/live';
+import { countRecruitingLobbies } from '@/lib/inhouse/live';
+import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import CreateGameButton from './CreateGameButton';
 
 export const dynamic = 'force-dynamic';
@@ -22,9 +23,12 @@ export default async function NewGamePage() {
   // Told up front rather than after a press. The server action re-checks this
   // anyway — this is only so the page doesn't offer something it will refuse.
   let atCapacity = false;
+  let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
   if (configured) {
     try {
-      atCapacity = (await countRecruitingLobbies()) >= MAX_OPEN_LOBBIES;
+      const [count, config] = await Promise.all([countRecruitingLobbies(), getLobbyConfig()]);
+      maxOpenLobbies = config.maxOpenLobbies;
+      atCapacity = count >= maxOpenLobbies;
     } catch (err) {
       // A failed count must not block hosting; the action is the real gate.
       console.error('inhouse lobby count failed', err);
@@ -53,7 +57,7 @@ export default async function NewGamePage() {
       ) : atCapacity ? (
         <Card>
           <h2 className="text-lg font-bold text-white mb-2">
-            Otwarte są już {MAX_OPEN_LOBBIES} lobby
+            Otwarte są już {maxOpenLobbies} lobby
           </h2>
           <p className="text-slate-400 text-sm mb-5 leading-relaxed">
             To wystarczy. Trzecie lobby dzieli tych samych graczy na trzy części i wtedy żadne nie

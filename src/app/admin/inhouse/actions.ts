@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { requireWebsiteAdmin, isAuthError } from '@/lib/inhouse/admin-guard';
-import { setLobbyPassword } from '@/lib/inhouse/lobby-config';
+import { saveLobbyConfig } from '@/lib/inhouse/lobby-config';
 import {
   getInhouseStore,
   resolveSettings,
@@ -60,6 +60,7 @@ export async function saveInhouseDefaults(_prev: FormState, formData: FormData):
       dotaTvDelay,
       leagueId,
       selectionPriorityRules: n(formData, 'selectionPriorityRules'),
+      pauseSetting: n(formData, 'pauseSetting'),
       immortalDraft: b(formData, 'immortalDraft'),
       cheatsEnabled: b(formData, 'cheatsEnabled'),
       fillWithBots: b(formData, 'fillWithBots'),
@@ -88,9 +89,9 @@ export async function saveInhouseDefaults(_prev: FormState, formData: FormData):
   }
 }
 
-// ─── inhouseConfig/lobby — the shared lobby password (§7.2) ──────────────────
+// ─── inhouseConfig/lobby — password and the open-lobby cap (§7.2) ────────────
 
-export async function saveLobbyPassword(_prev: FormState, formData: FormData): Promise<FormState> {
+export async function saveLobbySettings(_prev: FormState, formData: FormData): Promise<FormState> {
   try {
     await requireWebsiteAdmin();
     if (!isInhouseConfigured()) return { status: 'error', message: 'Firestore nie jest skonfigurowany.' };
@@ -103,14 +104,20 @@ export async function saveLobbyPassword(_prev: FormState, formData: FormData): P
     if (/\s/.test(password)) return { status: 'error', message: 'Hasło nie może zawierać spacji.' };
     if (password.length > 32) return { status: 'error', message: 'Hasło może mieć maksymalnie 32 znaki.' };
 
-    await setLobbyPassword(password);
+    const maxOpenLobbies = n(formData, 'maxOpenLobbies');
+    if (!Number.isInteger(maxOpenLobbies) || maxOpenLobbies < 1 || maxOpenLobbies > 10) {
+      return { status: 'error', message: 'Limit otwartych lobby musi być liczbą od 1 do 10.' };
+    }
+
+    await saveLobbyConfig({ password, maxOpenLobbies });
     revalidatePath('/admin/inhouse');
+    revalidatePath('/inhouse');
     return {
       status: 'ok',
-      message: 'Zapisano hasło. Obowiązuje dla lobby tworzonych od teraz.',
+      message: 'Zapisano. Hasło obowiązuje dla lobby tworzonych od teraz.',
     };
   } catch (err) {
-    console.error('saveLobbyPassword', err);
+    console.error('saveLobbySettings', err);
     return { status: 'error', message: isAuthError(err) ? 'Brak uprawnień.' : 'Nie udało się zapisać.' };
   }
 }
