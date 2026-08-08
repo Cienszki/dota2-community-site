@@ -3,7 +3,6 @@ import { Gamepad2, MessageSquareText, Megaphone, Zap } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import SkewButton from '@/components/inhouse/SkewButton';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
-import { getInhouseViewer } from '@/lib/inhouse/session';
 import { countRecruitingLobbies } from '@/lib/inhouse/live';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import CreateGameButton from './CreateGameButton';
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
 
 export default async function NewGamePage() {
   const configured = isInhouseConfigured();
-  const viewer = configured ? await getInhouseViewer() : null;
 
   // Told up front rather than after a press. The server action re-checks this
   // anyway — this is only so the page doesn't offer something it will refuse.
@@ -45,14 +43,6 @@ export default async function NewGamePage() {
       {!configured ? (
         <Card>
           <p className="text-slate-300">Integracja z botem lobby jest w trakcie konfiguracji.</p>
-        </Card>
-      ) : !viewer?.discordId ? (
-        <Card>
-          <h2 className="text-lg font-bold text-white mb-2">Najpierw połącz konto</h2>
-          <p className="text-slate-400 text-sm mb-5">Hostowanie wymaga połączonego konta Discord.</p>
-          <SkewButton href="/inhouse/link" variant="discord" prefetch={false}>
-            <Gamepad2 className="w-5 h-5" /> Połącz konto
-          </SkewButton>
         </Card>
       ) : atCapacity ? (
         <Card>
