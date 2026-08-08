@@ -59,13 +59,15 @@ bot repo before copying. Zero behavioural drift.
   §8 rules those out everywhere, on any page. `match-record.ts`'s `stats` field
   stays exactly what its comment says: stored for medal derivation, not
   displayed.
-- **Ingest sweep is scheduled.** `vercel.json` runs
-  `GET /api/cron/inhouse-ingest` every 10 minutes; Vercel injects the
-  `Authorization: Bearer $CRON_SECRET` header itself once that env var is set —
-  no extra wiring. **Caveat:** Vercel's Hobby plan only runs cron jobs once a
-  day regardless of the configured schedule; the 10-minute cadence needs a Pro
-  plan (or an external scheduler hitting the same URL) to actually run at that
-  rate.
+- **Ingest sweep is scheduled** — `.github/workflows/inhouse-ingest.yml` hits
+  `GET /api/cron/inhouse-ingest` every 10 minutes with the `CRON_SECRET` bearer
+  token. Needs two repository secrets (`INHOUSE_SITE_URL`, `CRON_SECRET`).
+
+  It was briefly a `vercel.json` cron instead, and that was a mistake worth
+  recording: Vercel's Hobby plan rejects sub-daily schedules **at build time**,
+  so rather than degrading to daily it failed every deployment — ten commits
+  shipped nothing before the cause was spotted. The plan-independent scheduler
+  is the safer default regardless of tier.
 - **Fixed: a finished match no longer vanishes from the board.** The live SSE
   feed previously carried `open`/`ready`/`in_progress` games only, so a match
   that finished disappeared from the cards and didn't reappear in history until
@@ -114,7 +116,7 @@ Recorded so they don't get relitigated:
 | Per-player stats stored but not displayed | §10 rules out rivalrous public stats; medals are awards, not a ladder |
 | Backfilled league matches write no ledger or counters | Back-crediting `gamesPlayed` from arbitrary history rewrites every profile |
 | Match page shows kill score + hero picks, never per-player numbers | Team score and "who played what" aren't rankings; KDA/GPM/damage are |
-| Ingest cron lives in `vercel.json`, not a GitHub Action | Vercel injects the bearer token itself; one less secret to keep in sync |
+| Ingest cron lives in a GitHub Action, not `vercel.json` | Vercel Hobby rejects sub-daily crons at build time — it fails the deploy rather than degrading. Actions runs every 10 min on any plan |
 
 ---
 

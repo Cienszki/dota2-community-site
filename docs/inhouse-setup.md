@@ -146,15 +146,25 @@ match record, replay-parse request. Two entry points:
     "https://<site>/api/cron/inhouse-backfill?limit=50"
   ```
 
-**Schedule the cron every 10–15 minutes.** Both passes are bounded per run, so a
-backlog drains over several runs. On Vercel, add to `vercel.json`:
+**Scheduled every 10 minutes by GitHub Actions** —
+[`.github/workflows/inhouse-ingest.yml`](../.github/workflows/inhouse-ingest.yml).
+Both passes are bounded per run, so a backlog drains over several runs.
 
-```jsonc
-{ "crons": [{ "path": "/api/cron/inhouse-ingest", "schedule": "*/10 * * * *" }] }
-```
+Set two repository secrets (Settings → Secrets and variables → Actions):
 
-Vercel sends its own `Authorization: Bearer $CRON_SECRET`, so no extra wiring is
-needed there. Anywhere else, a `curl` from any scheduler works:
+| Secret | Value |
+|---|---|
+| `INHOUSE_SITE_URL` | the site origin, no trailing slash |
+| `CRON_SECRET` | must match the value in the Vercel environment |
+
+> **Do not put this in `vercel.json` crons.** Vercel's Hobby plan rejects any
+> schedule more frequent than once a day, and it rejects it **at build time** —
+> so a `*/10 * * * *` entry there doesn't quietly run daily, it fails the whole
+> deployment and leaves the previous build serving. That is exactly what
+> happened on 2026-08-08: ten commits deployed nothing until the file was
+> removed. A daily sweep would also mean awards taking up to 24h to appear.
+
+Anywhere else, a `curl` from any scheduler works:
 
 ```bash
 curl -sS -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/inhouse-ingest
