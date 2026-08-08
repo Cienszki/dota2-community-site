@@ -39,21 +39,44 @@ node -e "console.log(Buffer.from(require('fs').readFileSync('service-account.jso
 The site degrades gracefully when `FIREBASE_SERVICE_ACCOUNT_BASE64` is unset:
 inhouse pages show an "unavailable" state instead of crashing.
 
-## 2. Firestore security rules
+## 2. Firestore security rules — nothing to deploy
 
 Browsers never touch Firestore directly (§2.2) — all access is server-side via
-the Admin SDK, which bypasses rules. Deploy the deny-all rules to the **same**
-Firebase project the bot uses:
+the Admin SDK, which bypasses rules entirely regardless of what they say.
 
-```bash
-firebase deploy --only firestore:rules   # uses ./firestore.rules
-```
+The bot's Firebase project (`tournament-tracker-f35tb`) is **shared with the
+Tournament Tracker app**, which owns a large, actively-maintained ruleset —
+teams, matches, standins, fantasy lineups, admin roles, and the bot
+orchestrator's own collections (`botAccounts`, `botCommands`, `botEvents`,
+`botLobbySessions`, `botSyncTasks` — the Next.js "orchestrator" side of the
+same `worker-api.md` contract the Discord gateway uses on the other side).
 
-## 3. Composite indexes
+**Verified 2026-08-08 by reading the live ruleset directly:** it ends in a
+trailing `match /{document=**} { allow read, write: if false; }`, and nothing
+above that catch-all names any `inhouse*` collection. Every `inhouseGames` /
+`inhousePlayers` / `inhouseAttendance` / `inhouseModeration` / `inhouseBans` /
+`inhouseConfig` / `inhouseLinkCodes` / `inhouseReadyPool` / `inhouseMatches` /
+`inhouseCounters` document is already covered by that catch-all. **Do not**
+`firebase deploy --only firestore:rules` from this repo — there is no
+`firebase.json` here on purpose, so that command has nothing to point at. Doing
+it anyway (e.g. by hand-authoring one) would replace the Tournament Tracker
+app's entire ruleset with the single deny-all line in `./firestore.rules`,
+which is kept only as documentation of the protection level these collections
+need — already provided — not as something to deploy.
 
-Firestore refuses the listing queries until these exist (it logs a creation link
-on first failure). Full list in the bot repo's `inhouse-data-model.md`; the ones
-this site hits:
+## 3. Composite indexes — create reactively, not via a bulk deploy
+
+Firestore refuses the listing queries until these exist; it logs a direct
+creation link on first failure (Vercel function logs), and clicking it creates
+exactly the right index in one step. **Prefer this over a bulk
+`firebase deploy --only firestore:indexes`** — that command can prompt to
+*delete* indexes already live for Tournament Tracker's own collections that
+aren't listed in whatever local file you run it with, on a project you don't
+solely own. `firestore.indexes.json` in the repo root is kept as a reference
+for manual Console-UI creation (Firestore Database → Indexes → Composite →
+Create Index) if you'd rather not wait for the reactive link.
+
+Full list in the bot repo's `inhouse-data-model.md`; the ones this site hits:
 
 | Collection | Fields |
 |---|---|
@@ -65,6 +88,10 @@ this site hits:
 | `inhouseGames` | `state` ASC, `updatedAt` ASC |  ← ingest catch-up sweep |
 | `inhouseMatches` | `parseState` ASC, `ingestedAt` ASC | ← parse follow-up sweep |
 | `inhouseMatches` | `gameId` ASC | ← match record for a given game |
+
+(The last two — single-field — are automatic; Firestore indexes every field
+individually without configuration. Only the multi-field rows above need
+explicit creation, and `firestore.indexes.json` only lists those.)
 
 ## 3a. Result ingestion
 
