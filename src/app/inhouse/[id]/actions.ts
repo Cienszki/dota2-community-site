@@ -5,6 +5,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
 import { requestSessionEnd } from '@/lib/inhouse/commands';
+import { isGameHost } from '@/lib/inhouse/host-token';
 import { isTerminal } from '@/lib/inhouse/core/types';
 
 // Publishing from the website is the same action as `!publish` in lobby chat —
@@ -18,13 +19,15 @@ export async function publishGame(gameId: string): Promise<PublishResult> {
   if (!isInhouseConfigured()) return { ok: false, reason: 'unavailable' };
 
   const viewer = await getInhouseViewer();
-  if (!viewer.discordId) return { ok: false, reason: 'forbidden' };
 
   const store = getInhouseStore();
   const game = await store.getGame(gameId);
   if (!game) return { ok: false, reason: 'error' };
 
-  const isInitiator = game.initiatorDiscordId === viewer.discordId;
+  // Same three-way host test as cancel — an account-less host can publish the
+  // lobby they opened. (Website lobbies already auto-publish, so this mostly
+  // covers publishing a finished game after the fact.)
+  const isInitiator = await isGameHost(game, viewer);
   const isFinishedParticipant =
     game.state === 'finished' &&
     !!viewer.steamId32 &&
@@ -40,7 +43,7 @@ export async function publishGame(gameId: string): Promise<PublishResult> {
   await store.updateGame(gameId, {
     published: true,
     publishedAt: nowIso,
-    publishedByDiscordId: viewer.discordId,
+    publishedByDiscordId: viewer.discordId ?? null,
     updatedAt: nowIso, // the stuck-game sweeper keys off updatedAt (§5.2)
   });
 
@@ -70,14 +73,17 @@ export async function cancelGame(gameId: string): Promise<CancelResult> {
   if (!isInhouseConfigured()) return { ok: false, reason: 'unavailable' };
 
   const viewer = await getInhouseViewer();
-  if (!viewer.discordId) return { ok: false, reason: 'forbidden' };
 
   const store = getInhouseStore();
   const game = await store.getGame(gameId);
   if (!game) return { ok: false, reason: 'error' };
 
-  const isHost = game.initiatorDiscordId === viewer.discordId;
-  const isAdmin = await store.isAdmin({ discordId: viewer.discordId, steamId32: viewer.steamId32 });
+  // No `viewer.discordId` short-circuit: hosting needs no account, so an
+  // anonymous host must still be able to close the lobby they opened.
+  const isHost = await isGameHost(game, viewer);
+  const isAdmin =
+    (!!viewer.discordId || !!viewer.steamId32) &&
+    (await store.isAdmin({ discordId: viewer.discordId, steamId32: viewer.steamId32 }));
   if (!isHost && !isAdmin) return { ok: false, reason: 'forbidden' };
 
   // Once the match has launched there is nothing to cancel — the game is being

@@ -26,6 +26,7 @@ you haven't; the invariants in it are easy to break by accident.
 - [6. Reservations and the waitlist](#6-reservations-and-the-waitlist)
 - [7. Account leasing](#7-account-leasing)
 - [8. Player identity and linking](#8-player-identity-and-linking)
+- [8a. Automatic host handover — NEW](#8a-automatic-host-handover--new-and-it-has-to-be-yours)
 - [9. Open items — decisions needed from you](#9-open-items--decisions-needed-from-you)
 - [10. Testing without the website](#10-testing-without-the-website)
 - [Appendix: what we rely on from OpenDota](#appendix-what-we-rely-on-from-opendota)
@@ -45,8 +46,12 @@ part that doesn't yet. In priority order:
 | 4 | **Don't let `publishGateGames` block a website lobby.** The site publishes on the host's behalf at creation, for anyone. | A first-time host would otherwise create a lobby that silently refuses to go public. Set the gate to 0 in the admin panel and don't enforce it on the website path. | [§3](#3-what-the-website-expects-you-to-write) |
 | 5 | **Touch the game document whenever anything the site renders changes** — including a side swap or a `displayName` refresh, not only when the head-count moves. | The website re-reads `memberships` only when the game document changes. Fingerprint `slotSnapshot` too narrowly and the visible player list goes stale. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
 
+| 6 | **Assign and hand over the host role automatically**, and announce it in lobby chat 5s later. | **New requirement.** Opening a lobby on the website no longer needs an account, so games now arrive with no host at all — somebody in the lobby has to become one, and only you can see who is actually sitting in a slot. | [§8a](#8a-automatic-host-handover--new-and-it-has-to-be-yours) |
+
 Items 1, 2 and 4 produce visibly wrong behaviour; 3 and 5 produce subtly wrong
-behaviour, which is worse to debug later. Immortal Draft is a sixth, and the
+behaviour, which is worse to debug later. Item 6 is new work rather than a fix —
+nothing is broken without it, but hostless lobbies are now reachable in
+production, so it is not optional either. Immortal Draft is a seventh, and the
 field name you were missing is in [§9.4](#94-immortal-draft--the-field-is-do_player_draft).
 
 ---
@@ -568,6 +573,117 @@ lobby cards, leaderboards and join dialog all show it ahead of the Steam
 persona, and the website has no other way to learn it.
 
 ---
+
+## 8a. Automatic host handover — NEW, and it has to be yours
+
+**Status: specified here, not built anywhere.** This is a new requirement from
+the community owner, and it is worker-side work — the website cannot do any of
+it, for three separate reasons given at the end.
+
+### The change that created the need
+
+Opening a lobby on the website **no longer requires an account**. Anyone can
+press the button. So a game can now be created with:
+
+```jsonc
+{ "initiatorDiscordId": "", "initiatorSteamId32": null, "initiatorName": "Gość" }
+```
+
+Nobody is the host. Somebody has to become one.
+
+### The rule
+
+> **Invariant: while a lobby is open, the host is a player occupying a playing
+> slot — or there is no host, because nobody does.**
+
+Concretely:
+
+| Trigger | Action |
+|---|---|
+| Lobby created with no host identity (both initiator fields empty) | The **first** player to occupy a playing slot becomes host. |
+| The current host stops occupying a playing slot — leaves, or moves to spectator/broadcaster | Reassign to **any** player currently on a playing slot. |
+| No eligible player when reassignment is needed | Host is **vacant**. The next player to take a playing slot becomes host. |
+
+"Playing slot" is exactly the existing `PLAYING_SIDES` set — `radiant`, `dire`,
+`unassigned` — excluding the bot account itself. The same set `computeSlots`
+already filters on, so no new concept.
+
+**Choose the longest-seated eligible player** (earliest `joinedAt`). The owner
+said "not necessarily random, just one of them", and lowest-`joinedAt` is the
+better answer than a real random pick: it is deterministic (so a retry picks
+the same person and the site never renders a different host than you did), it
+is stable (it doesn't reshuffle every time someone leaves), and it lands on the
+person most invested in the lobby.
+
+Note the middle row carefully: **a side swap is not a vacancy.** Radiant → Dire
+is still a playing slot, so the host keeps the role. Only leaving the playing
+set at all triggers reassignment.
+
+A manual `!host` transfer wins and simply becomes the new current host — it is
+then subject to the same rule if that person leaves.
+
+### What to write
+
+On every assignment, update the game document:
+
+```jsonc
+{
+  "initiatorSteamId32": "123456789",   // the new host, always
+  "initiatorDiscordId": "…" | "",      // if they are linked, else empty
+  "initiatorName": "Pawel",            // their display name (§8's name rules)
+  "updatedAt": "…"                     // required — the sweeper keys off it
+}
+```
+
+and emit the event you already have:
+
+```jsonc
+{ "type": "inhouse_host_transferred", "gameId": "…",
+  "toSteamId32": "…", "toDiscordId": "…" | null, "timestamp": "…" }
+```
+
+**The website needs no change for this** — it already resolves host controls
+from `initiatorDiscordId` / `initiatorSteamId32`, so Publish and Cancel follow
+the role automatically the moment you write it. (An anonymous opener holds a
+signed browser cookie that grants those controls *only while both initiator
+fields are empty*; the instant you name a host, the cookie stops applying. So
+the handover is what takes control away from someone who opened a lobby and
+walked off.)
+
+### The chat notification
+
+Announce it **in lobby chat, 5 seconds after the assignment**, to whoever just
+got it. Something like:
+
+> `Pawel jest teraz hostem tego lobby. Wpisz !help, aby zobaczyć komendy.`
+
+Two things about that delay, since it is easy to implement as a naive
+`setTimeout` and get subtly wrong:
+
+1. **It exists so the message isn't lost.** A player joining produces a burst of
+   lobby chatter; five seconds puts the announcement after it, where it will
+   actually be read.
+2. **Cancel it if it is superseded.** Somebody who joins and immediately leaves
+   would otherwise trigger an announcement for a host who is already gone — and
+   a rapid join/leave/join cycle would spam the lobby. Keep one pending timer
+   per game; on a new assignment, clear the old one before setting the new. If
+   the person is no longer the host when the timer fires, drop the message.
+
+### Why the website can't do this
+
+Not a division-of-labour preference — three hard blockers:
+
+1. **Only the worker can send lobby chat.** `send_chat` is a command the website
+   can enqueue, but the website has no Game Coordinator connection and no way
+   to know the lobby's real membership first-hand.
+2. **The website is request-scoped.** It runs serverless on Vercel; there is no
+   process alive between requests to hold a five-second timer, let alone to
+   notice a player left. The one Firestore listener it holds exists per-instance
+   and is not a reliable event source.
+3. **You see the transition; we see a snapshot.** Vacating a slot is a GC event
+   you observe directly. We would only find out on the next `slotSnapshot`
+   write — which is *your* write, so we would be reacting to you anyway, one
+   round trip late.
 
 ## 9. Open items — decisions needed from you
 

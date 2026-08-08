@@ -68,3 +68,35 @@ export async function hostedThisGame(gameId: string): Promise<boolean> {
   if (!token) return false;
   return verify(token).includes(gameId);
 }
+
+/**
+ * Whether the viewer controls this game — the single answer both the match page
+ * and the cancel action ask, so they cannot drift.
+ *
+ * Three ways to be the host, in descending strength:
+ *   1. the Discord profile the game is attributed to
+ *   2. the Steam account it is attributed to
+ *   3. the browser that opened it, but *only while the game is unclaimed*
+ *
+ * That last condition matters once the bot's automatic host handover lands: an
+ * anonymous opener holds the lobby only until a real player takes a slot and
+ * inherits the role. After that the game names a host, and the opener's cookie
+ * stops granting anything — otherwise someone who opened a lobby and walked
+ * away could still cancel a game full of other people.
+ */
+export async function isGameHost(
+  game: {
+    id: string;
+    initiatorDiscordId: string | null;
+    initiatorSteamId32: string | null;
+  },
+  viewer: { discordId: string | null; steamId32: string | null },
+): Promise<boolean> {
+  if (viewer.discordId && game.initiatorDiscordId === viewer.discordId) return true;
+  if (viewer.steamId32 && game.initiatorSteamId32 === viewer.steamId32) return true;
+
+  const claimed = Boolean(game.initiatorDiscordId) || Boolean(game.initiatorSteamId32);
+  if (claimed) return false;
+
+  return hostedThisGame(game.id);
+}

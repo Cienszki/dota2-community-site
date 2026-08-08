@@ -12,7 +12,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { modeName, regionName, delayLabel, formatDuration, resolveDisplayName } from '@/lib/inhouse/display';
 import type { InhouseGame, Membership } from '@/lib/inhouse/core/types';
 import { getMatchRecordForGame, type MatchRecord } from '@/lib/inhouse/match-record';
-import { hostedThisGame } from '@/lib/inhouse/host-token';
+import { isGameHost } from '@/lib/inhouse/host-token';
 import { getHeroMap, type HeroInfo } from '@/lib/inhouse/heroes';
 import PublishButton from './PublishButton';
 import CancelButton from './CancelButton';
@@ -60,14 +60,9 @@ export default async function GamePage({ params }: { params: Params }) {
     getInhouseViewer(),
   ]);
 
-  // Hosting needs no account, so "is this your game" has three answers: the
-  // Discord profile that opened it, the Steam account that opened it, or the
-  // browser that opened it (host-token cookie — the anonymous case).
-  const hostedHere = await hostedThisGame(game.id);
-  const isHost =
-    hostedHere ||
-    (!!viewer.discordId && game.initiatorDiscordId === viewer.discordId) ||
-    (!!viewer.steamId32 && game.initiatorSteamId32 === viewer.steamId32);
+  // Hosting needs no account, so "is this your game" has three answers — see
+  // isGameHost, which the cancel action asks too so the two cannot disagree.
+  const isHost = await isGameHost(game, viewer);
 
   const isParticipant =
     isHost || (!!viewer.steamId32 && memberships.some((m) => m.steamId32 === viewer.steamId32));
