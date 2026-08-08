@@ -93,22 +93,36 @@ If this needs re-running later (new query shape, new collection):
 firebase deploy --only firestore:indexes --project tournament-tracker-f35tb --non-interactive
 ```
 
-Full list in the bot repo's `inhouse-data-model.md`; the ones this site hits:
+The authoritative list is `firestore.indexes.json` — derived by auditing every
+`.where()`/`.orderBy()` in `src/lib/inhouse/**` (including the vendored core,
+whose queries this site runs too) and cross-checked against the bot repo's
+`inhouse-data-model.md`:
 
-| Collection | Fields |
-|---|---|
-| `inhouseGames` | `published` ASC, `state` ASC |
-| `inhouseGames` | `state` ASC, `endedAt` DESC |
-| `inhouseAttendance` | `steamId32` ASC |
-| `inhouseModeration` | `kind` ASC, `subjectSteamId32` ASC |
-| `inhouseModeration` | `kind` ASC, `subjectDiscordId` ASC |
-| `inhouseGames` | `state` ASC, `updatedAt` ASC |  ← ingest catch-up sweep |
-| `inhouseMatches` | `parseState` ASC, `ingestedAt` ASC | ← parse follow-up sweep |
-| `inhouseMatches` | `gameId` ASC | ← match record for a given game |
+| Collection | Fields | Query |
+|---|---|---|
+| `inhouseGames` | `published` ASC, `state` ASC | the live board |
+| `inhouseGames` | `state` ASC, `endedAt` **DESC** | `listRecentFinishedGames` (`.orderBy('endedAt','desc')`) |
+| `inhouseGames` | `state` ASC, `endedAt` **ASC** | `getCommunityStats` (`.where('endedAt','>=',monthStart)`) |
+| `inhouseGames` | `state` ASC, `updatedAt` ASC | ingest catch-up sweep |
+| `inhouseGames` | `botAccountId` ASC, `state` ASC | `findGameByBotAccount` — the admin pool's force-release |
+| `inhouseGames` | `state` ASC, `scheduledFor` ASC | the bot's scheduler |
+| `inhouseGames` | `publishedByDiscordId` ASC, `publishedAt` ASC | the bot's publish-per-day gate |
+| `inhouseModeration` | `kind` ASC, `subjectSteamId32` ASC | `countPriorBans` / ban ladder |
+| `inhouseModeration` | `kind` ASC, `subjectDiscordId` ASC | as above, other identity |
+| `inhouseMatches` | `parseState` ASC, `ingestedAt` ASC | parse follow-up sweep |
 
-(The last two — single-field — are automatic; Firestore indexes every field
-individually without configuration. Only the multi-field rows above need
-explicit creation, and `firestore.indexes.json` only lists those.)
+**Both `endedAt` directions are genuinely required** — this was the one that
+bit. Firestore can scan an index backwards, but only by reversing *every*
+field at once, so `(state ASC, endedAt DESC)` also serves
+`(state DESC, endedAt ASC)` and **not** `(state ASC, endedAt ASC)`. A range
+filter (`endedAt >= x`) with no explicit `.orderBy()` implies ASC, so it needs
+its own index alongside the DESC one used by the ordered listing.
+
+Single-field queries (`inhouseAttendance.steamId32`, `inhouseMatches.gameId`,
+`inhousePlayers.steamIds array-contains`, every `createdAt >= x` on its own)
+need nothing — Firestore indexes each field automatically. Only the multi-field
+rows above need explicit creation, and `firestore.indexes.json` lists exactly
+those.
 
 ## 3a. Result ingestion
 
