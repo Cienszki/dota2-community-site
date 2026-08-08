@@ -64,17 +64,34 @@ app's entire ruleset with the single deny-all line in `./firestore.rules`,
 which is kept only as documentation of the protection level these collections
 need — already provided — not as something to deploy.
 
-## 3. Composite indexes — create reactively, not via a bulk deploy
+## 3. Composite indexes — deployed 2026-08-08, verified safe first
 
-Firestore refuses the listing queries until these exist; it logs a direct
-creation link on first failure (Vercel function logs), and clicking it creates
-exactly the right index in one step. **Prefer this over a bulk
-`firebase deploy --only firestore:indexes`** — that command can prompt to
-*delete* indexes already live for Tournament Tracker's own collections that
-aren't listed in whatever local file you run it with, on a project you don't
-solely own. `firestore.indexes.json` in the repo root is kept as a reference
-for manual Console-UI creation (Firestore Database → Indexes → Composite →
-Create Index) if you'd rather not wait for the reactive link.
+**Done.** All 6 rows below exist in the live project as of 2026-08-08, via
+`firebase deploy --only firestore:indexes --project tournament-tracker-f35tb
+--non-interactive` (no `--force`).
+
+That command's actual behavior was verified by reading `firebase-tools`' own
+source (`lib/firestore/api.js`, `FirestoreApi.deploy`) before running it, not
+assumed: **index creation is unconditional** (always applied), while
+**deletion of indexes present live but absent from the local file requires an
+explicit `--force` flag** — without it, they're only logged
+("there are N indexes... not present in your firestore indexes file. To
+delete them, run this command with the --force flag") and left untouched. Ran
+it, then listed indexes again to confirm: 16 → 22, and every one of
+Tournament Tracker's original 16 (`teams`, `matches`, `standins`,
+`notifications`, `botAccounts`, `botLobbySessions`, `botSyncTasks`, …) still
+present, byte-for-byte.
+
+So — corrected from the earlier caution in this doc — an **indexes-only**
+deploy from this repo is safe here, same as any other Firestore project,
+*as long as `--force` is never passed*. Rules remain the one thing to never
+deploy from this repo (§2) — that operation has no such create-only
+protection, it's a full replace.
+
+If this needs re-running later (new query shape, new collection):
+```bash
+firebase deploy --only firestore:indexes --project tournament-tracker-f35tb --non-interactive
+```
 
 Full list in the bot repo's `inhouse-data-model.md`; the ones this site hits:
 
