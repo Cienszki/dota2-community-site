@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { Plus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import OpenLobbyButton from './OpenLobbyButton';
 
 // The card that stands in for a lobby nobody has opened yet.
 //
@@ -13,9 +13,7 @@ import { Plus, Users } from 'lucide-react';
 
 export default function OpenLobbyCard() {
   return (
-    <Link
-      href="/inhouse/new"
-      prefetch={false}
+    <div
       className="group relative flex flex-col justify-between min-h-[220px] rounded-2xl p-5
                  border border-dashed border-[#E7000B]/40 hover:border-[#E7000B]
                  bg-gradient-to-br from-[#E7000B]/12 to-transparent hover:from-[#E7000B]/20
@@ -37,15 +35,9 @@ export default function OpenLobbyCard() {
         </p>
       </div>
 
-      <span
-        className="mt-5 inline-flex w-fit items-center h-11 px-6 font-extrabold text-sm uppercase
-                   tracking-wide bg-[#E7000B] text-white group-hover:bg-[#c10009]
-                   -skew-x-[12deg] transition-colors"
-      >
-        <span className="flex items-center gap-2 skew-x-[12deg]">
-          <Plus className="h-4 w-4" /> Otwórz lobby
-        </span>
-      </span>
-    </Link>
+      <div className="mt-5">
+        <OpenLobbyButton variant="card" />
+      </div>
+    </div>
   );
 }

@@ -65,6 +65,9 @@ interface BadgeStyle {
 }
 
 function stateBadge(state: PublicGame['state']): BadgeStyle {
+  if (state === 'lobby_creating') {
+    return { label: 'tworzenie', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)' };
+  }
   if (state === 'in_progress') {
     return { label: 'na żywo', color: '#f87171', bg: 'rgba(231,0,11,0.1)', border: 'rgba(231,0,11,0.3)' };
   }
@@ -91,6 +94,10 @@ export default function GameCard({ game }: { game: PublicGame }) {
   const recruiting = game.state === 'open' || game.state === 'ready';
   const inProgress = game.state === 'in_progress';
   const finished = game.state === 'finished';
+  // The couple of seconds between someone pressing "open lobby" and the worker
+  // reporting the Dota lobby exists. On the board so the press has a visible
+  // effect immediately; it can't be joined yet, so there's no button.
+  const creating = game.state === 'lobby_creating';
 
   const committed = game.slots?.committed ?? 0;
   const slotsOpen = game.slots?.slotsOpen ?? Math.max(0, 10 - committed);
@@ -165,6 +172,13 @@ export default function GameCard({ game }: { game: PublicGame }) {
       )}
 
       {/* footer, by state */}
+      {creating && (
+        <div className="flex items-center gap-2 min-h-9 text-sm text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+          Bot tworzy lobby w Docie…
+        </div>
+      )}
+
       {inProgress && (
         <div className="flex items-center min-h-9">
           <p className="text-sm font-bold text-[#E7000B]">Trwający mecz</p>

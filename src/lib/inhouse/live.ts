@@ -20,10 +20,18 @@ import type { InhouseGame } from './core/types';
  * The `published` filter still applies to all three (invariant 0.1). An
  * unpublished in-progress game stays hidden: nobody can join it anyway.
  */
-export const BOARD_STATES = ['open', 'ready', 'in_progress'] as const;
+export const BOARD_STATES = ['lobby_creating', 'open', 'ready', 'in_progress'] as const;
 
-/** Board states in which a game is still taking players. */
-export const RECRUITING_STATES: readonly string[] = ['open', 'ready'];
+/**
+ * Board states in which a game is still taking players — and therefore counts
+ * against the concurrent-lobby cap.
+ *
+ * `lobby_creating` is in both lists so that pressing "open lobby" produces a
+ * card immediately, rather than nothing at all for the second or two before
+ * the worker reports back. Counting it also closes the double-create window: a
+ * second press while the first lobby is still being made now sees the cap.
+ */
+export const RECRUITING_STATES: readonly string[] = ['lobby_creating', 'open', 'ready'];
 
 /** How many recently-finished games the "recent" side tracks — matches the
  *  one-shot `listRecentFinishedGames` limit `getBoard()` already used, so SSE,

@@ -7,6 +7,7 @@ import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import GameCard from './GameCard';
 import OpenLobbyCard from './OpenLobbyCard';
+import OpenLobbyButton from './OpenLobbyButton';
 import SkewButton from './SkewButton';
 
 // The board and the match history are one list, split in two places.
@@ -148,24 +149,15 @@ export default function InhouseBoard({
 /**
  * The header's route to hosting, or the reason there isn't one.
  *
- * At capacity this stops being a link. Letting it navigate to a page that
- * refuses is a worse way to learn the rule than being told here, next to the
- * two lobbies that are the actual answer.
+ * At capacity it stops offering the action and explains why instead, next to
+ * the lobbies that are the actual answer. Below capacity it opens a lobby in
+ * place — the server action re-checks the cap regardless, so this is only
+ * about not offering something that would be refused.
  */
 function OpenLobbyLink({ atCapacity, max }: { atCapacity: boolean; max: number }) {
   const [notice, setNotice] = useState(false);
 
-  if (!atCapacity) {
-    return (
-      <Link
-        href="/inhouse/new"
-        prefetch={false}
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300 hover:text-white transition-colors"
-      >
-        Otwórz lobby
-      </Link>
-    );
-  }
+  if (!atCapacity) return <OpenLobbyButton variant="link" />;
 
   return (
     <div className="relative">
