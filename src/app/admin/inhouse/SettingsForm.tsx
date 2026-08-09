@@ -110,10 +110,11 @@ export default function SettingsForm({ initial }: { initial: ResolvedSettings })
           <Check name="immortalDraft" label="Immortal Draft" checked={initial.immortalDraft} />
         </div>
         <p className="text-slate-600 text-xs mt-3">
-          Immortal Draft nie działa, dopóki bot nie zaktualizuje schematu Game Coordinatora — pole
-          nazywa się <code className="text-slate-400">do_player_draft</code> i biblioteka bota jest
-          na nie za stara. Wartość jest zapisywana i przekazywana, więc zadziała sama, gdy bot
-          nadgoni.
+          Immortal Draft: bot wysyła już do Game Coordinatora właściwe pole
+          (<code className="text-slate-400">do_player_draft</code>), więc powinno działać — ale nie
+          zostało to jeszcze potwierdzone na żywym meczu. Zanim oprzesz na tym prawdziwy inhouse,
+          włącz je na jedno testowe lobby i sprawdź, czy drużyny faktycznie są losowane. Jeśli
+          zaznaczenie nic nie zmienia, wyłącz i zgłoś to zespołowi bota.
         </p>
       </Section>
 
@@ -137,6 +138,11 @@ export default function SettingsForm({ initial }: { initial: ResolvedSettings })
           <NumberField name="publishGateGames" label="Gry przed publikacją" value={initial.publishGateGames} />
           <NumberField name="publishesPerDay" label="Publikacje / dzień (0=∞)" value={initial.publishesPerDay} />
         </div>
+        <p className="text-slate-600 text-xs mt-3">
+          „Gry przed publikacją” dotyczy tylko <b className="text-slate-400">cudzych</b> lobby — host
+          zawsze może opublikować własne, niezależnie od tej liczby. Gry otwierane na stronie są
+          publiczne od razu.
+        </p>
       </Section>
 
       {/* ── Moderacja ───────────────────────────────────────────────────── */}
