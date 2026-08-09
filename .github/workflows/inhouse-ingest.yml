@@ -35,10 +35,22 @@ jobs:
           SITE_URL: ${{ secrets.INHOUSE_SITE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "::error::INHOUSE_SITE_URL and CRON_SECRET must both be set as repository secrets."
+          # Report each one separately — "one of these two is missing" sent
+          # the first run into a guessing game between the wrong repo, an
+          # Environment-scoped secret, and a typo'd name.
+          missing=0
+          if [ -z "$SITE_URL" ];    then echo "::error::INHOUSE_SITE_URL is not set (or is empty)"; missing=1; fi
+          if [ -z "$CRON_SECRET" ]; then echo "::error::CRON_SECRET is not set (or is empty)";      missing=1; fi
+          if [ "$missing" = "1" ]; then
+            echo ""
+            echo "Set both under: Settings → Secrets and variables → Actions → *Secrets* tab"
+            echo "  · must be REPOSITORY secrets, not Environment secrets (this job declares no environment)"
+            echo "  · must be on the repo this workflow ran in: ${GITHUB_REPOSITORY}"
+            echo "  · 'Variables' and 'Secrets' are different tabs — these must be Secrets"
             exit 1
           fi
+
+          echo "Both secrets present. Target: ${SITE_URL}"
 
           # -sS keeps it quiet but still prints transport errors; the endpoint
           # itself is idempotent, so a retried or overlapping run is harmless.
