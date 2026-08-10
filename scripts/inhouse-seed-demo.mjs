@@ -152,18 +152,37 @@ async function resolveDiscordId() {
   }
 
   if (DISCORD_NAME) {
-    const byName = await db
+    // `discordName` is the guild nickname, else the global name, else the
+    // username — so it may not match the casing (or even the spelling) of what
+    // was typed. Exact first because it is one indexed read, then a bounded
+    // case-insensitive scan, which is affordable while the community is small
+    // and is the only way Firestore does case-insensitive matching at all.
+    const exact = await db
       .collection('inhousePlayers')
       .where('discordName', '==', DISCORD_NAME)
       .limit(2)
       .get();
-    if (byName.size === 1) {
-      const id = byName.docs[0].id;
-      console.log(`  Resolved Discord ID ${id} from discordName "${DISCORD_NAME}".`);
+    let hits = exact.docs;
+
+    if (hits.length === 0) {
+      const wanted = DISCORD_NAME.toLowerCase();
+      const all = await db.collection('inhousePlayers').limit(500).get();
+      hits = all.docs.filter((d) => (d.data().discordName ?? '').toLowerCase() === wanted);
+    }
+
+    if (hits.length === 1) {
+      const id = hits[0].id;
+      console.log(
+        `  Resolved Discord ID ${id} from discordName "${hits[0].data().discordName}".`,
+      );
       return id;
     }
-    if (byName.size > 1) {
-      die(`More than one player has discordName "${DISCORD_NAME}". Pass --discord-id.`);
+    if (hits.length > 1) {
+      die(
+        `More than one player matches "${DISCORD_NAME}":\n` +
+          hits.map((d) => `    ${d.id}  ${d.data().discordName}`).join('\n') +
+          '\n  Pass --discord-id to choose.',
+      );
     }
   }
 
