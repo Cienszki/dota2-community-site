@@ -33,7 +33,8 @@ const value = (name) => {
 
 const APPLY = flag('--apply');
 const PURGE = flag('--purge');
-const DISCORD_ID = value('--discord-id');
+let DISCORD_ID = value('--discord-id');
+const DISCORD_NAME = value('--discord-name');
 
 /** Cienszki — resolved from https://steamcommunity.com/id/cienszki/ */
 const HERO_STEAM_ID = value('--steam-id') ?? '35747920';
@@ -100,14 +101,7 @@ function die(msg) {
 
 const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
 if (!b64) die('FIREBASE_SERVICE_ACCOUNT_BASE64 is not set.');
-if (!PURGE && !DISCORD_ID) {
-  die(
-    'Pass --discord-id <your Discord user ID>.\n' +
-      '  The profile card is keyed on it, so it must be the account you log in\n' +
-      '  to the site with. Discord → Settings → Advanced → Developer Mode, then\n' +
-      '  right-click your name → Copy User ID.',
-  );
-}
+
 
 let serviceAccount;
 try {
@@ -129,6 +123,62 @@ console.log(`\nProject: ${serviceAccount.project_id}`);
 console.log(APPLY ? 'Mode:    APPLY\n' : 'Mode:    DRY RUN — nothing will be written\n');
 
 const iso = (d) => new Date(d).toISOString();
+
+/**
+ * Work out whose profile this is.
+ *
+ * The Discord *snowflake* is the key — the profile card looks it up from the
+ * session cookie, so keying the seed on anything else produces data that is
+ * present in the database and invisible on the page, which is the most annoying
+ * way for this to fail.
+ *
+ * A username is not a snowflake, and resolving one needs a bot token the
+ * website doesn't have. But if you have ever signed in to the site, a player
+ * document already exists with the right ID on it — so look there first and
+ * only ask when that comes up empty.
+ */
+async function resolveDiscordId() {
+  if (DISCORD_ID) return DISCORD_ID;
+
+  const bySteam = await db
+    .collection('inhousePlayers')
+    .where('steamIds', 'array-contains', HERO_STEAM_ID)
+    .limit(1)
+    .get();
+  if (!bySteam.empty) {
+    const id = bySteam.docs[0].id;
+    console.log(`  Resolved Discord ID ${id} from linked Steam account ${HERO_STEAM_ID}.`);
+    return id;
+  }
+
+  if (DISCORD_NAME) {
+    const byName = await db
+      .collection('inhousePlayers')
+      .where('discordName', '==', DISCORD_NAME)
+      .limit(2)
+      .get();
+    if (byName.size === 1) {
+      const id = byName.docs[0].id;
+      console.log(`  Resolved Discord ID ${id} from discordName "${DISCORD_NAME}".`);
+      return id;
+    }
+    if (byName.size > 1) {
+      die(`More than one player has discordName "${DISCORD_NAME}". Pass --discord-id.`);
+    }
+  }
+
+  die(
+    'Could not work out which Discord account to attach this to.\n\n' +
+      '  Nothing in inhousePlayers has Steam ' + HERO_STEAM_ID +
+      (DISCORD_NAME ? ` or discordName "${DISCORD_NAME}"` : '') + ' —\n' +
+      '  which usually just means that account has never signed in to the site.\n\n' +
+      '  Either sign in once at /inhouse/link (then re-run this with no extra\n' +
+      '  flags), or pass the ID directly:\n\n' +
+      '    --discord-id <snowflake>\n\n' +
+      '  Discord → Settings → Advanced → Developer Mode, then right-click your\n' +
+      '  name → Copy User ID. It is ~18 digits, not a username.',
+  );
+}
 
 /* ─── Purge ──────────────────────────────────────────────────────────────── */
 
@@ -200,6 +250,8 @@ if (PURGE) {
 }
 
 /* ─── Seed ───────────────────────────────────────────────────────────────── */
+
+DISCORD_ID = await resolveDiscordId();
 
 // Real hero ids, so the icons actually resolve on the profile.
 const heroRes = await fetch('https://api.opendota.com/api/heroes');
