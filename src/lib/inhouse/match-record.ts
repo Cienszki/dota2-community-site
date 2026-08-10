@@ -76,6 +76,14 @@ export interface MatchRecord {
   /** Null for a league match that was never an inhouse game on this site. */
   gameId: string | null;
   gameNumber: number | null;
+  /**
+   * The lobby's in-game name, copied off the game document at ingestion.
+   *
+   * Denormalized deliberately: it is shown wherever a match is identified, and
+   * the game document it comes from can be purged (a cancelled lobby) while the
+   * match record must survive. Null for a backfilled league match.
+   */
+  lobbyName: string | null;
 
   radiantWin: boolean;
   durationSeconds: number;
@@ -90,6 +98,16 @@ export interface MatchRecord {
   leagueId: number | null;
 
   roster: MatchRosterEntry[];
+  /**
+   * Every Steam ID in `roster`, flattened.
+   *
+   * Firestore cannot query a field inside an array of objects, so "which
+   * matches was this player in" is impossible against `roster` alone. This is
+   * the queryable projection of it — `array-contains-any` over a player's
+   * accounts, which also handles alts in one query. Anonymous slots contribute
+   * nothing, so it can be shorter than the roster.
+   */
+  playerSteamIds: string[];
 
   parseState: ParseState;
   parseJobId: number | null;
@@ -128,6 +146,29 @@ export async function patchMatchRecord(
     .collection(COLLECTION)
     .doc(String(dotaMatchId))
     .set({ ...patch, updatedAt: new Date().toISOString() }, { merge: true });
+}
+
+/**
+ * A player's most recent matches, newest first.
+ *
+ * Takes every Steam account the person owns, because someone who played three
+ * games on a smurf played three games. `array-contains-any` caps at 30 values,
+ * which no real player will approach.
+ */
+export async function listMatchesForPlayer(
+  steamIds: string[],
+  limit = 5,
+): Promise<MatchRecord[]> {
+  const ids = steamIds.filter(Boolean).slice(0, 30);
+  if (ids.length === 0) return [];
+
+  const snap = await getDb()
+    .collection(COLLECTION)
+    .where('playerSteamIds', 'array-contains-any', ids)
+    .orderBy('startedAt', 'desc')
+    .limit(limit)
+    .get();
+  return snap.docs.map((d) => d.data() as MatchRecord);
 }
 
 /**

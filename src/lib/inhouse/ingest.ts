@@ -115,6 +115,11 @@ async function buildRoster(match: OpenDotaMatchDetail): Promise<MatchRosterEntry
   return roster;
 }
 
+/** The queryable flattening of a roster — see MatchRecord.playerSteamIds. */
+function steamIdsIn(roster: MatchRosterEntry[]): string[] {
+  return [...new Set(roster.map((r) => r.steamId32).filter((id): id is string => Boolean(id)))];
+}
+
 /**
  * Phase 1 — resolve a finished match and write everything derived from it.
  *
@@ -165,6 +170,7 @@ export async function ingestFinishedMatch(
     dotaMatchId: match.match_id,
     gameId,
     gameNumber: game.gameNumber,
+    lobbyName: game.lobbyName ?? null,
     radiantWin: match.radiant_win,
     durationSeconds: match.duration,
     radiantScore: match.radiant_score ?? null,
@@ -174,6 +180,7 @@ export async function ingestFinishedMatch(
     lobbyType: match.lobby_type ?? null,
     leagueId: match.leagueid ?? null,
     roster,
+    playerSteamIds: steamIdsIn(roster),
     parseState: parsedAlready ? 'parsed' : 'unparsed',
     parseJobId: null,
     parseRequestedAt: null,
@@ -228,11 +235,14 @@ export async function ingestLeagueMatch(matchId: number): Promise<'ingested' | '
   const match = fetched.match;
   const nowIso = new Date().toISOString();
   const parsedAlready = isParsed(match);
+  const leagueRoster = await buildRoster(match);
 
   const record: MatchRecord = {
     dotaMatchId: match.match_id,
     gameId: null,
     gameNumber: null,
+    // A backfilled league match was never a lobby here, so there is no name.
+    lobbyName: null,
     radiantWin: match.radiant_win,
     durationSeconds: match.duration,
     radiantScore: match.radiant_score ?? null,
@@ -241,7 +251,8 @@ export async function ingestLeagueMatch(matchId: number): Promise<'ingested' | '
     gameMode: match.game_mode ?? null,
     lobbyType: match.lobby_type ?? null,
     leagueId: match.leagueid ?? null,
-    roster: await buildRoster(match),
+    roster: leagueRoster,
+    playerSteamIds: steamIdsIn(leagueRoster),
     parseState: parsedAlready ? 'parsed' : 'unparsed',
     parseJobId: null,
     parseRequestedAt: null,

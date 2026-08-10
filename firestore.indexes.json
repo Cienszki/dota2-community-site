@@ -4,80 +4,154 @@
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "published", "order": "ASCENDING" },
-        { "fieldPath": "state", "order": "ASCENDING" }
+        {
+          "fieldPath": "published",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "endedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "endedAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "endedAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "botAccountId", "order": "ASCENDING" },
-        { "fieldPath": "state", "order": "ASCENDING" }
+        {
+          "fieldPath": "botAccountId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "state", "order": "ASCENDING" },
-        { "fieldPath": "scheduledFor", "order": "ASCENDING" }
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledFor",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseGames",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "publishedByDiscordId", "order": "ASCENDING" },
-        { "fieldPath": "publishedAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "publishedByDiscordId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "publishedAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseModeration",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "kind", "order": "ASCENDING" },
-        { "fieldPath": "subjectSteamId32", "order": "ASCENDING" }
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "subjectSteamId32",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseModeration",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "kind", "order": "ASCENDING" },
-        { "fieldPath": "subjectDiscordId", "order": "ASCENDING" }
+        {
+          "fieldPath": "kind",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "subjectDiscordId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "inhouseMatches",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "parseState", "order": "ASCENDING" },
-        { "fieldPath": "ingestedAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "parseState",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "ingestedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "inhouseMatches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "playerSteamIds",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "startedAt",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],

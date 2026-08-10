@@ -5,6 +5,9 @@ import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
+import { getInhouseProfile, type InhouseProfile } from '@/lib/inhouse/profile';
+import { getInhouseViewer } from '@/lib/inhouse/session';
+import PlayerProfile from '@/components/inhouse/PlayerProfile';
 import type { PublicGame } from '@/lib/inhouse/public';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +36,9 @@ export default async function InhousePage() {
   let recent: PublicGame[] = [];
   let topPlayers: Array<{ name: string; value: number }> = [];
   let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
+  // The profile takes the instructions' place for anyone who has linked. Loaded
+  // separately from the board so a slow Steam fetch can't hold up the lobbies.
+  let profile: InhouseProfile | null = null;
 
   if (isInhouseConfigured()) {
     try {
@@ -51,6 +57,14 @@ export default async function InhousePage() {
     } catch (err) {
       console.error('inhouse landing data load failed', err);
     }
+
+    try {
+      const viewer = await getInhouseViewer();
+      profile = await getInhouseProfile(viewer.discordId);
+    } catch (err) {
+      // Falls back to the instructions, which is the right thing anyway.
+      console.error('inhouse profile load failed', err);
+    }
   }
 
   return (
@@ -65,25 +79,31 @@ export default async function InhousePage() {
         </p>
       </section>
 
-      {/* ─── How to join ──────────────────────────────────────────────────── */}
-      <section className="mt-10">
-        <h2 className="text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-5">
-          Jak dołączyć
-        </h2>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map((step, i) => (
-            <div key={i} className="flex gap-3.5">
-              <span
-                className="shrink-0 w-8 h-8 rounded-full bg-[#E7000B]/15 border border-[#E7000B]/40
-                           text-[#f87171] font-black text-[15px] flex items-center justify-center"
-              >
-                {i + 1}
-              </span>
-              <p className="text-[15px] text-slate-200 leading-relaxed">{step}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* ─── Profile, or how to join ──────────────────────────────────────── */}
+      {/* Same slot, two audiences: the steps are worth reading exactly once, so
+          anyone who has linked gets their own record there instead. */}
+      {profile ? (
+        <PlayerProfile profile={profile} />
+      ) : (
+        <section className="mt-10">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-5">
+            Jak dołączyć
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={i} className="flex gap-3.5">
+                <span
+                  className="shrink-0 w-8 h-8 rounded-full bg-[#E7000B]/15 border border-[#E7000B]/40
+                             text-[#f87171] font-black text-[15px] flex items-center justify-center"
+                >
+                  {i + 1}
+                </span>
+                <p className="text-[15px] text-slate-200 leading-relaxed">{step}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Board and history are one feed sliced in two, so they live together. */}
       <InhouseBoard
