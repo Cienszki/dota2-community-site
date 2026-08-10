@@ -4,6 +4,22 @@ import { Trophy, MapPin, ExternalLink } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName, regionName } from '@/lib/inhouse/display';
 import JoinDialog from './JoinDialog';
+import BorderGlow from '@/components/ui/BorderGlow';
+
+// Same mouse-reactive glow border as every other card on the site (Streamy,
+// testimonials, tournaments, Wesprzyj nas) — see BorderGlow.tsx. The arena
+// background (mecz_bg.png) rides along as the card's `background`, not a
+// separate layer, so the glow border still paints above it correctly.
+const BORDER_GLOW_PROPS = {
+  colors: ['#ff0000', '#fff700', '#ff0000'],
+  backgroundColor: '#050505',
+  background:
+    "linear-gradient(rgba(24,24,27,0.55),rgba(24,24,27,0.55)) center/cover no-repeat, url('/images/mecz_bg.png') center/cover no-repeat",
+  borderRadius: 16,
+  edgeSensitivity: 30,
+  glowRadius: 40,
+  glowIntensity: 1.2,
+};
 
 // A single lobby card on the live board (designer redesign). Pure — no hooks —
 // so it renders on the server for any static list and inside the client
@@ -106,17 +122,8 @@ export default function GameCard({ game }: { game: PublicGame }) {
   const rows = chunk(game.roster, 5);
 
   return (
-    <div
-      className="relative isolate rounded-2xl p-px shadow-[0_0_18px_rgba(255,0,0,0.35),0_0_34px_rgba(255,215,0,0.15)]"
-      style={{ background: 'linear-gradient(135deg,#ff0000 0%,#fff700 50%,#ff0000 100%)' }}
-    >
-      <div
-        className="relative rounded-[15px] p-5 backdrop-blur-md bg-cover bg-center overflow-hidden"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(24,24,27,0.55),rgba(24,24,27,0.55)), url('/images/mecz_bg.png')",
-        }}
-      >
+    <BorderGlow className="w-[400px] h-[200px] shrink-0" {...BORDER_GLOW_PROPS}>
+      <div className="p-5">
       {/* header: host + state pill, and the committed ring */}
       <div className="flex items-start justify-between gap-3 mb-2 min-h-[40px]">
         <div className="min-w-0">
@@ -235,7 +242,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
         </div>
       )}
       </div>
-    </div>
+    </BorderGlow>
   );
 }
 

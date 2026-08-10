@@ -131,7 +131,7 @@ export default function InhouseBoard({
           <OpenLobbyLink atCapacity={atCapacity} max={maxOpenLobbies} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-wrap gap-4">
           {openCount === 0 && <OpenLobbyCard />}
           {cards.map((g) => (
             <GameCard key={g.id} game={g} />

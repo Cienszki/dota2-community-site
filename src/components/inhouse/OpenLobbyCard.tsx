@@ -14,7 +14,7 @@ import OpenLobbyButton from './OpenLobbyButton';
 export default function OpenLobbyCard() {
   return (
     <div
-      className="group relative flex flex-col justify-between min-h-[220px] rounded-2xl p-5
+      className="group relative flex w-[400px] h-[200px] shrink-0 flex-col justify-between rounded-2xl p-5
                  border border-dashed border-[#E7000B]/40 hover:border-[#E7000B]
                  bg-gradient-to-br from-[#E7000B]/12 to-transparent hover:from-[#E7000B]/20
                  backdrop-blur-md transition-colors"
