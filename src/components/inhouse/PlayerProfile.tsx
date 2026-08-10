@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import {
-  Medal as MedalIcon,
   Trophy, Flame, Star, Shield, Crown, Target, Zap, Heart, Coins, Eye, Clock, Swords,
 } from 'lucide-react';
 import type { InhouseProfile } from '@/lib/inhouse/profile';
@@ -14,42 +13,46 @@ import MatchHistory from './ProfileMatchHistory';
 // person has actually done. So this is a *replacement*, not an addition — the
 // page keeps its shape and nothing below moves.
 //
-// Deliberately borderless. The rest of the page separates sections with
-// whitespace and a single hairline rule, and boxing this would make it the
-// loudest thing above the lobby cards, which is not what it is for.
+// Two-column hero (identity + badges on the left, recent matches on the
+// right), stacking to one column on mobile — the v5 redesign's layout for
+// this block. No winrate/performance number anywhere in it: rank participation,
+// never performance (website-integration.md §8.1) — the games-played count is
+// as far as this goes.
 
 export default function PlayerProfile({ profile }: { profile: InhouseProfile }) {
   const { steam } = profile;
 
   return (
     <section className="mt-10">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-4">
-        <Avatar src={steam?.avatarFull ?? steam?.avatarMedium ?? null} name={profile.displayName} />
+      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,340px)_1fr] items-start">
+        <div>
+          <div className="flex items-center gap-4">
+            <Avatar src={steam?.avatarFull ?? steam?.avatarMedium ?? null} name={profile.displayName} />
 
-        <div className="min-w-0">
-          <h2 className="text-2xl font-black text-white truncate">{profile.displayName}</h2>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-slate-400">
-            <span className="text-slate-200 font-semibold tabular-nums">
-              {profile.gamesPlayed}
-            </span>
-            {gamesWord(profile.gamesPlayed)}
-            {profile.rank !== null && (
-              <>
-                <span className="text-slate-700">·</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <MedalIcon className="w-3.5 h-3.5" style={{ color: rankColour(profile.rank) }} />
-                  <span className="text-slate-200 font-semibold">#{profile.rank}</span>
-                  <span>w rankingu</span>
-                </span>
-              </>
-            )}
-          </p>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h2 className="text-xl font-black text-white truncate">{profile.displayName}</h2>
+                {profile.rank !== null && (
+                  <span
+                    className="shrink-0 text-sm font-black"
+                    style={{ color: rankColour(profile.rank) }}
+                  >
+                    #{profile.rank} w rankingu
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-slate-400">
+                <span className="text-slate-200 font-semibold tabular-nums">{profile.gamesPlayed}</span>{' '}
+                {gamesWord(profile.gamesPlayed)}
+              </p>
+            </div>
+          </div>
+
+          <Medals medals={profile.medals} />
         </div>
 
-        <Medals medals={profile.medals} />
+        <MatchHistory matches={profile.matches} />
       </div>
-
-      <MatchHistory matches={profile.matches} />
     </section>
   );
 }
@@ -96,7 +99,7 @@ const ICONS: Record<string, typeof Trophy> = {
 };
 
 /**
- * The medal shelf.
+ * The badge shelf, under the name rather than beside it (v5).
  *
  * Icons rather than artwork, because the artwork does not exist yet — `imageUrl`
  * is honoured when it is set, so filling that in later needs no change here.
@@ -105,20 +108,13 @@ const ICONS: Record<string, typeof Trophy> = {
  */
 function Medals({ medals }: { medals: Medal[] }) {
   if (medals.length === 0) {
-    return (
-      <div className="ml-auto hidden text-right sm:block">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-600">Medale</div>
-        <p className="mt-1 text-sm text-slate-600">Jeszcze żadnych</p>
-      </div>
-    );
+    return <p className="mt-5 text-sm text-slate-600">Jeszcze żadnych odznak.</p>;
   }
 
   return (
-    <div className="ml-auto">
-      <div className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-slate-600 sm:text-right">
-        Medale
-      </div>
-      <ul className="flex flex-wrap gap-1.5 sm:justify-end">
+    <div className="mt-5">
+      <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-slate-600">Odznaki</div>
+      <ul className="flex flex-wrap gap-2">
         {medals.map((medal) => (
           <li key={medal.id}>
             <MedalChip medal={medal} />
@@ -129,6 +125,12 @@ function Medals({ medals }: { medals: Medal[] }) {
   );
 }
 
+/**
+ * A single badge, with a hover tooltip in place of the old native `title`.
+ *
+ * Pure CSS (`group`/`group-hover`) rather than hover state in JS — no
+ * client component needed to show a label on hover.
+ */
 function MedalChip({ medal }: { medal: Medal }) {
   const colour = placeColour(medal.place);
   const Icon = ICONS[medal.icon] ?? Trophy;
@@ -136,9 +138,8 @@ function MedalChip({ medal }: { medal: Medal }) {
 
   return (
     <span
-      title={tooltip}
       aria-label={tooltip}
-      className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors"
+      className="group relative flex h-[34px] w-[34px] items-center justify-center rounded-full border transition-colors"
       style={{ borderColor: `${colour}66`, backgroundColor: `${colour}1f` }}
     >
       {medal.imageUrl ? (
@@ -146,6 +147,14 @@ function MedalChip({ medal }: { medal: Medal }) {
       ) : (
         <Icon className="h-4 w-4" style={{ color: colour }} />
       )}
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 whitespace-nowrap
+                   rounded-md border border-white/15 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-white
+                   opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100"
+      >
+        {tooltip}
+      </span>
     </span>
   );
 }

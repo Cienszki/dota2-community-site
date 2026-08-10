@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Radio, Trophy, Medal, ExternalLink } from 'lucide-react';
+import { Radio, Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import GameCard from './GameCard';
@@ -21,6 +21,7 @@ import SkewButton from './SkewButton';
 
 const CARD_SLOTS = 3;
 const RECRUITING = ['open', 'ready'];
+const HISTORY_STEP = 8;
 
 /** Highest game number first. Game numbers are allocated from a counter, so
  *  this is a true creation order across every state — which `createdAt` vs
@@ -231,6 +232,10 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number }> }) 
 /* ─── Match history ──────────────────────────────────────────────────────── */
 
 function MatchHistory({ games }: { games: PublicGame[] }) {
+  const [shown, setShown] = useState(HISTORY_STEP);
+  const visible = games.slice(0, shown);
+  const hasMore = shown < games.length;
+
   return (
     <div>
       <h2 className="text-[22px] font-black text-white mb-4">Historia meczów</h2>
@@ -238,36 +243,48 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
       {games.length === 0 ? (
         <p className="text-sm text-slate-500">Jeszcze nic tu nie ma — pierwszy mecz przed nami.</p>
       ) : (
-        <div>
-          {games.map((g) => (
-            <div
-              key={g.id}
-              className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
-                         items-center gap-x-2.5 py-2.5 border-b border-white/5"
+        <>
+          <div>
+            {visible.map((g) => (
+              <div
+                key={g.id}
+                className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
+                           items-center gap-x-2.5 py-2.5 border-b border-white/5"
+              >
+                <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
+                <Link
+                  href={`/inhouse/${g.id}`}
+                  className="font-bold text-white text-[13px] truncate hover:text-[#E7000B] transition-colors"
+                >
+                  {g.lobbyName ?? g.initiatorName}
+                </Link>
+                <span className="text-xs text-slate-400 truncate">{modeName(g.settings.gameMode)}</span>
+                <span
+                  className={`text-xs font-bold truncate ${
+                    g.result
+                      ? g.result.radiantWin
+                        ? 'text-emerald-300'
+                        : 'text-red-300'
+                      : 'text-slate-500'
+                  }`}
+                >
+                  {g.result ? (g.result.radiantWin ? 'Radiant wygrywa' : 'Dire wygrywa') : 'w toku'}
+                </span>
+                <HistoryLink game={g} />
+              </div>
+            ))}
+          </div>
+
+          {hasMore && (
+            <button
+              onClick={() => setShown((s) => s + HISTORY_STEP)}
+              className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-slate-400 hover:text-white transition-colors"
             >
-              <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
-              <Link
-                href={`/inhouse/${g.id}`}
-                className="font-bold text-white text-[13px] truncate hover:text-[#E7000B] transition-colors"
-              >
-                {g.lobbyName ?? g.initiatorName}
-              </Link>
-              <span className="text-xs text-slate-400 truncate">{modeName(g.settings.gameMode)}</span>
-              <span
-                className={`text-xs font-bold truncate ${
-                  g.result
-                    ? g.result.radiantWin
-                      ? 'text-emerald-300'
-                      : 'text-red-300'
-                    : 'text-slate-500'
-                }`}
-              >
-                {g.result ? (g.result.radiantWin ? 'Radiant wygrywa' : 'Dire wygrywa') : 'w toku'}
-              </span>
-              <HistoryLink game={g} />
-            </div>
-          ))}
-        </div>
+              Pokaż więcej meczów
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </>
       )}
     </div>
   );

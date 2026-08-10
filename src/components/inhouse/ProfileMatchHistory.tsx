@@ -21,7 +21,7 @@ export default function MatchHistory({ matches }: { matches: ProfileMatch[] }) {
 
   if (matches.length === 0) {
     return (
-      <p className="mt-6 text-sm text-slate-500">
+      <p className="text-sm text-slate-500">
         Nie masz jeszcze rozegranych meczów — dołącz do lobby poniżej.
       </p>
     );
@@ -29,7 +29,7 @@ export default function MatchHistory({ matches }: { matches: ProfileMatch[] }) {
 
   return (
     <>
-      <div className="mt-6">
+      <div>
         <h3 className="text-[11px] uppercase tracking-[0.16em] text-slate-600 mb-1">
           Ostatnie mecze
         </h3>

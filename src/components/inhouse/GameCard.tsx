@@ -106,7 +106,17 @@ export default function GameCard({ game }: { game: PublicGame }) {
   const rows = chunk(game.roster, 5);
 
   return (
-    <div className="relative bg-zinc-900/40 border border-white/10 hover:border-[#E7000B]/40 rounded-2xl p-5 backdrop-blur-md transition-colors">
+    <div
+      className="relative isolate rounded-2xl p-px shadow-[0_0_18px_rgba(255,0,0,0.35),0_0_34px_rgba(255,215,0,0.15)]"
+      style={{ background: 'linear-gradient(135deg,#ff0000 0%,#fff700 50%,#ff0000 100%)' }}
+    >
+      <div
+        className="relative rounded-[15px] p-5 backdrop-blur-md bg-cover bg-center overflow-hidden"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(24,24,27,0.55),rgba(24,24,27,0.55)), url('/images/mecz_bg.png')",
+        }}
+      >
       {/* header: host + state pill, and the committed ring */}
       <div className="flex items-start justify-between gap-3 mb-2 min-h-[40px]">
         <div className="min-w-0">
@@ -224,6 +234,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
