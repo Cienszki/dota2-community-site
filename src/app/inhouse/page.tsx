@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
+import FaqSection from '@/components/inhouse/FaqSection';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
 import { getInhouseProfile, type InhouseProfile } from '@/lib/inhouse/profile';
 import { getInhouseViewer } from '@/lib/inhouse/session';
+import { getFaqs } from '@/lib/inhouse/faq';
 import PlayerProfile from '@/components/inhouse/PlayerProfile';
 import type { PublicGame } from '@/lib/inhouse/public';
 
@@ -39,6 +41,9 @@ export default async function InhousePage() {
   // The profile takes the instructions' place for anyone who has linked. Loaded
   // separately from the board so a slow Steam fetch can't hold up the lobbies.
   let profile: InhouseProfile | null = null;
+  // Supabase-backed, unrelated to the Firestore bot integration — fetched
+  // unconditionally so the FAQ still shows while that integration is down.
+  const faqs = await getFaqs();
 
   if (isInhouseConfigured()) {
     try {
@@ -112,6 +117,8 @@ export default async function InhousePage() {
         topPlayers={topPlayers}
         maxOpenLobbies={maxOpenLobbies}
       />
+
+      <FaqSection faqs={faqs} />
 
       {!isInhouseConfigured() && (
         <p className="mt-10 text-sm text-slate-500">
