@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 import {
   Trash2, Edit2, Plus, Save, X, Newspaper, ChevronDown,
   Settings, Upload, Trophy, BookOpen, Check, Users, Radio, MessageSquare, Star, FileText, GripVertical,
-  Swords, Eye, EyeOff, Gamepad2, ChevronRight,
+  Swords, Eye, EyeOff, Gamepad2, ChevronRight, HelpCircle,
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
 import { toast } from 'sonner';
@@ -1218,8 +1218,11 @@ export default function AdminPage() {
             {/* Inhouse is its own section rather than a tab: it has sub-pages
                 (moderacja, harmonogram, pula botów, metryki) that don't fit a
                 panel here, and it reads Firestore rather than Supabase. It sits
-                in the same list so it is findable from the same place. */}
-            <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                in the same list so it is findable from the same place.
+                Inhouse FAQ is a direct link rather than nested one click behind
+                "Inhouse" — it's Supabase-backed like the tabs above, not part
+                of the Firestore subsystem, so there's no reason to bury it. */}
+            <div className="mt-4 pt-4 border-t border-white/[0.06] flex flex-col gap-1">
               <Link
                 href="/admin/inhouse"
                 className="group relative flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm
@@ -1228,6 +1231,16 @@ export default function AdminPage() {
               >
                 <Gamepad2 className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-slate-300" />
                 <span className="truncate">Inhouse</span>
+                <ChevronRight className="w-4 h-4 ml-auto shrink-0 text-slate-600 group-hover:text-slate-400" />
+              </Link>
+              <Link
+                href="/admin/inhouse/faq"
+                className="group relative flex items-center gap-3 w-full px-4 py-2.5 rounded-xl text-sm
+                           font-semibold text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]
+                           border border-transparent transition-all duration-150"
+              >
+                <HelpCircle className="w-4 h-4 shrink-0 text-slate-500 group-hover:text-slate-300" />
+                <span className="truncate">Inhouse FAQ</span>
                 <ChevronRight className="w-4 h-4 ml-auto shrink-0 text-slate-600 group-hover:text-slate-400" />
               </Link>
             </div>
