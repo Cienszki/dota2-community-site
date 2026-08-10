@@ -61,7 +61,15 @@ export async function leaseAccount(db: Firestore, gameId: string): Promise<Lease
       // correct: the lobby is gone regardless, and stranding the account helps
       // nobody.
       if (heldBySomeone && heartbeatFresh) return false;
-      if (data.status === 'offline' || data.status === 'error') return false;
+
+      // The pool is shared with the tournament bot, which cycles `status`
+      // through several busy values of its own (starting, connecting,
+      // creating_lobby, lobby_active, ready_check, in_game, post_game — none
+      // of them 'offline' or 'error'). Checking only for those two used to let
+      // an inhouse lobby lease an account mid-tournament-match: a duplicate
+      // Steam login crash-loops both sides. 'idle' is the one status both
+      // systems use to mean "actually free" — require it explicitly.
+      if (data.status !== 'idle') return false;
 
       tx.update(candidate.ref, {
         status: 'assigned',
