@@ -60,6 +60,36 @@ const CAST = [
 ];
 
 const LOBBY_NAMES = ['bursztyn', 'zorza', 'wichura', 'sopel', 'agat'];
+
+// Made-up medals, in the shape the real awarding task will write (see
+// src/lib/inhouse/medals.ts). There are no fixed categories — each award
+// carries its own label — so these are illustrative, not a schema.
+const DEMO_MEDALS = [
+  {
+    id: 'kurierobojca-2026-08',
+    label: 'Kurierobójca',
+    description: 'Najwięcej zabitych kurierów',
+    place: 1, icon: 'target', imageUrl: null, period: 'sierpień 2026',
+  },
+  {
+    id: 'zelazna-frekwencja-2026-08',
+    label: 'Żelazna frekwencja',
+    description: 'Najwięcej rozegranych meczów',
+    place: 2, icon: 'flame', imageUrl: null, period: 'sierpień 2026',
+  },
+  {
+    id: 'filar-druzyny-2026-08',
+    label: 'Filar drużyny',
+    description: 'Najwięcej złota wydanego na wsparcie',
+    place: 1, icon: 'shield', imageUrl: null, period: 'sierpień 2026',
+  },
+  {
+    id: 'maratonczyk-2026-07',
+    label: 'Maratończyk',
+    description: 'Najdłuższy rozegrany mecz',
+    place: 3, icon: 'clock', imageUrl: null, period: 'lipiec 2026',
+  },
+];
 // 3 wins, 2 losses — a demo where you win everything reads as fake.
 const HERO_WON = [true, false, true, true, false];
 
@@ -142,8 +172,16 @@ if (PURGE) {
       `  inhousePlayers/${doc.id}: ${APPLY ? 'recomputing' : 'would recompute'} ` +
         `gamesPlayed → ${remaining.size}, nightsPlayed → ${nights.size}`,
     );
+    console.log(`  inhousePlayers/${doc.id}: ${APPLY ? 'clearing' : 'would clear'} demo medals`);
     if (APPLY) {
-      await doc.ref.update({ gamesPlayed: remaining.size, nightsPlayed: nights.size });
+      await doc.ref.update({
+        gamesPlayed: remaining.size,
+        nightsPlayed: nights.size,
+        // Only the seeded ones — anything a real awarding task added survives.
+        medals: (doc.data().medals ?? []).filter(
+          (m) => !DEMO_MEDALS.some((d) => d.id === m?.id),
+        ),
+      });
     }
   }
 
@@ -374,6 +412,7 @@ console.log(`  inhouseAttendance: ${writes.attendance.length}`);
 console.log(`  inhousePlayers:    ${writes.players.length} synthetic + 1 for you`);
 console.log(`\n  ${HERO_NAME} (steam ${HERO_STEAM_ID}) plays in all ${MATCHES}, ` +
   `${HERO_WON.filter(Boolean).length}W-${HERO_WON.filter((w) => !w).length}L`);
+console.log(`  medals: ${DEMO_MEDALS.map((m) => m.label).join(', ')}`);
 
 if (!APPLY) {
   console.log('\nDry run complete. Re-run with --apply.\n');
@@ -413,6 +452,10 @@ await ownerRef.set(
     lastPlayedAt: iso(Date.now()),
     noShowCount: owner.data()?.noShowCount ?? 0,
     lastNoShowAt: owner.data()?.lastNoShowAt ?? null,
+    // Overwritten rather than merged: re-running the seed must not stack four
+    // more copies of the same four medals, which is exactly what the real
+    // awarding task has to avoid too.
+    medals: DEMO_MEDALS.map((m) => ({ ...m, awardedAt: iso(Date.now()) })),
   },
   { merge: true },
 );

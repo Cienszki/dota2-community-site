@@ -1,6 +1,10 @@
 import Image from 'next/image';
-import { Medal } from 'lucide-react';
+import {
+  Medal as MedalIcon,
+  Trophy, Flame, Star, Shield, Crown, Target, Zap, Heart, Coins, Eye, Clock, Swords,
+} from 'lucide-react';
 import type { InhouseProfile } from '@/lib/inhouse/profile';
+import { medalTooltip, placeColour, type Medal } from '@/lib/inhouse/medals';
 import MatchHistory from './ProfileMatchHistory';
 
 // The profile that takes the "how to join" slot once a viewer has linked.
@@ -33,7 +37,7 @@ export default function PlayerProfile({ profile }: { profile: InhouseProfile }) 
               <>
                 <span className="text-slate-700">·</span>
                 <span className="inline-flex items-center gap-1.5">
-                  <Medal className="w-3.5 h-3.5" style={{ color: rankColour(profile.rank) }} />
+                  <MedalIcon className="w-3.5 h-3.5" style={{ color: rankColour(profile.rank) }} />
                   <span className="text-slate-200 font-semibold">#{profile.rank}</span>
                   <span>w rankingu</span>
                 </span>
@@ -42,7 +46,7 @@ export default function PlayerProfile({ profile }: { profile: InhouseProfile }) 
           </p>
         </div>
 
-        <Medals />
+        <Medals medals={profile.medals} />
       </div>
 
       <MatchHistory matches={profile.matches} />
@@ -79,20 +83,70 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 }
 
 /**
+ * Icon components the awarding task may name.
+ *
+ * Closed set: a medal record is written by a task, and letting it reference an
+ * arbitrary component would mean a typo renders nothing at all. Unknown keys
+ * fall back to a trophy rather than vanishing.
+ */
+const ICONS: Record<string, typeof Trophy> = {
+  trophy: Trophy, flame: Flame, star: Star, shield: Shield,
+  crown: Crown, target: Target, zap: Zap, heart: Heart,
+  coins: Coins, eye: Eye, clock: Clock, swords: Swords,
+};
+
+/**
  * The medal shelf.
  *
- * Empty by construction: the per-player numbers medals will be derived from are
- * already being collected, but the categories themselves are an open product
- * decision (see docs/inhouse-status.md). The slot is here so adding them later
- * is a render change and not a layout one — and so the absence is visible
- * rather than forgotten.
+ * Icons rather than artwork, because the artwork does not exist yet — `imageUrl`
+ * is honoured when it is set, so filling that in later needs no change here.
+ * Colour carries the podium place, which is the only ranking information a
+ * medal exposes: which award, and whether it was first, second or third.
  */
-function Medals() {
+function Medals({ medals }: { medals: Medal[] }) {
+  if (medals.length === 0) {
+    return (
+      <div className="ml-auto hidden text-right sm:block">
+        <div className="text-[11px] uppercase tracking-[0.16em] text-slate-600">Medale</div>
+        <p className="mt-1 text-sm text-slate-600">Jeszcze żadnych</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="ml-auto hidden sm:block text-right">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-slate-600">Medale</div>
-      <p className="mt-1 text-sm text-slate-600">Wkrótce</p>
+    <div className="ml-auto">
+      <div className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-slate-600 sm:text-right">
+        Medale
+      </div>
+      <ul className="flex flex-wrap gap-1.5 sm:justify-end">
+        {medals.map((medal) => (
+          <li key={medal.id}>
+            <MedalChip medal={medal} />
+          </li>
+        ))}
+      </ul>
     </div>
+  );
+}
+
+function MedalChip({ medal }: { medal: Medal }) {
+  const colour = placeColour(medal.place);
+  const Icon = ICONS[medal.icon] ?? Trophy;
+  const tooltip = medalTooltip(medal);
+
+  return (
+    <span
+      title={tooltip}
+      aria-label={tooltip}
+      className="flex h-9 w-9 items-center justify-center rounded-full border transition-colors"
+      style={{ borderColor: `${colour}66`, backgroundColor: `${colour}1f` }}
+    >
+      {medal.imageUrl ? (
+        <Image src={medal.imageUrl} alt="" width={20} height={20} unoptimized className="h-5 w-5" />
+      ) : (
+        <Icon className="h-4 w-4" style={{ color: colour }} />
+      )}
+    </span>
   );
 }
 

@@ -4,6 +4,7 @@ import { getInhouseStore } from './store';
 import { listMatchesForPlayer, type MatchRecord } from './match-record';
 import { ensureSteamProfile, type PlayerWithProfile, type SteamProfile } from './steam-profile';
 import { getHeroMap, type HeroInfo } from './heroes';
+import { sortMedals, type Medal } from './medals';
 
 // Everything the profile card on /inhouse needs, in one call.
 //
@@ -54,8 +55,8 @@ export interface InhouseProfile {
   /** 1-based position on the games-played board. Null when they've played none. */
   rank: number | null;
   matches: ProfileMatch[];
-  /** Placeholder until medal categories are decided — see inhouse-status.md. */
-  medals: never[];
+  /** Awarded by an admin task, newest first. Empty until one has run. */
+  medals: Medal[];
 }
 
 /**
@@ -171,7 +172,11 @@ export async function getInhouseProfile(discordId: string | null): Promise<Inhou
       gamesPlayed: player.gamesPlayed ?? 0,
       rank,
       matches,
-      medals: [],
+      medals: sortMedals(
+        Array.isArray((player as { medals?: Medal[] }).medals)
+          ? ((player as { medals?: Medal[] }).medals as Medal[])
+          : [],
+      ),
     };
   } catch (err) {
     // The profile is an enhancement to the page, never a prerequisite for it.
