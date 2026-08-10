@@ -198,8 +198,14 @@ for (const game of safe) {
 // rather than leaving a permanent gap where the zombies were.
 
 if (!KEEP_COUNTER) {
-  const remaining = await db.collection('inhouseGames').orderBy('gameNumber', 'desc').limit(1).get();
-  const highest = remaining.empty ? 0 : (remaining.docs[0].data().gameNumber ?? 0);
+  // On a dry run nothing has actually been deleted yet, so the games about to
+  // go are still in this query and would report a counter that never happens.
+  // A dry run that misstates its own effect is worse than not having one.
+  const purged = new Set(safe.map((g) => g.id));
+  const snap = await db.collection('inhouseGames').orderBy('gameNumber', 'desc').limit(50).get();
+  const highest = snap.docs
+    .filter((d) => !purged.has(d.id))
+    .reduce((max, d) => Math.max(max, d.data().gameNumber ?? 0), 0);
   console.log(`\n  counter: ${APPLY ? 'set' : 'would set'} inhouseCounters/games to ${highest} (next game is #${highest + 1})`);
   if (APPLY) {
     await db
