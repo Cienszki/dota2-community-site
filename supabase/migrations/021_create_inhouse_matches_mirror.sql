@@ -63,6 +63,11 @@ alter table inhouse_matches enable row level security;
 -- (service_role), same pattern as every other admin-owned table since
 -- migration 015. service_role bypasses RLS regardless; this policy documents
 -- that intent explicitly rather than relying on the bypass silently.
+--
+-- Dropped first because `create policy` has no `if not exists` — without this,
+-- re-running the file (which every other statement here tolerates) fails on
+-- "policy already exists".
+drop policy if exists "Service role full access for inhouse_matches" on inhouse_matches;
 create policy "Service role full access for inhouse_matches"
   on inhouse_matches for all
   to service_role
