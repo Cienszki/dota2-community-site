@@ -41,15 +41,18 @@ export default function CreateGameButton() {
 
       {result && result.status !== 'ok' && (
         <div className="mt-4">
-          {result.status === 'needs_link' && (
-            <p className="text-sm text-slate-300">
-              Aby hostować, najpierw{' '}
-              <Link href="/inhouse/link" className="text-red-400 underline">połącz konto</Link>.
-            </p>
-          )}
           {result.status === 'banned' && <p className="text-sm text-red-400">Nie możesz teraz tworzyć gier.</p>}
           {result.status === 'no_bots' && (
             <p className="text-sm text-amber-300">Wszystkie boty lobby są teraz zajęte. Spróbuj za chwilę.</p>
+          )}
+          {result.status === 'too_many_open' && (
+            <p className="text-sm text-amber-300">
+              Otwarte są już {result.max} lobby — to wystarczy.{' '}
+              <Link href="/inhouse" className="text-red-400 underline">
+                Dołącz do jednego z nich
+              </Link>{' '}
+              zamiast otwierać trzecie, inaczej żadne się nie zapełni.
+            </p>
           )}
           {(result.status === 'unavailable' || result.status === 'error') && (
             <p className="text-sm text-red-400">Coś poszło nie tak. Spróbuj ponownie.</p>

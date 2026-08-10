@@ -49,19 +49,53 @@ export async function leaseAccount(db: Firestore, gameId: string): Promise<Lease
         status?: string;
         leasedByGameId?: string | null;
         leaseHeartbeatAt?: string | null;
+        /** Written by the tournament Conductor's own releaseAccount, not by this module. */
+        cooldownUntil?: string | null;
       };
 
-      const heldBySomeone = Boolean(data.leasedByGameId) && data.leasedByGameId !== gameId;
+      const heldByAnother = Boolean(data.leasedByGameId) && data.leasedByGameId !== gameId;
+      const heldByUs = Boolean(data.leasedByGameId) && data.leasedByGameId === gameId;
       const heartbeatFresh =
         data.leaseHeartbeatAt !== null &&
         data.leaseHeartbeatAt !== undefined &&
         Date.parse(data.leaseHeartbeatAt) > cutoff;
 
+      // A live lease belongs to someone else — leave it alone.
+      if (heldByAnother && heartbeatFresh) return false;
+
       // A stale heartbeat means the worker died mid-lobby. Reclaiming is
       // correct: the lobby is gone regardless, and stranding the account helps
-      // nobody.
-      if (heldBySomeone && heartbeatFresh) return false;
-      if (data.status === 'offline' || data.status === 'error') return false;
+      // nobody. Re-leasing our OWN account (a retry for the same game) is fine
+      // for the same reason.
+      const reclaimable = heldByUs || (heldByAnother && !heartbeatFresh);
+
+      // Otherwise the account must be genuinely free.
+      //
+      // The pool is SHARED with the tournament bot, which cycles `status`
+      // through busy values of its own — starting, connecting, creating_lobby,
+      // lobby_active, ready_check, in_game, post_game — and tracks its liveness
+      // in fields this function never looks at (busyWithSessionId,
+      // lastHeartbeat). Checking only for 'offline'/'error' let an inhouse
+      // lobby lease an account that was mid-tournament-match; both processes
+      // then log into the same Steam account, Steam kicks each in turn, and
+      // both sides crash-loop. 'idle' is the one status both systems use to
+      // mean "actually free".
+      //
+      // This check deliberately does NOT apply to a reclaimable lease. A
+      // crashed inhouse worker leaves `status: 'assigned'` behind (leaseAccount
+      // sets it below and only releaseAccount clears it), so requiring 'idle'
+      // unconditionally would strand every crashed lease permanently and
+      // silently disable the stale-heartbeat recovery this whole function is
+      // built around — the opposite failure, and a worse one.
+      if (!reclaimable && data.status !== 'idle') return false;
+
+      // Respect the tournament side's cooldown too. `releaseAccount` there sets
+      // a short one after every game (Valve rate-limits lobby creation per
+      // account), and a bot found stuck in a prior in-game lobby gets a 30
+      // minute one specifically to keep it out of rotation. Ignoring that would
+      // hand an inhouse the one account the tournament system just decided was
+      // unusable.
+      if (data.cooldownUntil && Date.parse(data.cooldownUntil) > Date.now()) return false;
 
       tx.update(candidate.ref, {
         status: 'assigned',

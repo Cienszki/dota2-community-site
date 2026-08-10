@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { requireWebsiteAdmin, isAuthError } from '@/lib/inhouse/admin-guard';
+import { saveLobbyConfig } from '@/lib/inhouse/lobby-config';
 import {
   getInhouseStore,
   resolveSettings,
@@ -59,6 +60,7 @@ export async function saveInhouseDefaults(_prev: FormState, formData: FormData):
       dotaTvDelay,
       leagueId,
       selectionPriorityRules: n(formData, 'selectionPriorityRules'),
+      pauseSetting: n(formData, 'pauseSetting'),
       immortalDraft: b(formData, 'immortalDraft'),
       cheatsEnabled: b(formData, 'cheatsEnabled'),
       fillWithBots: b(formData, 'fillWithBots'),
@@ -83,6 +85,39 @@ export async function saveInhouseDefaults(_prev: FormState, formData: FormData):
     };
   } catch (err) {
     console.error('saveInhouseDefaults', err);
+    return { status: 'error', message: isAuthError(err) ? 'Brak uprawnień.' : 'Nie udało się zapisać.' };
+  }
+}
+
+// ─── inhouseConfig/lobby — password and the open-lobby cap (§7.2) ────────────
+
+export async function saveLobbySettings(_prev: FormState, formData: FormData): Promise<FormState> {
+  try {
+    await requireWebsiteAdmin();
+    if (!isInhouseConfigured()) return { status: 'error', message: 'Firestore nie jest skonfigurowany.' };
+
+    const password = String(formData.get('password') ?? '').trim();
+
+    // Dota's lobby password field is what this ends up in, and players retype it
+    // from a card — so no whitespace, and short enough to not be a chore.
+    if (!password) return { status: 'error', message: 'Hasło nie może być puste.' };
+    if (/\s/.test(password)) return { status: 'error', message: 'Hasło nie może zawierać spacji.' };
+    if (password.length > 32) return { status: 'error', message: 'Hasło może mieć maksymalnie 32 znaki.' };
+
+    const maxOpenLobbies = n(formData, 'maxOpenLobbies');
+    if (!Number.isInteger(maxOpenLobbies) || maxOpenLobbies < 1 || maxOpenLobbies > 10) {
+      return { status: 'error', message: 'Limit otwartych lobby musi być liczbą od 1 do 10.' };
+    }
+
+    await saveLobbyConfig({ password, maxOpenLobbies });
+    revalidatePath('/admin/inhouse');
+    revalidatePath('/inhouse');
+    return {
+      status: 'ok',
+      message: 'Zapisano. Hasło obowiązuje dla lobby tworzonych od teraz.',
+    };
+  } catch (err) {
+    console.error('saveLobbySettings', err);
     return { status: 'error', message: isAuthError(err) ? 'Brak uprawnień.' : 'Nie udało się zapisać.' };
   }
 }

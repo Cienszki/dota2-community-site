@@ -1,0 +1,71 @@
+name: Inhouse ingest sweep
+
+# The other half of result ingestion (the webhook is the fast path). Two jobs:
+# catching up any finished game whose webhook never arrived, and polling
+# OpenDota for replay parses so the silly awards get folded in. Both passes are
+# bounded per run, so a backlog drains over several runs.
+#
+# Why here and not `vercel.json` crons: Vercel's Hobby plan rejects any cron
+# schedule more frequent than once a day — and it rejects it at BUILD time, so
+# a `*/10 * * * *` entry in vercel.json doesn't degrade, it fails the whole
+# deployment. A daily sweep would also mean awards taking up to 24h to appear.
+# GitHub Actions runs it every 10 minutes on any plan, and this repo already
+# uses the pattern for sync-player-stats.
+#
+# Setup (repository → Settings → Secrets and variables → Actions):
+#   INHOUSE_SITE_URL  https://your-site  (no trailing slash)
+#   CRON_SECRET       must match the value set in the Vercel environment
+#
+# Scheduled workflows only run on the repository's default branch, and GitHub
+# disables them after 60 days of repo inactivity — re-enable from the Actions
+# tab if the sweep ever goes quiet.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger ingest sweep
+        env:
+          SITE_URL: ${{ secrets.INHOUSE_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Report each one separately — "one of these two is missing" sent
+          # the first run into a guessing game between the wrong repo, an
+          # Environment-scoped secret, and a typo'd name.
+          missing=0
+          if [ -z "$SITE_URL" ];    then echo "::error::INHOUSE_SITE_URL is not set (or is empty)"; missing=1; fi
+          if [ -z "$CRON_SECRET" ]; then echo "::error::CRON_SECRET is not set (or is empty)";      missing=1; fi
+          if [ "$missing" = "1" ]; then
+            echo ""
+            echo "Set both under: Settings → Secrets and variables → Actions → *Secrets* tab"
+            echo "  · must be REPOSITORY secrets, not Environment secrets (this job declares no environment)"
+            echo "  · must be on the repo this workflow ran in: ${GITHUB_REPOSITORY}"
+            echo "  · 'Variables' and 'Secrets' are different tabs — these must be Secrets"
+            exit 1
+          fi
+
+          echo "Both secrets present. Target: ${SITE_URL}"
+
+          # -sS keeps it quiet but still prints transport errors; the endpoint
+          # itself is idempotent, so a retried or overlapping run is harmless.
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/cron/inhouse-ingest")
+
+          echo "HTTP $code"
+          cat /tmp/out.json || true
+          echo ""
+
+          case "$code" in
+            200) exit 0 ;;
+            # Firestore not configured yet — not a failure worth alerting on.
+            503) echo "::warning::Inhouse integration unavailable (503)"; exit 0 ;;
+            401) echo "::error::CRON_SECRET does not match the site's value"; exit 1 ;;
+            *)   echo "::error::Sweep failed with HTTP $code"; exit 1 ;;
+          esac

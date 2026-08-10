@@ -102,10 +102,15 @@ export interface InhouseSettings {
   /**
    * Immortal Draft — random captains who draft their own teams.
    *
-   * NOT CURRENTLY APPLIED. The Game Coordinator schema bundled with
-   * `dota2@6.2.0` has no field for it (see docs/worker-api.md), so this value
-   * is stored and displayed but never reaches the lobby. Teams are seated by
-   * the players themselves until the schema is updated.
+   * Sent to the Game Coordinator as `do_player_draft` (field 53): Valve's
+   * internal name for the feature is "player draft", which is why searching the
+   * protobufs for "immortal" finds nothing. The schema bundled with
+   * `dota2@6.2.0` predates the field, so `scripts/patch-dota2-protos.mjs` adds
+   * it from postinstall — without that patch this value is silently dropped on
+   * the way to the lobby.
+   *
+   * Verify a lobby actually got it by reading `is_player_draft` back off the
+   * resulting match.
    */
   immortalDraft?: boolean;
   cheatsEnabled?: boolean;

@@ -1,10 +1,12 @@
 import Link from 'next/link';
-import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp } from 'lucide-react';
+import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp, KeyRound } from 'lucide-react';
 import { isInhouseConfigured, getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
+import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES, type LobbyConfig } from '@/lib/inhouse/lobby-config';
 import type { ResolvedSettings } from '@/lib/inhouse/core/types';
 import SettingsForm from './SettingsForm';
 import AdminsForm from './AdminsForm';
+import LobbyForm from './LobbyForm';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,10 +16,16 @@ export default async function InhouseAdminPage() {
   let defaults: ResolvedSettings | null = null;
   let discordIds: string[] = [];
   let steamIds: string[] = [];
+  let lobbyConfig: LobbyConfig = {
+    password: '',
+    maxOpenLobbies: DEFAULT_MAX_OPEN_LOBBIES,
+    updatedAt: null,
+  };
 
   if (configured) {
     try {
       defaults = await getInhouseStore().getAdminDefaults();
+      lobbyConfig = await getLobbyConfig();
       const snap = await getDb().collection('inhouseConfig').doc('admins').get();
       const data = snap.data();
       if (data) {
@@ -69,6 +77,18 @@ export default async function InhouseAdminPage() {
               Każda gra dziedziczy te wartości w momencie utworzenia. Zmiana nie wpływa na gry już otwarte.
             </p>
             {defaults && <SettingsForm initial={defaults} />}
+          </section>
+
+          <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">
+            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2 mb-1">
+              <KeyRound className="w-5 h-5 text-red-500" /> Lobby i limity
+            </h2>
+            <p className="text-slate-500 text-sm mb-6">
+              Hasło wspólne dla wszystkich lobby oraz limit gier zbierających jednocześnie. Zmiana hasła
+              obowiązuje dla gier tworzonych od tego momentu — lobby już otwarte zachowują to, z którym
+              powstały.
+            </p>
+            <LobbyForm initial={lobbyConfig} />
           </section>
 
           <section className="bg-slate-900/40 border border-slate-700 rounded-2xl p-6">

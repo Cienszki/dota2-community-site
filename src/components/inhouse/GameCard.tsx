@@ -1,39 +1,153 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { Users, MapPin, Sparkles, Trophy, Clock } from 'lucide-react';
+import { Trophy, MapPin, ExternalLink } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
-import { modeName, regionName, formatDuration } from '@/lib/inhouse/display';
-import Countdown from './Countdown';
-import JoinButton from './JoinButton';
+import { modeName, regionName } from '@/lib/inhouse/display';
+import JoinDialog from './JoinDialog';
 
-// A single game tile, shared by the live board (recruiting) and the recent
-// results list (finished). Pure — no hooks — so it renders on the server for
-// the finished list and inside the client LiveBoard alike.
+// A single lobby card on the live board (designer redesign). Pure — no hooks —
+// so it renders on the server for any static list and inside the client
+// LiveBoard alike.
+//
+// Layout: the host name with an inline state pill, a segmented committed/10
+// progress ring, the mode/region meta line, the in-lobby roster in rows of
+// five, and a state-dependent footer (recruiting → slots + Dołącz, in
+// progress → a label, finished → Dotabuff).
+
+const RING_SEGMENTS = 10;
+const RING_SEG_DEG = 360 / RING_SEGMENTS; // 36°
+const RING_GAP_DEG = 5;
+
+const SEATED = '#E7000B'; // in the lobby right now
+const HELD = '#fbbf24'; // slot reserved, player hasn't walked in yet
+const EMPTY = 'rgba(255,255,255,0.1)';
+
+/**
+ * Conic-gradient donut, one arc per slot.
+ *
+ * Two colours, because "9/10" means two different things depending on how it
+ * is made up: red is someone standing in the lobby, amber is a slot being held
+ * for someone who pressed Join and hasn't arrived. A held slot can still lapse,
+ * so a card that painted both the same would promise a game that is readier
+ * than it is. The bot decides which is which — the website only renders the
+ * split it is given.
+ */
+function ringGradient(seated: number, held: number): string {
+  const stops: string[] = [];
+  for (let i = 0; i < RING_SEGMENTS; i++) {
+    const start = i * RING_SEG_DEG;
+    const end = start + RING_SEG_DEG - RING_GAP_DEG;
+    const color = i < seated ? SEATED : i < seated + held ? HELD : EMPTY;
+    stops.push(`${color} ${start}deg ${end}deg`, `transparent ${end}deg ${start + RING_SEG_DEG}deg`);
+  }
+  return `conic-gradient(from 0deg, ${stops.join(', ')})`;
+}
+
+/**
+ * Split `committed` into people present and slots merely held.
+ *
+ * `committed` is the number the card shows, and it counts both (§4.4). The
+ * seated count is preferred from `inLobby` and only derived by subtraction as a
+ * fallback, so a snapshot where the two disagree still renders something
+ * coherent rather than an over-long ring.
+ */
+function slotSplit(slots: PublicGame['slots'], committed: number): { seated: number; held: number } {
+  const held = Math.min(slots?.reserved?.length ?? 0, committed);
+  const seated = Math.min(slots?.inLobby?.length ?? committed - held, committed - held);
+  return { seated: Math.max(0, seated), held };
+}
+
+interface BadgeStyle {
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+function stateBadge(state: PublicGame['state']): BadgeStyle {
+  if (state === 'lobby_creating') {
+    return { label: 'tworzenie', color: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.3)' };
+  }
+  if (state === 'in_progress') {
+    return { label: 'na żywo', color: '#f87171', bg: 'rgba(231,0,11,0.1)', border: 'rgba(231,0,11,0.3)' };
+  }
+  if (state === 'finished') {
+    return { label: 'zakończone', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)', border: 'rgba(148,163,184,0.25)' };
+  }
+  return { label: 'otwarte', color: '#6ee7b7', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)' };
+}
+
+const NEWCOMER_BADGE: BadgeStyle = {
+  label: 'dla nowych',
+  color: '#6ee7b7',
+  bg: 'rgba(16,185,129,0.1)',
+  border: 'rgba(16,185,129,0.25)',
+};
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 export default function GameCard({ game }: { game: PublicGame }) {
-  const finished = game.state === 'finished';
+  const recruiting = game.state === 'open' || game.state === 'ready';
   const inProgress = game.state === 'in_progress';
+  const finished = game.state === 'finished';
+  // The couple of seconds between someone pressing "open lobby" and the worker
+  // reporting the Dota lobby exists. On the board so the press has a visible
+  // effect immediately; it can't be joined yet, so there's no button.
+  const creating = game.state === 'lobby_creating';
+
+  const committed = game.slots?.committed ?? 0;
+  const slotsOpen = game.slots?.slotsOpen ?? Math.max(0, 10 - committed);
+  const showRing = recruiting || inProgress;
+  const { seated, held } = slotSplit(game.slots, committed);
+  const rows = chunk(game.roster, 5);
 
   return (
-    <div className="group relative bg-zinc-900/40 border border-white/10 hover:border-[#E7000B]/40 rounded-2xl p-5 backdrop-blur-md transition-colors">
-      {/* header */}
-      <div className="flex items-start justify-between gap-3 mb-4">
+    <div className="relative bg-zinc-900/40 border border-white/10 hover:border-[#E7000B]/40 rounded-2xl p-5 backdrop-blur-md transition-colors">
+      {/* header: host + state pill, and the committed ring */}
+      <div className="flex items-start justify-between gap-3 mb-2 min-h-[40px]">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-slate-500">#{game.gameNumber}</span>
-            {game.newcomerFriendly && (
-              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-emerald-300 bg-emerald-500/10 border border-emerald-500/25 rounded px-1.5 py-0.5">
-                <Sparkles className="w-3 h-3" /> dla nowych
-              </span>
-            )}
-          </div>
-          <h3 className="text-lg font-bold text-white truncate mt-0.5">{game.initiatorName}</h3>
+          {/* The lobby name, not the host's — this is the string a player types
+              into Dota's lobby browser, so it is the one line on the card that
+              has a job beyond identification. */}
+          <h3 className="mt-0.5 min-w-0 flex items-center gap-2 text-[22px] font-bold text-white">
+            <span className="truncate">{game.lobbyName ?? game.initiatorName}</span>
+            <Pill badge={stateBadge(game.state)} />
+            {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
+          </h3>
+          {game.lobbyName && (
+            <p className="text-[11px] text-slate-500 truncate">host: {game.initiatorName}</p>
+          )}
         </div>
-        <StateBadge state={game.state} />
+
+        {showRing && (
+          <div
+            className="relative shrink-0 -mt-2"
+            style={{ width: 84, height: 84 }}
+            title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
+          >
+            <div
+              className="w-full h-full rounded-full"
+              style={{
+                background: ringGradient(seated, held),
+                WebkitMask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
+                mask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
+              }}
+            />
+            <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-white">
+              {committed}/10
+            </span>
+          </div>
+        )}
       </div>
 
       {/* meta */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-4">
         <span className="inline-flex items-center gap-1.5">
+          <span className="font-mono">#{game.gameNumber}</span>
           <Trophy className="w-3.5 h-3.5" /> {modeName(game.settings.gameMode)}
         </span>
         <span className="inline-flex items-center gap-1.5">
@@ -41,105 +155,86 @@ export default function GameCard({ game }: { game: PublicGame }) {
         </span>
       </div>
 
-      {finished ? (
-        <FinishedBody game={game} />
-      ) : inProgress ? (
-        <p className="text-sm text-amber-300/90 mb-4">Mecz w toku — kliknij, aby oglądać.</p>
-      ) : (
-        <RecruitingBody game={game} />
-      )}
-
-      {/* footer */}
-      <div className="flex items-center justify-between gap-3 mt-4">
-        <Link
-          href={`/inhouse/${game.id}`}
-          className="text-sm text-slate-400 hover:text-white transition-colors underline-offset-4 hover:underline"
-        >
-          Szczegóły →
-        </Link>
-        {!finished && !inProgress && game.state === 'open' && (
-          <JoinButton gameId={game.id} full={(game.slots?.slotsOpen ?? 1) <= 0} />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecruitingBody({ game }: { game: PublicGame }) {
-  const slots = game.slots;
-  const committed = slots?.committed ?? 0;
-  const slotsOpen = slots?.slotsOpen ?? Math.max(0, 10 - committed);
-  const reserved = slots?.reserved ?? [];
-
-  return (
-    <div>
-      {/* slot bar */}
-      <div className="flex items-center gap-2 mb-2">
-        <Users className="w-4 h-4 text-slate-400" />
-        <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
-          <div
-            className="h-full bg-[#E7000B] transition-[width] duration-500"
-            style={{ width: `${Math.min(100, (committed / 10) * 100)}%` }}
-          />
-        </div>
-        <span className="text-sm font-bold text-white tabular-nums">{committed}/10</span>
-      </div>
-      <p className="text-sm">
-        {slotsOpen > 0 ? (
-          <span className="text-emerald-300 font-semibold">
-            {slotsOpen} {slotsOpen === 1 ? 'wolne miejsce' : 'wolnych miejsc'}
-          </span>
-        ) : (
-          <span className="text-slate-400">Lobby pełne — dołącz do kolejki</span>
-        )}
-      </p>
-
-      {reserved.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {reserved.map((r) => (
-            <span
-              key={r.discordId}
-              className="inline-flex items-center gap-1.5 text-[11px] text-slate-400 bg-white/5 border border-white/10 rounded px-2 py-1"
-              title="Miejsce zarezerwowane"
-            >
-              {r.playerName ?? 'Gracz'}
-              <Countdown expiresAt={r.expiresAt} className="text-slate-500" />
-            </span>
+      {/* in-lobby roster, in rows of five */}
+      {rows.length > 0 && (
+        <div className="flex flex-col gap-1.5 mb-4 text-xs text-slate-300">
+          {rows.map((row, ri) => (
+            <div key={ri} className="flex flex-wrap items-center gap-1.5">
+              {row.map((name, pi) => (
+                <Fragment key={`${name}-${pi}`}>
+                  {pi > 0 && <span className="text-slate-600">|</span>}
+                  <span className="truncate max-w-[10rem]">{name}</span>
+                </Fragment>
+              ))}
+            </div>
           ))}
         </div>
       )}
+
+      {/* footer, by state */}
+      {creating && (
+        <div className="flex items-center gap-2 min-h-9 text-sm text-amber-300">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+          Bot tworzy lobby w Docie…
+        </div>
+      )}
+
+      {inProgress && (
+        <div className="flex items-center min-h-9">
+          <p className="text-sm font-bold text-[#E7000B]">Trwający mecz</p>
+        </div>
+      )}
+
+      {finished && (
+        <div className="flex items-center justify-between gap-3 min-h-9">
+          <span className="text-sm font-bold text-slate-300">Mecz zakończony</span>
+          {game.dotaMatchId ? (
+            <a
+              href={`https://www.dotabuff.com/matches/${game.dotaMatchId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+            >
+              Dotabuff <ExternalLink className="w-2.5 h-2.5" />
+            </a>
+          ) : (
+            <Link
+              href={`/inhouse/${game.id}`}
+              className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
+            >
+              Szczegóły
+            </Link>
+          )}
+        </div>
+      )}
+
+      {recruiting && (
+        <div className="flex items-center justify-between gap-3 min-h-9">
+          <p className={`text-sm font-semibold ${slotsOpen > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
+            {slotsOpen > 0
+              ? `${slotsOpen} ${slotsOpen === 1 ? 'wolne miejsce' : 'wolnych miejsc'}`
+              : 'Lobby pełne — kolejka'}
+            {/* Names the amber arcs, so the two-tone ring reads without a legend. */}
+            {held > 0 && (
+              <span className="font-normal text-amber-300/90"> · {held} zarezerwowane</span>
+            )}
+          </p>
+          {game.state === 'open' && (
+            <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function FinishedBody({ game }: { game: PublicGame }) {
-  const r = game.result;
-  if (!r) return <p className="text-sm text-slate-400 mb-1">Rozegrana</p>;
+function Pill({ badge }: { badge: BadgeStyle }) {
   return (
-    <div className="flex items-center gap-4 text-sm">
-      <span
-        className={`font-bold ${r.radiantWin ? 'text-emerald-300' : 'text-red-300'}`}
-      >
-        {r.radiantWin ? 'Radiant' : 'Dire'} wygrywa
-      </span>
-      <span className="inline-flex items-center gap-1.5 text-slate-400">
-        <Clock className="w-3.5 h-3.5" /> {formatDuration(r.durationSeconds)}
-      </span>
-    </div>
-  );
-}
-
-function StateBadge({ state }: { state: PublicGame['state'] }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    open: { label: 'nabór', cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25' },
-    ready: { label: 'gotowe', cls: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/25' },
-    in_progress: { label: 'na żywo', cls: 'text-amber-300 bg-amber-500/10 border-amber-500/25' },
-    finished: { label: 'koniec', cls: 'text-slate-300 bg-white/5 border-white/15' },
-  };
-  const s = map[state] ?? map.finished;
-  return (
-    <span className={`shrink-0 text-[10px] uppercase tracking-wide border rounded px-2 py-0.5 ${s.cls}`}>
-      {s.label}
+    <span
+      className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.border}` }}
+    >
+      {badge.label}
     </span>
   );
 }

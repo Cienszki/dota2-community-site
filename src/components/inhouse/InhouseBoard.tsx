@@ -1,0 +1,304 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Radio, Trophy, Medal, ExternalLink } from 'lucide-react';
+import type { PublicGame } from '@/lib/inhouse/public';
+import { modeName } from '@/lib/inhouse/display';
+import GameCard from './GameCard';
+import OpenLobbyCard from './OpenLobbyCard';
+import OpenLobbyButton from './OpenLobbyButton';
+import SkewButton from './SkewButton';
+
+// The board and the match history are one list, split in two places.
+//
+// Cards and history used to be independent queries, which meant the newest
+// three games could appear in both, or fall between them, depending on how the
+// two listings happened to be sliced. They are now one feed ordered newest
+// first: the first three become cards, and history picks up at the fourth and
+// carries on. That is also why this component owns both — they cannot be
+// sliced consistently from two different places while one of them is live.
+
+const CARD_SLOTS = 3;
+const RECRUITING = ['open', 'ready'];
+
+/** Highest game number first. Game numbers are allocated from a counter, so
+ *  this is a true creation order across every state — which `createdAt` vs
+ *  `endedAt` sorting could not give us once the two lists merged. */
+function newestFirst(a: PublicGame, b: PublicGame): number {
+  return b.gameNumber - a.gameNumber;
+}
+
+export default function InhouseBoard({
+  initialLive,
+  initialRecent,
+  topPlayers,
+  maxOpenLobbies,
+}: {
+  initialLive: PublicGame[];
+  initialRecent: PublicGame[];
+  topPlayers: Array<{ name: string; value: number }>;
+  maxOpenLobbies: number;
+}) {
+  const [live, setLive] = useState<PublicGame[]>(initialLive);
+  const [recent, setRecent] = useState<PublicGame[]>(initialRecent);
+  const [connected, setConnected] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let es: EventSource | null = null;
+    let poll: ReturnType<typeof setInterval> | null = null;
+
+    const startPolling = () => {
+      if (poll) return;
+      const tick = async () => {
+        try {
+          const res = await fetch('/api/inhouse/board', { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = (await res.json()) as { live?: PublicGame[]; recent?: PublicGame[] };
+          if (cancelled) return;
+          setLive(data.live ?? []);
+          if (data.recent) setRecent(data.recent);
+        } catch {
+          /* keep trying on the next tick */
+        }
+      };
+      void tick();
+      poll = setInterval(tick, 5000);
+    };
+
+    try {
+      es = new EventSource('/api/inhouse/live');
+      es.onmessage = (e) => {
+        try {
+          // Same { live, recent } shape as the polling response — the SSE feed
+          // now carries a finished match into history the moment it lands,
+          // instead of leaving it to the next poll or navigation.
+          const data = JSON.parse(e.data) as { live?: PublicGame[]; recent?: PublicGame[] };
+          if (!cancelled) {
+            setLive(data.live ?? []);
+            if (data.recent) setRecent(data.recent);
+            setConnected(true);
+          }
+        } catch {
+          /* ignore malformed frame */
+        }
+      };
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (!cancelled) setConnected(false);
+        startPolling();
+      };
+    } catch {
+      startPolling();
+    }
+
+    return () => {
+      cancelled = true;
+      es?.close();
+      if (poll) clearInterval(poll);
+    };
+  }, []);
+
+  const { cards, history, openCount } = useMemo(() => {
+    const seen = new Set(live.map((g) => g.id));
+    const feed = [...live, ...recent.filter((g) => !seen.has(g.id))].sort(newestFirst);
+    const open = live.filter((g) => RECRUITING.includes(g.state)).length;
+
+    // With nothing to join, the first card slot becomes the invitation to open
+    // one. It replaces a card rather than sitting above the grid so the row
+    // keeps its shape on the ~90% of visits where nobody is recruiting.
+    const take = open === 0 ? CARD_SLOTS - 1 : CARD_SLOTS;
+    return { cards: feed.slice(0, take), history: feed.slice(take), openCount: open };
+  }, [live, recent]);
+
+  const atCapacity = openCount >= maxOpenLobbies;
+
+  return (
+    <>
+      <section id="obecne-mecze" className="mt-14 scroll-mt-24">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-[22px] font-black text-white flex items-center gap-2">
+            Obecne mecze
+            {connected && (
+              <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-red-400">
+                <Radio className="w-3 h-3 animate-pulse" /> live
+              </span>
+            )}
+          </h2>
+          <OpenLobbyLink atCapacity={atCapacity} max={maxOpenLobbies} />
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {openCount === 0 && <OpenLobbyCard />}
+          {cards.map((g) => (
+            <GameCard key={g.id} game={g} />
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-14 grid gap-12 lg:grid-cols-[minmax(300px,420px)_1fr] items-start">
+        <TopPlayers rows={topPlayers} />
+        <MatchHistory games={history} />
+      </section>
+    </>
+  );
+}
+
+/**
+ * The header's route to hosting, or the reason there isn't one.
+ *
+ * At capacity it stops offering the action and explains why instead, next to
+ * the lobbies that are the actual answer. Below capacity it opens a lobby in
+ * place — the server action re-checks the cap regardless, so this is only
+ * about not offering something that would be refused.
+ */
+function OpenLobbyLink({ atCapacity, max }: { atCapacity: boolean; max: number }) {
+  const [notice, setNotice] = useState(false);
+
+  if (!atCapacity) return <OpenLobbyButton variant="link" />;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setNotice((v) => !v)}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-300 transition-colors"
+      >
+        Otwórz lobby
+      </button>
+      {notice && (
+        <p
+          role="status"
+          className="absolute right-0 top-full mt-2 w-64 z-20 rounded-xl border border-amber-400/30
+                     bg-zinc-900 px-3.5 py-2.5 text-xs leading-relaxed text-amber-100 shadow-xl"
+        >
+          Otwarte są już {max} lobby — to wystarczy. Dołącz do jednego z nich zamiast otwierać
+          trzecie, inaczej żadne się nie zapełni.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ─── Top players ────────────────────────────────────────────────────────── */
+
+// Gold, silver, bronze. Everyone below the podium shares the same muted
+// treatment — this is a participation count, not a ladder (§10).
+const MEDALS = ['#fbbf24', '#cbd5e1', '#d97706'];
+
+function TopPlayers({ rows }: { rows: Array<{ name: string; value: number }> }) {
+  return (
+    <div>
+      <h2 className="text-[22px] font-black text-white mb-4">Top gracze</h2>
+
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          Rankingi pojawią się, gdy pierwsze gry zostaną rozegrane.
+        </p>
+      ) : (
+        <ol>
+          {rows.map((row, i) => (
+            <li
+              key={`${row.name}-${i}`}
+              className="flex items-center gap-3.5 py-3.5 border-b border-white/5"
+            >
+              <span
+                className="shrink-0 w-7 text-center font-black text-base"
+                style={{ color: MEDALS[i] ?? '#64748b' }}
+              >
+                {i + 1}
+              </span>
+              <h3 className="min-w-0 flex-1 text-[15px] font-bold text-white truncate">{row.name}</h3>
+              <span className="shrink-0 inline-flex items-center gap-1.5 text-[13px] text-slate-400 tabular-nums">
+                <Medal className="w-4 h-4" style={{ color: MEDALS[i] ?? '#64748b' }} />
+                {row.value} gier
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <div className="mt-5">
+        <SkewButton href="/inhouse/leaderboards" variant="red" prefetch={false}>
+          <Trophy className="w-4 h-4" /> Pełny ranking
+        </SkewButton>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Match history ──────────────────────────────────────────────────────── */
+
+function MatchHistory({ games }: { games: PublicGame[] }) {
+  return (
+    <div>
+      <h2 className="text-[22px] font-black text-white mb-4">Historia meczów</h2>
+
+      {games.length === 0 ? (
+        <p className="text-sm text-slate-500">Jeszcze nic tu nie ma — pierwszy mecz przed nami.</p>
+      ) : (
+        <div>
+          {games.map((g) => (
+            <div
+              key={g.id}
+              className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
+                         items-center gap-x-2.5 py-2.5 border-b border-white/5"
+            >
+              <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
+              <Link
+                href={`/inhouse/${g.id}`}
+                className="font-bold text-white text-[13px] truncate hover:text-[#E7000B] transition-colors"
+              >
+                {g.lobbyName ?? g.initiatorName}
+              </Link>
+              <span className="text-xs text-slate-400 truncate">{modeName(g.settings.gameMode)}</span>
+              <span
+                className={`text-xs font-bold truncate ${
+                  g.result
+                    ? g.result.radiantWin
+                      ? 'text-emerald-300'
+                      : 'text-red-300'
+                    : 'text-slate-500'
+                }`}
+              >
+                {g.result ? (g.result.radiantWin ? 'Radiant wygrywa' : 'Dire wygrywa') : 'w toku'}
+              </span>
+              <HistoryLink game={g} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Dotabuff when there is a match ID to point at, our own page otherwise.
+ *
+ * A game can be finished with the result ingested but no match ID recorded, and
+ * linking anyway sends people to a Dotabuff 404.
+ */
+function HistoryLink({ game }: { game: PublicGame }) {
+  if (!game.dotaMatchId) {
+    return (
+      <Link
+        href={`/inhouse/${game.id}`}
+        className="justify-self-end text-[11px] font-bold text-slate-500 hover:text-white transition-colors"
+      >
+        Szczegóły
+      </Link>
+    );
+  }
+  return (
+    <a
+      href={`https://www.dotabuff.com/matches/${game.dotaMatchId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="justify-self-end inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-white transition-colors"
+    >
+      Dotabuff
+      <ExternalLink className="w-2.5 h-2.5" />
+    </a>
+  );
+}

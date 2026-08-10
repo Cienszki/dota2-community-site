@@ -1,15 +1,32 @@
 rules_version = '2';
 
-// The website reads and writes Firestore exclusively through the Admin SDK
-// (src/lib/firebase-admin.ts), which BYPASSES these rules. Browsers never touch
-// Firestore directly — the game document contains lobbyPassword and the full
-// unpublished-game record, and expressing the "published" visibility invariant
-// (website-integration.md §0.1) as security rules is subtle and easy to get
-// wrong. So the client surface is locked shut, and every read is ordinary,
-// unit-testable TypeScript behind the `published` check instead.
+// ⚠️ REFERENCE ONLY. DO NOT `firebase deploy --only firestore:rules` THIS FILE.
 //
-// Deploy this to the SAME Firebase project the bot uses:
-//   firebase deploy --only firestore:rules
+// The bot's actual Firebase project (tournament-tracker-f35tb) is shared with
+// the Tournament Tracker app, which owns a much larger, actively-maintained
+// ruleset covering teams/matches/standins/fantasy lineups/admin roles/the bot
+// orchestrator's own collections (botAccounts, botCommands, botEvents,
+// botLobbySessions, botSyncTasks — the Next.js "orchestrator" side of the same
+// worker-api.md contract the Discord gateway uses). Deploying this file would
+// REPLACE that entire ruleset with the single deny-all line below — there is
+// no rules file for this repo to own or deploy.
+//
+// Verified 2026-08-08 by reading the live ruleset: it ends in
+//   match /{document=**} { allow read, write: if false; }
+// and nothing above that catch-all names any `inhouse*` collection. Every
+// inhouseGames / inhousePlayers / inhouseAttendance / inhouseModeration /
+// inhouseBans / inhouseConfig / inhouseLinkCodes / inhouseReadyPool /
+// inhouseMatches / inhouseCounters document is therefore ALREADY covered by
+// that trailing deny-all, with zero action needed on our side. This file is
+// kept only as documentation of what protection level those collections need
+// — which the live rules already provide — should anyone ever need to verify
+// that by inspection rather than re-reading the other repo's ruleset.
+//
+// The website never touches Firestore from the browser anyway (§2.2) — every
+// read/write goes through the Admin SDK server-side, which bypasses rules
+// entirely. So even a maximally permissive live ruleset for the inhouse
+// collections would not be a functional bug for us — it would only be a
+// security gap, and per the verification above, that gap doesn't exist.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {

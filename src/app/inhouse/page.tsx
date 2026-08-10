@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { Radio, ArrowRight, HelpCircle, Trophy, Plus } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
-import SkewButton from '@/components/inhouse/SkewButton';
-import LiveBoard from '@/components/inhouse/LiveBoard';
-import GameCard from '@/components/inhouse/GameCard';
+import InhouseBoard from '@/components/inhouse/InhouseBoard';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
+import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
+import { getLeaderboards } from '@/lib/inhouse/stats';
+import { getInhouseProfile, type InhouseProfile } from '@/lib/inhouse/profile';
+import { getInhouseViewer } from '@/lib/inhouse/session';
+import PlayerProfile from '@/components/inhouse/PlayerProfile';
 import type { PublicGame } from '@/lib/inhouse/public';
 
 export const dynamic = 'force-dynamic';
@@ -14,77 +15,108 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Inhouse 5v5',
   description:
-    "Inhouse'y 5v5 Dota 2 z prawdziwymi ludźmi, prawie każdego wieczoru. Nie liga, bez tryhardów — dołącz do gry, która właśnie się zbiera.",
+    'Prawdziwi ludzie, prawie każdego wieczoru. Zobacz, które lobby właśnie się zapełnia, dołącz jednym kliknięciem i sprawdź historię rozegranych meczów.',
   alternates: { canonical: '/inhouse' },
 };
 
+const STEPS = [
+  <>
+    Kliknij &quot;Dołącz&quot; poniżej, pokażemy ci jak wejść do lobby w Docie - to bardzo proste.
+  </>,
+  <>
+    Gdy zbierze się 10 graczy, Gra wystartuje.
+  </>,
+  <>
+    Składy wybieracie już w grze. Powodzenia!
+  </>,
+];
+
 export default async function InhousePage() {
-  let open: PublicGame[] = [];
+  let live: PublicGame[] = [];
   let recent: PublicGame[] = [];
+  let topPlayers: Array<{ name: string; value: number }> = [];
+  let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
+  // The profile takes the instructions' place for anyone who has linked. Loaded
+  // separately from the board so a slow Steam fetch can't hold up the lobbies.
+  let profile: InhouseProfile | null = null;
 
   if (isInhouseConfigured()) {
     try {
-      const board = await getBoard();
-      open = board.open;
+      const [board, leaderboards, lobbyConfig] = await Promise.all([
+        getBoard(),
+        getLeaderboards(),
+        getLobbyConfig(),
+      ]);
+      maxOpenLobbies = lobbyConfig.maxOpenLobbies;
+      live = board.live;
       recent = board.recent;
+      topPlayers = leaderboards.gamesPlayed.slice(0, 5).map((row) => ({
+        name: row.name,
+        value: row.value,
+      }));
     } catch (err) {
-      console.error('inhouse board load failed', err);
+      console.error('inhouse landing data load failed', err);
+    }
+
+    try {
+      const viewer = await getInhouseViewer();
+      profile = await getInhouseProfile(viewer.discordId);
+    } catch (err) {
+      // Falls back to the instructions, which is the right thing anyway.
+      console.error('inhouse profile load failed', err);
     }
   }
 
   return (
     <InhouseShell width="wide">
-      {/* HERO */}
-      <div className="mb-12 max-w-3xl">
+      {/* ─── Hero ─────────────────────────────────────────────────────────── */}
+      <section className="max-w-3xl">
         <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.95]">
           Inhouse <span className="text-[#E7000B]">5v5</span>
         </h1>
         <p className="text-slate-300 text-xl mt-4 leading-relaxed">
           Prawdziwi ludzie, prawie każdego wieczoru. Nie liga. Bez tryhardów.
         </p>
-        <div className="flex flex-wrap items-center gap-4 mt-7">
-          <SkewButton href="/inhouse/new" variant="redSolid" prefetch={false}>
-            <Plus className="w-4 h-4" /> Utwórz grę
-          </SkewButton>
-          <SkewButton href="/inhouse/link" variant="red" prefetch={false}>
-            Połącz konto <ArrowRight className="w-4 h-4" />
-          </SkewButton>
-          <Link
-            href="/inhouse/how-it-works"
-            className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors font-semibold"
-          >
-            <HelpCircle className="w-4 h-4" /> Jak to działa?
-          </Link>
-          <Link
-            href="/inhouse/leaderboards"
-            className="inline-flex items-center gap-2 text-slate-300 hover:text-white transition-colors font-semibold"
-          >
-            <Trophy className="w-4 h-4" /> Rankingi
-          </Link>
-        </div>
-      </div>
+      </section>
 
-      {/* LIVE BOARD */}
-      <LiveBoard initial={open} />
-
-      {/* RECENT RESULTS */}
-      {recent.length > 0 && (
-        <div className="mt-14">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Radio className="w-4 h-4 text-slate-500" /> Ostatnie gry
+      {/* ─── Profile, or how to join ──────────────────────────────────────── */}
+      {/* Same slot, two audiences: the steps are worth reading exactly once, so
+          anyone who has linked gets their own record there instead. */}
+      {profile ? (
+        <PlayerProfile profile={profile} />
+      ) : (
+        <section className="mt-10">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-5">
+            Jak dołączyć
           </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {recent.map((g) => (
-              <GameCard key={g.id} game={g} />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {STEPS.map((step, i) => (
+              <div key={i} className="flex gap-3.5">
+                <span
+                  className="shrink-0 w-8 h-8 rounded-full bg-[#E7000B]/15 border border-[#E7000B]/40
+                             text-[#f87171] font-black text-[15px] flex items-center justify-center"
+                >
+                  {i + 1}
+                </span>
+                <p className="text-[15px] text-slate-200 leading-relaxed">{step}</p>
+              </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
+
+      {/* Board and history are one feed sliced in two, so they live together. */}
+      <InhouseBoard
+        initialLive={live}
+        initialRecent={recent}
+        topPlayers={topPlayers}
+        maxOpenLobbies={maxOpenLobbies}
+      />
 
       {!isInhouseConfigured() && (
         <p className="mt-10 text-sm text-slate-500">
-          Integracja z botem lobby jest w trakcie konfiguracji — tablica gier ożyje, gdy tylko
-          zostanie podłączona.
+          Integracja z botem lobby jest w trakcie konfiguracji — ten widok odżyje, gdy wszystko będzie
+          podłączone.
         </p>
       )}
     </InhouseShell>

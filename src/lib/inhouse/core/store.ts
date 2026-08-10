@@ -65,6 +65,12 @@ export const COLLECTIONS = {
 /** A full lobby is ten players. Nothing in the system is configurable here. */
 export const LOBBY_CAPACITY = 10;
 
+/**
+ * How many published lobbies may recruit at once before a new one is refused.
+ * Overridable from `inhouseConfig/lobby`; two is the considered default.
+ */
+export const DEFAULT_MAX_OPEN_LOBBIES = 2;
+
 const now = (): string => new Date().toISOString();
 
 /** Sentinel used to abort a link-code transaction on collision. */
@@ -123,6 +129,41 @@ export class InhouseStore {
     } catch (error) {
       logger.warn(`Failed to read admin defaults, using code defaults: ${String(error)}`);
       return resolveSettings();
+    }
+  }
+
+  /**
+   * Lobby-level config from `inhouseConfig/lobby`, written by the admin panel.
+   *
+   * `password` is one shared value for every lobby rather than per-game, so a
+   * regular can type the same password every night without reading it off a card
+   * first. Null means unset, and the caller generates one.
+   *
+   * `maxOpenLobbies` caps simultaneously *recruiting published* lobbies.
+   * Unpublished ones deliberately don't count: a host quietly filling a private
+   * game is not competing for the same players, so it must never block anyone.
+   * A third concurrent lobby splits the same people three ways and none of them
+   * reach ten.
+   *
+   * Falls back to code defaults so the system works before the panel writes it.
+   */
+  async getLobbyConfig(): Promise<{ password: string | null; maxOpenLobbies: number }> {
+    try {
+      const snap = await this.db.collection(COLLECTIONS.config).doc('lobby').get();
+      const data = (snap.exists ? snap.data() : {}) as Record<string, unknown>;
+
+      const password = typeof data.password === 'string' && data.password.trim()
+        ? data.password.trim()
+        : null;
+      const max = Number(data.maxOpenLobbies);
+
+      return {
+        password,
+        maxOpenLobbies: Number.isFinite(max) && max > 0 ? Math.floor(max) : DEFAULT_MAX_OPEN_LOBBIES,
+      };
+    } catch (error) {
+      logger.warn(`Failed to read lobby config, using defaults: ${String(error)}`);
+      return { password: null, maxOpenLobbies: DEFAULT_MAX_OPEN_LOBBIES };
     }
   }
 

@@ -5,12 +5,13 @@ import { isInhouseConfigured } from '@/lib/firebase-admin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-// JSON snapshot of the live board — the polling fallback LiveBoard uses when
-// SSE isn't available, and handy for debugging. Published-open games only.
+// JSON snapshot of the board — the polling fallback InhouseBoard uses when SSE
+// isn't available, and handy for debugging. Published games only, plus the
+// recent finished list the board's feed continues into.
 
 export async function GET() {
   if (!isInhouseConfigured()) {
-    return NextResponse.json({ open: [], recent: [] });
+    return NextResponse.json({ live: [], recent: [] });
   }
   try {
     const board = await getBoard();

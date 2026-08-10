@@ -1,9 +1,10 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
+import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { requireWebsiteAdmin, isAuthError } from '@/lib/inhouse/admin-guard';
 import { getInhouseStore } from '@/lib/inhouse/store';
+import { emitBotEvent } from '@/lib/inhouse/commands';
 
 // Moderation (§9.5). Bans start from a match, not a name: the incident supplies
 // the Steam ID, whether or not the person ever linked. Creating a ban is three
@@ -23,16 +24,6 @@ interface BanInput {
   subjectName: string | null;
   reason: string;
   durationDays: number; // 0 = permanent
-}
-
-async function emitBotEvent(event: Record<string, unknown>): Promise<void> {
-  const iso = new Date().toISOString();
-  await getDb().collection('botEvents').add({
-    botAccountId: 'website',
-    event: { ...event, timestamp: iso },
-    processed: false,
-    createdAt: iso,
-  });
 }
 
 export async function banPlayer(input: BanInput): Promise<ModResult> {

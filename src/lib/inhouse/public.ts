@@ -13,6 +13,26 @@ export interface PublicGame {
   id: string;
   gameNumber: number;
   initiatorName: string;
+  /**
+   * The lobby's in-game name — what a player types into Dota's lobby browser.
+   *
+   * Public on purpose, unlike the password: the name is how the most common
+   * join path works at all (§3.1), and the lobby is only listed in the browser
+   * once the game is published anyway.
+   */
+  lobbyName: string | null;
+  /**
+   * Display names of the players currently sitting in the lobby, in seating
+   * order. Assembled from the memberships sub-collection by the server — the
+   * slot snapshot carries Steam IDs only, and a Steam ID is not a name.
+   */
+  roster: string[];
+  /**
+   * Dota match ID, once the match has launched. Safe to publish — these are
+   * league games, so the match is publicly retrievable by design, and this is
+   * what makes an outbound Dotabuff link possible.
+   */
+  dotaMatchId: number | null;
   state: GameState;
   newcomerFriendly: boolean;
   published: boolean;
@@ -44,13 +64,15 @@ interface GameLike {
   id: string;
   gameNumber: number;
   initiatorName: string;
+  lobbyName?: string | null;
+  dotaMatchId?: number | null;
   state: GameState;
   newcomerFriendly: boolean;
   published: boolean;
   scheduledFor: string | null;
   createdAt: string;
   endedAt: string | null;
-  settings: { gameMode: number; serverRegion: number; dotaTvDelay: number };
+  settings: { gameMode: number; serverRegion: number; dotaTvDelay: number; leagueId?: number };
   slotSnapshot?: SlotSnapshot | null;
   result?: {
     radiantWin: boolean;
@@ -68,11 +90,14 @@ interface GameLike {
  * publishedByDiscordId, the full settings (leagueId, gates, ban ladder), and
  * `result.abandoners` (host/admin only).
  */
-export function toPublicGame(g: GameLike): PublicGame {
+export function toPublicGame(g: GameLike, roster: string[] = []): PublicGame {
   return {
     id: g.id,
     gameNumber: g.gameNumber,
     initiatorName: g.initiatorName,
+    lobbyName: g.lobbyName ?? null,
+    roster,
+    dotaMatchId: g.dotaMatchId ?? null,
     state: g.state,
     newcomerFriendly: g.newcomerFriendly,
     published: g.published,

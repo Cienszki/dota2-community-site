@@ -9,8 +9,77 @@ export function modeName(gameMode: number): string {
   return GAME_MODE_NAMES[gameMode] ?? `Mode ${gameMode}`;
 }
 
+/**
+ * Polish names for the EServerRegion values.
+ *
+ * The Dota API only ever gives a number, and the shared package maps those to
+ * English labels for the bot's lobby chat. The website is Polish, so it gets its
+ * own map rather than editing the vendored copy (see core/VENDORED.md). Keys
+ * must stay in step with `SERVER_REGION_NAMES`; anything missing falls back to
+ * the English label rather than showing a bare number.
+ */
+export const SERVER_REGION_NAMES_PL: Record<number, string> = {
+  1: 'USA Zachód',
+  2: 'USA Wschód',
+  3: 'Europa Zachodnia',
+  4: 'Korea',
+  5: 'Azja Południowo-Wschodnia',
+  6: 'Dubaj',
+  7: 'Australia',
+  8: 'Europa Wschodnia (Sztokholm)',
+  9: 'Austria',
+  10: 'Brazylia',
+  11: 'RPA',
+  14: 'Chile',
+  15: 'Peru',
+  16: 'Indie',
+  19: 'Japonia',
+  25: 'Tajwan',
+  37: 'Argentyna',
+};
+
 export function regionName(serverRegion: number): string {
-  return SERVER_REGION_NAMES[serverRegion] ?? `Region ${serverRegion}`;
+  return (
+    SERVER_REGION_NAMES_PL[serverRegion] ??
+    SERVER_REGION_NAMES[serverRegion] ??
+    `Region ${serverRegion}`
+  );
+}
+
+/**
+ * A `steam://` link that launches Dota 2 straight into spectating this league.
+ *
+ * NOT CURRENTLY USED — spectating is deferred to a later version and nothing
+ * renders this. Kept because the research is the hard part: there is no
+ * Valve-documented URL for "spectate match #N", and the
+ * `dota_spectator_auto_spectate_games` convar, which takes a league ID and
+ * picks up that league's live game, is the only surviving mechanism. Never
+ * verified against a real client.
+ *
+ * Returns null when no league is configured, since the convar would then have
+ * nothing to latch onto and the button would silently do nothing.
+ */
+export function spectateUrl(leagueId: number): string | null {
+  if (!Number.isInteger(leagueId) || leagueId <= 0) return null;
+  // Only the space is escaped. The leading `+` must reach Steam literally — it
+  // is what marks the rest as a launch command, and percent-encoding it turns
+  // the whole thing into an argument Dota ignores.
+  return `steam://rungame/570//+dota_spectator_auto_spectate_games%20${leagueId}`;
+}
+
+/** Polish label for a game state, as shown on the lobby cards. */
+export function stateLabel(state: string): string {
+  switch (state) {
+    case 'open':
+    case 'ready':
+      return 'nabór';
+    case 'in_progress':
+      return 'w trakcie';
+    case 'finished':
+      return 'zakończony';
+    default:
+      return 'zamknięty';
+  }
 }
 
 /** DotaTV delay as human copy: "2 min" / "10 s". */
