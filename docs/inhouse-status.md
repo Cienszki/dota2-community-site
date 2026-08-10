@@ -1,13 +1,16 @@
 # Inhouse — where this stands
 
-Written 2026-08-07, updated 2026-08-08 after the bot-side fixes landed (see
-"Bot-side work" below) and a follow-up website pass.
+Written 2026-08-07, updated 2026-08-10.
 
-The website half is built. **None of it has ever run against the bot's real
-database**, because no Firestore credentials have been configured yet —
-everything below has been verified against fixtures, typechecks, a production
-build, and the live OpenDota API, and nothing else. That is the single blocker
-before anything here can be verified for real.
+**The site is live and connected to the bot's Firestore.**
+`https://dota2-community-site-291p-zeta.vercel.app` serves real game documents
+from `/api/inhouse/board`; `dota2inhouse.pl` still points at the old Firebase
+app until the domain cutover. Earlier revisions of this document called the
+Firestore credential the blocker — it isn't, and hasn't been since the index
+deploy. That confusion is worth naming: deploying indexes uses an interactive
+**Firebase CLI login**, which is a different credential from the site's
+`FIREBASE_SERVICE_ACCOUNT_BASE64`, so "indexes deployed" and "the site can read"
+were true at different times.
 
 Setup lives in [`inhouse-setup.md`](./inhouse-setup.md). Handover docs for the
 bot developers: [`lobby-bot-integration.md`](./lobby-bot-integration.md) and
@@ -120,15 +123,51 @@ Recorded so they don't get relitigated:
 
 ---
 
+## The stuck-lobby incident, 2026-08-10
+
+Worth recording, because the failure mode was not one anybody had designed for.
+
+The lobby bot in production was still the old tournament-only deployment, so it
+never consumed `create_inhouse_lobby`. Two games — #1 `sierp` and #2 `flaga` —
+were created, leased a Steam account each, moved to `lobby_creating`, and stayed
+there for 55 and 12 hours.
+
+That was not a harmless orphan. `lobby_creating` counts toward the
+concurrent-lobby cap (deliberately — it closes a double-create window), the cap
+is 2, so **hosting was refused site-wide**: `/inhouse/new` showed "Otwarte są
+już 2 lobby" to everyone, forever, with no way out but a manual admin
+force-release.
+
+Two fixes, deliberately different:
+
+- **`src/lib/inhouse/sweep.ts`**, run first on every ingest-cron pass: a game
+  idle in `lobby_creating` for over 5 minutes is moved to `failed` and its Steam
+  account released. `failed` is outside both the board states and the recruiting
+  states, so it stops blocking and stops rendering while the record survives.
+  The bot has its own stuck-game sweeper, but it runs *inside the worker* and is
+  therefore down in exactly the case that causes this — a backstop sharing a
+  failure mode with the thing it backs up is not a backstop.
+- **`scripts/inhouse-purge-games.mjs`** for erasing games as if they never
+  existed, including rewinding the game-number counter so the sequence has no
+  permanent gap. Dry-run by default; refuses any game with attendance rows or a
+  match record. A script rather than an admin button, because deleting a game is
+  irreversible, needed roughly never, and a button that does it is a button
+  someone eventually presses by accident.
+
+---
+
 ## Next steps, in order
 
-1. **Connect to the bot's Firestore — still blocks everything.**
-   `FIREBASE_SERVICE_ACCOUNT_BASE64` is unset in every environment, so
-   `isInhouseConfigured()` is false and every inhouse surface renders its
-   "unavailable" state. Full checklist (this and everything else that needs
-   dashboard access) was handed to the site operator directly rather than
-   duplicated here — see the conversation, or ask for it again.
-2. **Composite indexes.** Listed in [`inhouse-setup.md` §3](./inhouse-setup.md).
-   Firestore logs a creation link the first time each query fails, so this can
-   also be done reactively.
-3. **Medals — needs a decision first.** See above.
+1. **Lobby bot deployment.** The production worker is still tournament-only, so
+   no lobby can actually be created yet. In progress with the bot developer;
+   everything below is downstream of it.
+2. **Verify one lobby end to end** once that lands: press Otwórz lobby, confirm
+   the Dota lobby appears with the name and password the *website* assigned
+   (that path has never run successfully — the bot's own fix for it is
+   unverified), join it, play it, and confirm the result ingests.
+3. **Immortal Draft on a throwaway lobby.** Wired on the bot side, never
+   confirmed against a live GC, and unverified whether it combines with
+   `selection_priority_rules = 1`.
+4. **Medals — needs a decision first.** See above.
+5. **Domain cutover** — `dota2inhouse.pl` to Vercel; see
+   [`tournament-site-domain-cutover.md`](./tournament-site-domain-cutover.md).

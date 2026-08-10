@@ -173,6 +173,31 @@ curl -sS -H "Authorization: Bearer $CRON_SECRET" https://<site>/api/cron/inhouse
 Without the cron, matches still ingest via the webhook — but replay parses never
 get folded in, so the silly awards never appear.
 
+## 3b. Recovering stuck lobbies
+
+A game the worker never turns into a real Dota lobby sits in `lobby_creating`,
+counts against the concurrent-lobby cap, and holds a Steam account. Two lobbies
+in that state block hosting for everyone.
+
+The ingest cron sweeps them automatically — idle over 5 minutes → `failed`,
+account released. Nothing to schedule; it runs as pass 0 of
+`/api/cron/inhouse-ingest`.
+
+To erase games entirely, as if they had never been created:
+
+```bash
+export FIREBASE_SERVICE_ACCOUNT_BASE64=...
+node scripts/inhouse-purge-games.mjs --stuck            # dry run, shows the plan
+node scripts/inhouse-purge-games.mjs --stuck --apply
+```
+
+Also takes `--id <gameId>` (repeatable). It deletes the game, its
+sub-collections and any queued bot commands naming it, releases the Steam
+account, and rewinds `inhouseCounters/games` so the next game continues the
+sequence without a gap — pass `--keep-counter` to skip that. It refuses any game
+with attendance rows or a match record, so a game that was actually played
+cannot be removed by accident.
+
 ## 4. Shared domain code
 
 `src/lib/inhouse/core/` is a **verbatim vendored copy** of the bot's

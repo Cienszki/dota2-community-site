@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
+import { sweepStuckLobbies } from '@/lib/inhouse/sweep';
 import type { InhouseGame } from '@/lib/inhouse/core/types';
 
 export const runtime = 'nodejs';
@@ -20,6 +21,10 @@ export const maxDuration = 60;
 //   2. **Parse follow-up.** A replay parse takes minutes to hours. Nothing
 //      request-scoped can wait for it, so pending records are polled here and
 //      the awards folded in whenever they land.
+//   3. **Stuck-lobby recovery.** A game the worker never turned into a real
+//      Dota lobby blocks the concurrent-lobby cap and holds a Steam account
+//      until something writes it off. The bot's own sweeper runs inside the
+//      worker, so it is down in exactly the case that causes this.
 //
 // Suggested cadence: every 10–15 minutes. Both passes are bounded per run, so
 // a backlog drains over several runs rather than blowing the invocation limit.
@@ -58,6 +63,11 @@ export async function GET(request: Request) {
   const gaveUp: string[] = [];
 
   try {
+    // ── Pass 0: lobbies the worker never created ──
+    //
+    // First, because it is the one that unblocks hosting for everyone else and
+    // it is cheap — one indexed query that is empty on a healthy system.
+    const swept = await sweepStuckLobbies();
     // ── Pass 1: games that have been played but have no match record ──
     //
     // Ordered oldest-first on updatedAt so a backlog drains from the front
@@ -93,6 +103,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: true,
+        sweptStuckLobbies: swept,
         ingested,
         awaitingOpenDota: pending,
         parsed,
