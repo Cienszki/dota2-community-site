@@ -57,6 +57,14 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        // Steam serves avatars from several CDN hostnames — avatars.steamstatic,
+        // avatars.fastly.steamstatic, avatars.akamai.steamstatic — and which one
+        // you get back varies by account and over time. Matching the suffix
+        // avoids an avatar 400ing purely because Valve moved a CDN.
+        hostname: '**.steamstatic.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'avatars.steamstatic.com',
       },
       {
