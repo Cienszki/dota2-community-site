@@ -7,7 +7,7 @@ resolve on every deploy target.
 
 - **Source repo:** `dota2-lobby-bot`
 - **Source path:** `packages/core/src/`
-- **Copied from commit:** `e363d58`
+- **Copied from commit:** `d2760b7`
 - **Package version:** `1.0.0`
 
 The only change applied on copy: relative import specifiers had their `.js`
@@ -26,36 +26,31 @@ drift produces bugs that only appear under load:
 | `InhouseStore.createModerationRecord` | A ban that silently doesn't enforce, because the index entries weren't written. |
 | `InhouseStore.computeSlots` | A web joiner counted twice, so the lobby looks full at nine. |
 
-## ⚠️ Local divergence — `lease.ts`
+## No local divergence
 
-**There is currently one deliberate difference from the bot's copy.** It is the
-only one; everything else is byte-identical.
+Every file here is byte-identical to the bot's copy. There was briefly one
+hand-edit — an account-leasing fix — and it is worth recording how it resolved,
+because it is the pattern to follow next time.
 
-`leaseAccount` originally refused an account only when its `status` was
-`offline` or `error`. That is not enough here, because **this Steam-account pool
-is shared with the tournament bot**, which cycles `status` through several busy
-values of its own — `starting`, `connecting`, `creating_lobby`, `lobby_active`,
-`ready_check`, `in_game`, `post_game` — none of which are `offline` or `error`.
-So an inhouse lobby could lease an account in the middle of a tournament match.
-Two processes then log into the same Steam account, and Steam kicks each in
-turn: both sides crash-loop.
+`leaseAccount` refused an account only when its `status` was `offline` or
+`error`. The Steam pool is **shared with the tournament bot**, which cycles
+`status` through busy values of its own (`starting`, `creating_lobby`,
+`in_game`, `post_game`, …), so an inhouse lobby could lease an account
+mid-tournament-match — both processes log into the same Steam account and Steam
+kicks each in turn, crash-looping both.
 
-The local copy requires `status === 'idle'` instead — the one value both
-systems use to mean "actually free".
+It was fixed here first, as a knowing exception, because the bug was live. But
+the fix was only ever half of one: **the bot runs its own copy of this
+function**, so the website going quiet did not stop the bot from doing it. It
+was sent upstream, and the version that came back is materially better than
+ours — it exempts a *reclaimable* lease (stale heartbeat) from the `idle`
+requirement, which our version did not. Ours would have stranded every crashed
+lease permanently, silently disabling the stale-heartbeat recovery the whole
+function exists for. It also honours the tournament side's `cooldownUntil`,
+a field we did not know about.
 
-**This is committed on purpose, against the no-hand-edits rule above**, because
-the alternative was leaving a live production bug unfixed while waiting on the
-other repo. It is a knowing exception, not an oversight.
-
-**Two consequences to keep in mind:**
-
-1. **A re-sync will silently revert it.** After running the command below,
-   check `git diff` for `lease.ts` and re-apply if the fix is gone — until the
-   upstream fix lands, at which point this section should be deleted.
-2. **Our copy alone does not fully close the bug.** The bot runs its own copy of
-   this same function, so it can still take an account the tournament bot is
-   using. The real fix belongs in the bot repo's `packages/core/src/lease.ts`;
-   this only stops *the website* from causing it.
+**The lesson: a hand-edit here is a stopgap, not a fix.** Send it upstream the
+same day, and take their version back — they know the other half of the system.
 
 ## Re-syncing
 

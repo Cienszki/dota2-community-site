@@ -77,7 +77,7 @@ export {
 export type { SettingChange } from './settings';
 
 // ─── Firestore access ────────────────────────────────────────────────────────
-export { InhouseStore, COLLECTIONS, LOBBY_CAPACITY } from './store';
+export { InhouseStore, COLLECTIONS, LOBBY_CAPACITY, DEFAULT_MAX_OPEN_LOBBIES } from './store';
 
 // ─── Steam account leasing (§12) ─────────────────────────────────────────────
 export { leaseAccount, renewLease, releaseAccount, poolStatus, LEASE_TIMEOUT_MS } from './lease';

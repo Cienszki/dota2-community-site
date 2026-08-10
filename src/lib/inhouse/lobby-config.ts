@@ -15,6 +15,18 @@ import { COLLECTIONS } from './core/store';
 // who has seen it once can walk into any future lobby from the in-game browser.
 // It is the admin's call, and it is why `getJoinInfo` still runs the ban check
 // before handing it over.
+//
+// ── There is a second reader of this document ───────────────────────────────
+// The vendored core now carries its own `InhouseStore.getLobbyConfig()` (and
+// `DEFAULT_MAX_OPEN_LOBBIES`), added bot-side so the worker can read the same
+// settings. The two agree today — same document, same `maxOpenLobbies` default
+// of 2, same field names — and this file is a superset, since only it writes.
+//
+// They are not shared code, so **a change to the document's shape has to be
+// made in both places**: this file for the website and the admin panel that
+// writes it, and `core/store.ts` for the bot. Renaming a field or changing the
+// default here alone would leave the bot reading the old shape and silently
+// falling back to its own defaults.
 
 const DOC = 'lobby';
 
