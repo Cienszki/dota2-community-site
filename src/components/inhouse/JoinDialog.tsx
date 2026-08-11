@@ -49,7 +49,7 @@ export default function JoinDialog({
     <>
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 h-9 px-5 font-bold text-[13px] uppercase tracking-wide
+        className="inline-flex items-center gap-2 h-[30px] px-5 font-bold text-[13px] uppercase tracking-wide
                    bg-[#E7000B] text-white hover:bg-[#c10009] -skew-x-[12deg] transition-colors"
       >
         <span className="flex items-center gap-2 skew-x-[12deg]">

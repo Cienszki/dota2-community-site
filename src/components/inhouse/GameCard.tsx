@@ -127,7 +127,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
       <div className="relative p-5">
       {showRing && (
         <div
-          className="absolute top-3 right-3 shrink-0"
+          className="absolute top-3 right-6 shrink-0"
           style={{ width: 100, height: 100 }}
           title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
         >
@@ -216,11 +216,9 @@ export default function GameCard({ game }: { game: PublicGame }) {
         </div>
       )}
 
-      {recruiting && (
-        <div className="flex items-center justify-end min-h-9">
-          {game.state === 'open' && (
-            <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
-          )}
+      {recruiting && game.state === 'open' && (
+        <div className="absolute top-[151px] right-0">
+          <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
         </div>
       )}
       </div>
