@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Send, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -12,6 +12,22 @@ export default function KontaktForm() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  // Parallax on the background tower art — same pattern as the homepage hero
+  // art (HomeClient.tsx): direct style writes on scroll instead of React
+  // state, so this doesn't trigger a re-render on every scroll pixel.
+  const towerRef = useRef<HTMLImageElement>(null);
+
+  useEffect(() => {
+    const PARALLAX_SPEED = 0.4;
+    const onScroll = () => {
+      if (towerRef.current) {
+        towerRef.current.style.transform = `translateY(${window.scrollY * PARALLAX_SPEED}px)`;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,12 +68,19 @@ export default function KontaktForm() {
       <Navbar />
 
       <section className="relative z-10 max-w-4xl mx-auto px-6 pt-[30px] pb-10">
-        <img
-          src="/images/tower.png"
-          alt=""
-          aria-hidden="true"
-          className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-2/3 h-[100%] w-auto object-contain opacity-70 pointer-events-none select-none z-0"
-        />
+        {/* Static positioning (centering, the 2/3 horizontal offset) lives on
+            this wrapper; the parallax ref sits on the img itself, which has
+            no transform classes of its own — writing `style.transform`
+            straight to it can't clobber a Tailwind-applied one. */}
+        <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-2/3 h-[100%] w-auto pointer-events-none select-none z-0">
+          <img
+            ref={towerRef}
+            src="/images/tower.png"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-auto object-contain opacity-70 will-change-transform"
+          />
+        </div>
         <div className="text-center mb-10 relative z-10">
           <Image
             src="/images/kurier.webp"
