@@ -47,6 +47,16 @@ export function regionName(serverRegion: number): string {
 }
 
 /**
+ * English region label for the lobby board card (v5 mockup: "EU West" /
+ * "EU East"), stripped of the vendored map's parenthetical city name — the
+ * card has no room for "(Stockholm)" and the mockup doesn't carry it either.
+ */
+export function regionNameEn(serverRegion: number): string {
+  const name = SERVER_REGION_NAMES[serverRegion] ?? `Region ${serverRegion}`;
+  return name.replace(/\s*\([^)]*\)$/, '');
+}
+
+/**
  * A `steam://` link that launches Dota 2 straight into spectating this league.
  *
  * NOT CURRENTLY USED — spectating is deferred to a later version and nothing

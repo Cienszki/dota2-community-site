@@ -2,7 +2,7 @@ import { Fragment } from 'react';
 import Link from 'next/link';
 import { Trophy, MapPin, ExternalLink } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
-import { modeName, regionName } from '@/lib/inhouse/display';
+import { modeName, regionNameEn } from '@/lib/inhouse/display';
 import JoinDialog from './JoinDialog';
 import BorderGlow from '@/components/ui/BorderGlow';
 
@@ -165,7 +165,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
             <Trophy className="w-3.5 h-3.5" /> {modeName(game.settings.gameMode)}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5" /> {regionName(game.settings.serverRegion)}
+            <MapPin className="w-3.5 h-3.5" /> {regionNameEn(game.settings.serverRegion)}
           </span>
         </div>
 
