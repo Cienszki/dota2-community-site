@@ -6,6 +6,13 @@ import { modeName, regionName } from '@/lib/inhouse/display';
 import JoinDialog from './JoinDialog';
 import BorderGlow from '@/components/ui/BorderGlow';
 
+// Layout follows the v5 mockup (ZMIANY/Inhouse Redesign v5 (standalone).html):
+// badge moves under the title instead of beside it, the committed ring floats
+// as a corner overlay instead of sitting in the header row, the roster is one
+// wrapped, height-capped line instead of rows of five, and the state-specific
+// footer keeps only the actionable link/button — the count and state are
+// already carried by the badge, so a second line saying the same thing goes.
+
 // Same mouse-reactive glow border as every other card on the site (Streamy,
 // testimonials, tournaments, Wesprzyj nas) — see BorderGlow.tsx. The arena
 // background (mecz_bg.png) rides along as the card's `background`, not a
@@ -24,11 +31,6 @@ const BORDER_GLOW_PROPS = {
 // A single lobby card on the live board (designer redesign). Pure — no hooks —
 // so it renders on the server for any static list and inside the client
 // LiveBoard alike.
-//
-// Layout: the host name with an inline state pill, a segmented committed/10
-// progress ring, the mode/region meta line, the in-lobby roster in rows of
-// five, and a state-dependent footer (recruiting → slots + Dołącz, in
-// progress → a label, finished → Dotabuff).
 
 const RING_SEGMENTS = 10;
 const RING_SEG_DEG = 360 / RING_SEGMENTS; // 36°
@@ -100,12 +102,6 @@ const NEWCOMER_BADGE: BadgeStyle = {
   border: 'rgba(16,185,129,0.25)',
 };
 
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
 export default function GameCard({ game }: { game: PublicGame }) {
   const recruiting = game.state === 'open' || game.state === 'ready';
   const inProgress = game.state === 'in_progress';
@@ -119,100 +115,87 @@ export default function GameCard({ game }: { game: PublicGame }) {
   const slotsOpen = game.slots?.slotsOpen ?? Math.max(0, 10 - committed);
   const showRing = recruiting || inProgress;
   const { seated, held } = slotSplit(game.slots, committed);
-  const rows = chunk(game.roster, 5);
+
+  const badge = stateBadge(game.state);
+  // The ring already shows the split visually; recruiting is the one state
+  // where the plain X/10 count is worth spelling out too, in the badge that
+  // otherwise would say nothing more than "open".
+  const badgeLabel = recruiting ? `${badge.label} ${committed}/10` : badge.label;
 
   return (
     <BorderGlow className="w-[400px] h-[200px] shrink-0" {...BORDER_GLOW_PROPS}>
-      <div className="p-5">
-      {/* header: host + state pill, and the committed ring */}
-      <div className="flex items-start justify-between gap-3 mb-2 min-h-[40px]">
-        <div className="min-w-0">
-          {/* The lobby name, not the host's — this is the string a player types
-              into Dota's lobby browser, so it is the one line on the card that
-              has a job beyond identification. */}
-          <h3 className="mt-0.5 min-w-0 flex items-center gap-2 text-[22px] font-bold text-white">
-            <span className="truncate">{game.lobbyName ?? game.initiatorName}</span>
-            <Pill
-              badge={(() => {
-                const b = stateBadge(game.state);
-                // The mockup folds the head-count into the badge. It is also on
-                // the ring, but the ring is a shape you read at a glance and
-                // this is the number you read when you want the number.
-                return recruiting ? { ...b, label: `${b.label} ${committed}/10` } : b;
-              })()}
-            />
-            {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
-          </h3>
-          {game.lobbyName && (
-            <p className="text-[11px] text-slate-500 truncate">host: {game.initiatorName}</p>
-          )}
+      <div className="relative p-5">
+      {showRing && (
+        <div
+          className="absolute top-0 right-0 shrink-0"
+          style={{ width: 80, height: 80 }}
+          title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
+        >
+          <div
+            className="w-full h-full rounded-full"
+            style={{
+              background: ringGradient(seated, held),
+              WebkitMask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
+              mask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* text column: kept narrower than the card so the ring overlay never
+          has to fight it for space */}
+      <div className="max-w-[270px]">
+        {/* The lobby name, not the host's — this is the string a player types
+            into Dota's lobby browser, so it is the one line on the card that
+            has a job beyond identification. The host is one click away on
+            the game's own page; the fixed 200px card has no room to spare
+            for a second identity line the mockup doesn't carry either. */}
+        <h3 className="min-w-0 text-[22px] leading-tight font-bold text-white truncate">
+          {game.lobbyName ?? game.initiatorName}
+        </h3>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          <Pill badge={{ ...badge, label: badgeLabel }} />
+          {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
         </div>
 
-        {showRing && (
-          <div
-            className="relative shrink-0 -mt-2"
-            style={{ width: 84, height: 84 }}
-            title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
-          >
-            <div
-              className="w-full h-full rounded-full"
-              style={{
-                background: ringGradient(seated, held),
-                WebkitMask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
-                mask: 'radial-gradient(closest-side, transparent 64%, #000 65%)',
-              }}
-            />
-            <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold text-white">
-              {committed}/10
-            </span>
+        {/* meta */}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="font-mono">#{game.gameNumber}</span>
+            <Trophy className="w-3.5 h-3.5" /> {modeName(game.settings.gameMode)}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5" /> {regionName(game.settings.serverRegion)}
+          </span>
+        </div>
+
+        {/* in-lobby roster: one wrapped line, capped to two lines' worth of
+            height rather than growing the card past 200px */}
+        {game.roster.length > 0 && (
+          <div className="mt-1 h-[34px] overflow-hidden flex flex-wrap items-start gap-1.5 text-xs text-slate-300">
+            {game.roster.map((name, pi) => (
+              <Fragment key={`${name}-${pi}`}>
+                {pi > 0 && <span className="text-slate-600">|</span>}
+                <span className="truncate max-w-[4.5rem]">{name}</span>
+              </Fragment>
+            ))}
           </div>
         )}
       </div>
 
-      {/* meta */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mb-4">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="font-mono">#{game.gameNumber}</span>
-          <Trophy className="w-3.5 h-3.5" /> {modeName(game.settings.gameMode)}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <MapPin className="w-3.5 h-3.5" /> {regionName(game.settings.serverRegion)}
-        </span>
-      </div>
-
-      {/* in-lobby roster, in rows of five */}
-      {rows.length > 0 && (
-        <div className="flex flex-col gap-1.5 mb-4 text-xs text-slate-300">
-          {rows.map((row, ri) => (
-            <div key={ri} className="flex flex-wrap items-center gap-1.5">
-              {row.map((name, pi) => (
-                <Fragment key={`${name}-${pi}`}>
-                  {pi > 0 && <span className="text-slate-600">|</span>}
-                  <span className="truncate max-w-[10rem]">{name}</span>
-                </Fragment>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* footer, by state */}
+      {/* footer, by state — the badge already says what's happening, so this
+          row is only ever the one thing left to do about it */}
       {creating && (
-        <div className="flex items-center gap-2 min-h-9 text-sm text-amber-300">
+        <div className="flex items-center gap-2 min-h-9 mt-1 text-sm text-amber-300">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
           Bot tworzy lobby w Docie…
         </div>
       )}
 
-      {inProgress && (
-        <div className="flex items-center min-h-9">
-          <p className="text-sm font-bold text-[#E7000B]">Trwający mecz</p>
-        </div>
-      )}
+      {inProgress && <div className="min-h-9" />}
 
       {finished && (
-        <div className="flex items-center justify-between gap-3 min-h-9">
-          <span className="text-sm font-bold text-slate-300">Mecz zakończony</span>
+        <div className="flex items-center justify-end min-h-9">
           {game.dotaMatchId ? (
             <a
               href={`https://www.dotabuff.com/matches/${game.dotaMatchId}`}
@@ -234,16 +217,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
       )}
 
       {recruiting && (
-        <div className="flex items-center justify-between gap-3 min-h-9">
-          <p className={`text-sm font-semibold ${slotsOpen > 0 ? 'text-emerald-300' : 'text-slate-400'}`}>
-            {slotsOpen > 0
-              ? `${slotsOpen} ${slotsOpen === 1 ? 'wolne miejsce' : 'wolnych miejsc'}`
-              : 'Lobby pełne — kolejka'}
-            {/* Names the amber arcs, so the two-tone ring reads without a legend. */}
-            {held > 0 && (
-              <span className="font-normal text-amber-300/90"> · {held} zarezerwowane</span>
-            )}
-          </p>
+        <div className="flex items-center justify-end min-h-9">
           {game.state === 'open' && (
             <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
           )}

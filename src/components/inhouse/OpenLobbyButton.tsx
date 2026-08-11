@@ -14,7 +14,7 @@ import { createInhouseGame, type CreateResult } from '@/app/inhouse/new/actions'
 // created straight from the board and shows up in the list a moment later, via
 // the same live feed that carries everyone else's.
 
-type Variant = 'card' | 'link';
+type Variant = 'card' | 'header';
 
 export default function OpenLobbyButton({ variant }: { variant: Variant }) {
   const router = useRouter();
@@ -34,22 +34,27 @@ export default function OpenLobbyButton({ variant }: { variant: Variant }) {
 
   const busy = pending || result?.status === 'ok';
 
-  if (variant === 'link') {
+  // Outlined, skewed — the "Obecne mecze" section header's CTA in the v5
+  // mockup, standing in for the plain-text link and the old section title.
+  if (variant === 'header') {
     return (
       <div className="relative">
         <button
           onClick={open}
           disabled={busy}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-300
-                     hover:text-white disabled:text-slate-500 transition-colors"
+          className="inline-flex items-center gap-2 h-[35px] px-5 font-extrabold text-sm uppercase
+                     tracking-wide text-white border-[1.5px] border-[#E7000B] hover:bg-[#E7000B]/15
+                     disabled:opacity-60 -skew-x-[12deg] transition-colors"
         >
-          {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-          {busy ? 'Tworzenie…' : 'Otwórz lobby'}
+          <span className="flex items-center gap-2 skew-x-[12deg]">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {busy ? 'Tworzenie…' : 'Nowa gra'}
+          </span>
         </button>
         {result && result.status !== 'ok' && (
           <p
             role="status"
-            className="absolute right-0 top-full mt-2 w-64 z-20 rounded-xl border border-amber-400/30
+            className="absolute left-0 top-full mt-2 w-64 z-20 rounded-xl border border-amber-400/30
                        bg-zinc-900 px-3.5 py-2.5 text-xs leading-relaxed text-amber-100 shadow-xl"
           >
             <Message result={result} />
