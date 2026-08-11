@@ -150,32 +150,53 @@ const LightPillar = ({
     cameraRef.current = camera;
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isLowEndDevice = isMobile || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4);
 
-    let effectiveQuality = quality;
-    if (isLowEndDevice && quality === 'high') effectiveQuality = 'medium';
-    if (isMobile && quality !== 'low') effectiveQuality = 'low';
+    // CPU core count used to be the only downgrade signal, and it is the wrong
+    // question twice over: it says nothing about the GPU, and a six-year-old
+    // MacBook Pro reports 12 logical cores, so it took the `high` path and
+    // melted. Quality now starts where asked and is *measured* down below —
+    // frame time is the only signal that reflects the machine actually running
+    // the page. Mobile still starts low, where the answer is never in doubt.
+    const effectiveQuality = isMobile ? 'low' : quality;
 
     const qualitySettings = {
-      low: { iterations: 24, waveIterations: 1, pixelRatio: 0.5, precision: 'mediump' as const, stepMultiplier: 1.5 },
-      medium: { iterations: 40, waveIterations: 2, pixelRatio: 0.65, precision: 'mediump' as const, stepMultiplier: 1.2 },
-      high: {
-        iterations: 80,
-        waveIterations: 4,
-        pixelRatio: Math.min(window.devicePixelRatio, 2),
-        precision: 'highp' as const,
-        stepMultiplier: 1.0
-      }
+      low: { iterations: 24, waveIterations: 1, precision: 'mediump' as const, stepMultiplier: 1.5 },
+      medium: { iterations: 40, waveIterations: 2, precision: 'mediump' as const, stepMultiplier: 1.2 },
+      high: { iterations: 80, waveIterations: 4, precision: 'highp' as const, stepMultiplier: 1.0 },
     };
 
     const settings = qualitySettings[effectiveQuality] || qualitySettings.medium;
+
+    /**
+     * Pixel *budget*, not pixel ratio.
+     *
+     * The container is `absolute inset-0` of a page-height element, so this
+     * canvas is as tall as the whole document — on /inhouse that is ~4000 CSS
+     * px, not the 900 of the viewport. At devicePixelRatio 2 that was a 23
+     * megapixel drawing buffer, each pixel running an 80x4 raymarch. Capping
+     * the ratio alone does not fix it, because the blowup comes from the
+     * height; capping total pixels fixes both at once and keeps working
+     * whatever the page grows into.
+     *
+     * The effect is a blurred glow behind a gradient at 60% opacity. There is
+     * no detail in it to lose by rendering fewer pixels and letting the GPU
+     * upscale — which is why this is the one lever with real impact and no
+     * visible cost.
+     */
+    const PIXEL_BUDGET = 2_000_000;
+    const budgetRatio = (w: number, h: number) =>
+      Math.max(0.35, Math.min(1, Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h))));
 
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
         antialias: false,
         alpha: true,
-        powerPreference: effectiveQuality === 'high' ? 'high-performance' : 'low-power',
+        // Never 'high-performance'. On a dual-GPU MacBook that asks macOS to
+        // switch to the discrete card for an ambient background — which is
+        // what spins the fans up, drains the battery, and makes the whole
+        // system stutter, because the compositor then shares a saturated GPU.
+        powerPreference: 'default',
         precision: settings.precision,
         stencil: false,
         depth: false
@@ -186,7 +207,7 @@ const LightPillar = ({
     }
 
     renderer.setSize(width, height);
-    renderer.setPixelRatio(settings.pixelRatio);
+    renderer.setPixelRatio(budgetRatio(width, height));
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -319,15 +340,58 @@ const LightPillar = ({
     scene.add(mesh);
 
     let lastTime = performance.now();
-    const targetFPS = effectiveQuality === 'low' ? 30 : 60;
-    const frameTime = 1000 / targetFPS;
+
+    // 30fps, deliberately, at every quality. This is slow ambient light behind
+    // a gradient — nobody is watching it for motion detail, and at 60fps it
+    // costs exactly twice as much to look the same. It was previously 60
+    // everywhere except `low`.
+    const frameTime = 1000 / 30;
+
+    // Render only when it can actually be seen. rAF already stops on a hidden
+    // tab, but not for a window that is merely behind another one, and not for
+    // a background scrolled past — both of which were still costing a full GPU
+    // frame every 16ms.
+    let visible = true;
+    let onScreen = true;
+
+    const onVisibility = () => {
+      visible = document.visibilityState === 'visible';
+      // Reset the clock, or the first frame back computes a huge delta.
+      lastTime = performance.now();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onScreen = entry.isIntersecting;
+        lastTime = performance.now();
+      },
+      { rootMargin: '100px' },
+    );
+    observer.observe(container);
+
+    // Adaptive downgrade. The only honest signal about a machine's GPU is how
+    // long it actually takes to draw a frame, so quality steps down when the
+    // renderer cannot hold the target — and never steps back up, because
+    // oscillating between quality levels is more distracting than the lower
+    // one. Recreating the shader mid-flight is not worth it; dropping
+    // resolution gets most of the win and is invisible on a blur.
+    let slowFrames = 0;
+    let degraded = false;
 
     const animate = (currentTime: number) => {
       if (!materialRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
 
+      if (!visible || !onScreen) {
+        rafRef.current = requestAnimationFrame(animate);
+        return;
+      }
+
       const deltaTime = currentTime - lastTime;
 
       if (deltaTime >= frameTime) {
+        const drawStart = performance.now();
+
         timeRef.current += 0.016 * rotationSpeedRef.current;
         const t = timeRef.current;
         materialRef.current.uniforms.uTime.value = t;
@@ -335,6 +399,20 @@ const LightPillar = ({
         materialRef.current.uniforms.uRotSin.value = Math.sin(t * 0.3);
         rendererRef.current.render(sceneRef.current, cameraRef.current);
         lastTime = currentTime - (deltaTime % frameTime);
+
+        if (!degraded) {
+          // >20ms of draw time means this machine cannot hold 30fps with the
+          // rest of the page's work on top. Ten in a row rules out a one-off
+          // hitch from a GC pause or another tab.
+          if (performance.now() - drawStart > 20) slowFrames++;
+          else slowFrames = Math.max(0, slowFrames - 1);
+
+          if (slowFrames >= 10) {
+            degraded = true;
+            const current = rendererRef.current.getPixelRatio();
+            rendererRef.current.setPixelRatio(Math.max(0.25, current * 0.6));
+          }
+        }
       }
 
       rafRef.current = requestAnimationFrame(animate);
@@ -348,6 +426,7 @@ const LightPillar = ({
         if (!rendererRef.current || !materialRef.current || !containerRef.current) return;
         const newWidth = containerRef.current.clientWidth;
         const newHeight = containerRef.current.clientHeight;
+        rendererRef.current.setPixelRatio(budgetRatio(newWidth, newHeight));
         rendererRef.current.setSize(newWidth, newHeight);
         materialRef.current.uniforms.uResolution.value.set(newWidth, newHeight);
       }, 150);
@@ -357,6 +436,8 @@ const LightPillar = ({
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', onVisibility);
+      observer.disconnect();
       if (resizeTimeout) clearTimeout(resizeTimeout);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
