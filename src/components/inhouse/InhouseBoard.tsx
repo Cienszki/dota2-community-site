@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Radio, Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
+import { Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import { medalTooltip, placeColour, type Medal as MedalAward } from '@/lib/inhouse/medals';
@@ -45,7 +45,6 @@ export default function InhouseBoard({
 }) {
   const [live, setLive] = useState<PublicGame[]>(initialLive);
   const [recent, setRecent] = useState<PublicGame[]>(initialRecent);
-  const [connected, setConnected] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +80,6 @@ export default function InhouseBoard({
           if (!cancelled) {
             setLive(data.live ?? []);
             if (data.recent) setRecent(data.recent);
-            setConnected(true);
           }
         } catch {
           /* ignore malformed frame */
@@ -90,7 +88,6 @@ export default function InhouseBoard({
       es.onerror = () => {
         es?.close();
         es = null;
-        if (!cancelled) setConnected(false);
         startPolling();
       };
     } catch {
@@ -123,11 +120,6 @@ export default function InhouseBoard({
       <section id="obecne-mecze" className="mt-14 scroll-mt-24">
         <div className="flex items-center gap-3 h-[35px] mb-4">
           <OpenLobbyLink atCapacity={atCapacity} max={maxOpenLobbies} />
-          {connected && (
-            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-red-400">
-              <Radio className="w-3 h-3 animate-pulse" /> live
-            </span>
-          )}
         </div>
 
         <div className="flex flex-wrap gap-4">

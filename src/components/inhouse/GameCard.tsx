@@ -217,7 +217,11 @@ export default function GameCard({ game }: { game: PublicGame }) {
       )}
 
       {recruiting && game.state === 'open' && (
-        <div className="absolute top-[151px] right-0">
+        // right isn't 0: the button's own -skew-x transform pushes its visual
+        // right edge ~3px past its layout box, which at a flush 0 poked past
+        // the card's 400px edge and forced a horizontal scrollbar inside
+        // BorderGlow's `overflow: auto` inner wrapper.
+        <div className="absolute top-[151px] right-1">
           <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
         </div>
       )}

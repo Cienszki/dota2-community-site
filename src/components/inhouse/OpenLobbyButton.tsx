@@ -47,7 +47,11 @@ export default function OpenLobbyButton({ variant }: { variant: Variant }) {
                      disabled:opacity-60 -skew-x-[12deg] transition-colors"
         >
           <span className="flex items-center gap-2 skew-x-[12deg]">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <span className="font-black">+</span>
+            )}
             {busy ? 'Tworzenie…' : 'Nowa gra'}
           </span>
         </button>
