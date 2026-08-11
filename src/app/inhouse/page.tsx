@@ -11,6 +11,7 @@ import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getFaqs } from '@/lib/inhouse/faq';
 import PlayerProfile from '@/components/inhouse/PlayerProfile';
 import type { PublicGame } from '@/lib/inhouse/public';
+import type { Medal } from '@/lib/inhouse/medals';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,7 +37,7 @@ const STEPS = [
 export default async function InhousePage() {
   let live: PublicGame[] = [];
   let recent: PublicGame[] = [];
-  let topPlayers: Array<{ name: string; value: number }> = [];
+  let topPlayers: Array<{ name: string; value: number; medals: Medal[] }> = [];
   let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
   // The profile takes the instructions' place for anyone who has linked. Loaded
   // separately from the board so a slow Steam fetch can't hold up the lobbies.
@@ -58,6 +59,7 @@ export default async function InhousePage() {
       topPlayers = leaderboards.gamesPlayed.slice(0, 5).map((row) => ({
         name: row.name,
         value: row.value,
+        medals: row.medals,
       }));
     } catch (err) {
       console.error('inhouse landing data load failed', err);

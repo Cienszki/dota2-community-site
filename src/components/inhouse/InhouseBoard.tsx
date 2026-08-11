@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Radio, Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
+import { medalTooltip, placeColour, type Medal as MedalAward } from '@/lib/inhouse/medals';
+import MedalIcons from './MedalIcons';
 import GameCard from './GameCard';
 import OpenLobbyCard from './OpenLobbyCard';
 import OpenLobbyButton from './OpenLobbyButton';
@@ -38,7 +40,7 @@ export default function InhouseBoard({
 }: {
   initialLive: PublicGame[];
   initialRecent: PublicGame[];
-  topPlayers: Array<{ name: string; value: number }>;
+  topPlayers: Array<{ name: string; value: number; medals: MedalAward[] }>;
   maxOpenLobbies: number;
 }) {
   const [live, setLive] = useState<PublicGame[]>(initialLive);
@@ -188,7 +190,7 @@ function OpenLobbyLink({ atCapacity, max }: { atCapacity: boolean; max: number }
 // treatment — this is a participation count, not a ladder (§10).
 const MEDALS = ['#fbbf24', '#cbd5e1', '#d97706'];
 
-function TopPlayers({ rows }: { rows: Array<{ name: string; value: number }> }) {
+function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medals: MedalAward[] }> }) {
   return (
     <div>
       <h2 className="text-[22px] font-black text-white mb-4">Top gracze</h2>
@@ -211,6 +213,29 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number }> }) 
                 {i + 1}
               </span>
               <h3 className="min-w-0 flex-1 text-[15px] font-bold text-white truncate">{row.name}</h3>
+              {row.medals.length > 0 && (
+                <ul className="flex shrink-0 gap-1.5">
+                  {/* Capped at four: past that the row stops being a name with
+                      awards and becomes a wall of circles. */}
+                  {row.medals.slice(0, 4).map((medal) => (
+                    <li
+                      key={medal.id}
+                      title={medalTooltip(medal)}
+                      className="flex h-6 w-6 items-center justify-center rounded-full border"
+                      style={{
+                        borderColor: `${placeColour(medal.place)}66`,
+                        backgroundColor: `${placeColour(medal.place)}1f`,
+                      }}
+                    >
+                      <MedalIcons
+                        icon={medal.icon}
+                        className="h-3 w-3"
+                        style={{ color: placeColour(medal.place) }}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
               <span className="shrink-0 inline-flex items-center gap-1.5 text-[13px] text-slate-400 tabular-nums">
                 <Medal className="w-4 h-4" style={{ color: MEDALS[i] ?? '#64748b' }} />
                 {row.value} gier

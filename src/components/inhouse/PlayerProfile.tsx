@@ -5,6 +5,7 @@ import {
 import type { InhouseProfile } from '@/lib/inhouse/profile';
 import { medalTooltip, placeColour, type Medal } from '@/lib/inhouse/medals';
 import MatchHistory from './ProfileMatchHistory';
+import MedalIcons from './MedalIcons';
 
 // The profile that takes the "how to join" slot once a viewer has linked.
 //
@@ -14,10 +15,14 @@ import MatchHistory from './ProfileMatchHistory';
 // page keeps its shape and nothing below moves.
 //
 // Two-column hero (identity + badges on the left, recent matches on the
-// right), stacking to one column on mobile — the v5 redesign's layout for
-// this block. No winrate/performance number anywhere in it: rank participation,
-// never performance (website-integration.md §8.1) — the games-played count is
-// as far as this goes.
+// right), stacking to one column on mobile — the v5 redesign's layout.
+//
+// The win rate here is a deliberate narrowing of §8.1's "participation, never
+// performance", asked for by the designer and consistent with the K/D/A on the
+// match rows below it. The line that still holds is *comparison*: this is your
+// own number on your own profile, it appears on no leaderboard, and it is not
+// shown for anybody else. Adding it to Top gracze would cross the rule that
+// §8.1 actually exists to protect.
 
 export default function PlayerProfile({ profile }: { profile: InhouseProfile }) {
   const { steam } = profile;
@@ -44,6 +49,15 @@ export default function PlayerProfile({ profile }: { profile: InhouseProfile }) 
               <p className="mt-1 text-sm text-slate-400">
                 <span className="text-slate-200 font-semibold tabular-nums">{profile.gamesPlayed}</span>{' '}
                 {gamesWord(profile.gamesPlayed)}
+                {profile.winRate !== null && (
+                  <>
+                    {' · '}
+                    <span className="font-semibold tabular-nums text-emerald-300">
+                      {profile.winRate}%
+                    </span>{' '}
+                    winrate
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -86,19 +100,6 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 }
 
 /**
- * Icon components the awarding task may name.
- *
- * Closed set: a medal record is written by a task, and letting it reference an
- * arbitrary component would mean a typo renders nothing at all. Unknown keys
- * fall back to a trophy rather than vanishing.
- */
-const ICONS: Record<string, typeof Trophy> = {
-  trophy: Trophy, flame: Flame, star: Star, shield: Shield,
-  crown: Crown, target: Target, zap: Zap, heart: Heart,
-  coins: Coins, eye: Eye, clock: Clock, swords: Swords,
-};
-
-/**
  * The badge shelf, under the name rather than beside it (v5).
  *
  * Icons rather than artwork, because the artwork does not exist yet — `imageUrl`
@@ -114,7 +115,7 @@ function Medals({ medals }: { medals: Medal[] }) {
   return (
     <div className="mt-5">
       <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-slate-600">Odznaki</div>
-      <ul className="flex flex-wrap gap-2">
+      <ul className="grid grid-cols-[repeat(auto-fill,34px)] gap-2.5">
         {medals.map((medal) => (
           <li key={medal.id}>
             <MedalChip medal={medal} />
@@ -133,7 +134,6 @@ function Medals({ medals }: { medals: Medal[] }) {
  */
 function MedalChip({ medal }: { medal: Medal }) {
   const colour = placeColour(medal.place);
-  const Icon = ICONS[medal.icon] ?? Trophy;
   const tooltip = medalTooltip(medal);
 
   return (
@@ -145,7 +145,7 @@ function MedalChip({ medal }: { medal: Medal }) {
       {medal.imageUrl ? (
         <Image src={medal.imageUrl} alt="" width={20} height={20} unoptimized className="h-5 w-5" />
       ) : (
-        <Icon className="h-4 w-4" style={{ color: colour }} />
+        <MedalIcons icon={medal.icon} className="h-4 w-4" style={{ color: colour }} />
       )}
       <span
         role="tooltip"

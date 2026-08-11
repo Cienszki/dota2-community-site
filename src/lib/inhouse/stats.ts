@@ -1,6 +1,7 @@
 import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { getDb } from '@/lib/firebase-admin';
+import { sortMedals, type Medal } from './medals';
 
 // Participation stats only — never performance (§8). These are cumulative,
 // non-rivalrous, monotonic counters; none can be improved by playing selfishly
@@ -11,6 +12,8 @@ export interface LeaderRow {
   name: string;
   steamId32: string | null;
   value: number;
+  /** Awards this player holds, for the badges beside their name. */
+  medals: Medal[];
 }
 
 export interface Leaderboards {
@@ -31,6 +34,7 @@ async function topBy(field: keyof Leaderboards, limit = 10): Promise<LeaderRow[]
         name: (p.discordName as string) ?? `Gracz ${d.id.slice(0, 6)}`,
         steamId32: (p.steamId32 as string | null) ?? null,
         value: (p[field] as number) ?? 0,
+        medals: sortMedals(Array.isArray(p.medals) ? (p.medals as Medal[]) : []),
       };
     })
     .filter((r) => r.value > 0);

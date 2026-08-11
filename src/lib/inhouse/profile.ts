@@ -52,6 +52,11 @@ export interface InhouseProfile {
   displayName: string;
   steam: SteamProfile | null;
   gamesPlayed: number;
+  /**
+   * Percentage of games won, whole number. Null when they have played none —
+   * distinct from a genuine 0%, and the difference matters on a new profile.
+   */
+  winRate: number | null;
   /** 1-based position on the games-played board. Null when they've played none. */
   rank: number | null;
   matches: ProfileMatch[];
@@ -78,6 +83,37 @@ async function rankByGamesPlayed(gamesPlayed: number): Promise<number | null> {
     return ahead.data().count + 1;
   } catch (err) {
     console.error('inhouse profile: rank query failed', err);
+    return null;
+  }
+}
+
+/**
+ * Win rate across every account the person plays on.
+ *
+ * From the attendance ledger rather than `profile.matches`, which is only the
+ * last five — a win rate over five games is noise, and the number people
+ * expect is career-wide. Counted rather than stored because it is derived:
+ * a stored copy would drift the moment an account is unlinked and the counters
+ * are recomputed.
+ */
+async function winRateFor(steamIds: string[]): Promise<number | null> {
+  try {
+    const snaps = await Promise.all(
+      steamIds.map((id) =>
+        getDb().collection('inhouseAttendance').where('steamId32', '==', id).get(),
+      ),
+    );
+    let played = 0;
+    let won = 0;
+    for (const snap of snaps) {
+      for (const doc of snap.docs) {
+        played++;
+        if (doc.data().won) won++;
+      }
+    }
+    return played === 0 ? null : Math.round((won / played) * 100);
+  } catch (err) {
+    console.error('inhouse profile: win rate query failed', err);
     return null;
   }
 }
@@ -152,11 +188,12 @@ export async function getInhouseProfile(discordId: string | null): Promise<Inhou
         : [];
     if (steamIds.length === 0) return null;
 
-    const [steam, rank, records, heroes] = await Promise.all([
+    const [steam, rank, records, heroes, winRate] = await Promise.all([
       ensureSteamProfile(player),
       rankByGamesPlayed(player.gamesPlayed ?? 0),
       listMatchesForPlayer(steamIds, RECENT_MATCHES),
       getHeroMap(),
+      winRateFor(steamIds),
     ]);
 
     const mySteamIds = new Set(steamIds);
@@ -170,6 +207,7 @@ export async function getInhouseProfile(discordId: string | null): Promise<Inhou
       displayName: player.discordName?.trim() || steam?.personaName?.trim() || 'Gracz',
       steam: steam ?? null,
       gamesPlayed: player.gamesPlayed ?? 0,
+      winRate,
       rank,
       matches,
       medals: sortMedals(

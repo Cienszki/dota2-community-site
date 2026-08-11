@@ -132,7 +132,15 @@ export default function GameCard({ game }: { game: PublicGame }) {
               has a job beyond identification. */}
           <h3 className="mt-0.5 min-w-0 flex items-center gap-2 text-[22px] font-bold text-white">
             <span className="truncate">{game.lobbyName ?? game.initiatorName}</span>
-            <Pill badge={stateBadge(game.state)} />
+            <Pill
+              badge={(() => {
+                const b = stateBadge(game.state);
+                // The mockup folds the head-count into the badge. It is also on
+                // the ring, but the ring is a shape you read at a glance and
+                // this is the number you read when you want the number.
+                return recruiting ? { ...b, label: `${b.label} ${committed}/10` } : b;
+              })()}
+            />
             {game.newcomerFriendly && <Pill badge={NEWCOMER_BADGE} />}
           </h3>
           {game.lobbyName && (
