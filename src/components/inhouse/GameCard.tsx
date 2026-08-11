@@ -127,7 +127,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
       <div className="relative p-5">
       {showRing && (
         <div
-          className="absolute top-0 right-0 shrink-0"
+          className="absolute top-3 right-3 shrink-0"
           style={{ width: 80, height: 80 }}
           title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
         >
