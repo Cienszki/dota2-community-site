@@ -4,6 +4,7 @@ import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
 import { sweepStuckLobbies } from '@/lib/inhouse/sweep';
+import { sweepRankingEnrolment } from '@/lib/inhouse/ranking-enrol';
 import type { InhouseGame } from '@/lib/inhouse/core/types';
 
 export const runtime = 'nodejs';
@@ -21,7 +22,11 @@ export const maxDuration = 60;
 //   2. **Parse follow-up.** A replay parse takes minutes to hours. Nothing
 //      request-scoped can wait for it, so pending records are polled here and
 //      the awards folded in whenever they land.
-//   3. **Stuck-lobby recovery.** A game the worker never turned into a real
+//   3. **Ranking enrolment.** Everyone who has played an inhouse, or linked
+//      their accounts, belongs in the site's ranking. Reconciled here rather
+//      than hooked onto the link paths, because two of those run inside the bot
+//      and a hook would silently cover only half of them.
+//   4. **Stuck-lobby recovery.** A game the worker never turned into a real
 //      Dota lobby blocks the concurrent-lobby cap and holds a Steam account
 //      until something writes it off. The bot's own sweeper runs inside the
 //      worker, so it is down in exactly the case that causes this.
@@ -68,6 +73,15 @@ export async function GET(request: Request) {
     // First, because it is the one that unblocks hosting for everyone else and
     // it is cheap — one indexed query that is empty on a healthy system.
     const swept = await sweepStuckLobbies();
+
+    // Additive and idempotent, and it must never take the sweep down with it:
+    // a Supabase hiccup should not stop matches being ingested.
+    let enrolled = null;
+    try {
+      enrolled = await sweepRankingEnrolment();
+    } catch (err) {
+      console.error('inhouse ingest cron: ranking enrolment failed', err);
+    }
     // ── Pass 1: games that have been played but have no match record ──
     //
     // Ordered oldest-first on updatedAt so a backlog drains from the front
@@ -104,6 +118,7 @@ export async function GET(request: Request) {
       {
         ok: true,
         sweptStuckLobbies: swept,
+        rankingEnrolment: enrolled,
         ingested,
         awaitingOpenDota: pending,
         parsed,

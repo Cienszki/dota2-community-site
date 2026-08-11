@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp, KeyRound } from 'lucide-react';
+import { Users, Settings, ShieldCheck, ArrowLeft, Gamepad2, Gavel, ChevronRight, CalendarClock, Server, TrendingUp, KeyRound } from 'lucide-react';
 import { isInhouseConfigured, getDb } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES, type LobbyConfig } from '@/lib/inhouse/lobby-config';
@@ -63,6 +63,7 @@ export default async function InhouseAdminPage() {
       ) : (
         <div className="space-y-8">
           <div className="grid gap-3 sm:grid-cols-2">
+            <NavCard href="/admin/inhouse/accounts" icon={<Users className="w-4 h-4 text-red-400" />} title="Konta graczy" desc="Połączenia, ranking i bany" />
             <NavCard href="/admin/inhouse/moderation" icon={<Gavel className="w-4 h-4 text-red-400" />} title="Moderacja" desc="Ostrzeżenia i bany — od meczu, nie od nicka" />
             <NavCard href="/admin/inhouse/schedule" icon={<CalendarClock className="w-4 h-4 text-red-400" />} title="Harmonogram" desc="Cykliczne sloty gier" />
             <NavCard href="/admin/inhouse/pool" icon={<Server className="w-4 h-4 text-red-400" />} title="Pula botów" desc="Konta Steam i dzierżawy" />

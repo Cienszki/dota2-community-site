@@ -23,6 +23,53 @@
 
 import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import fs from 'node:fs';
+
+/**
+ * Keep the nine invented Steam accounts out of the public ranking.
+ *
+ * Ranking enrolment adds everyone who has played an inhouse, and it reads the
+ * attendance ledger — which the seed writes. Without this, running migration
+ * 024 would put nine accounts that do not exist onto the public ranking page
+ * within one cron tick, where the daily OpenDota sync would then fail on each
+ * of them forever. Best-effort: if Supabase isn't reachable, or migration 024
+ * hasn't been run yet, the seed still succeeds and this is reported.
+ */
+async function setSyntheticRankingExclusions(steamIds, remove) {
+  let env;
+  try {
+    env = Object.fromEntries(
+      fs.readFileSync('.env.local', 'utf8')
+        .split('\n')
+        .filter((l) => l.includes('='))
+        .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]),
+    );
+  } catch {
+    return 'no .env.local — skipped';
+  }
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return 'no Supabase credentials — skipped';
+
+  const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+  try {
+    const res = remove
+      ? await fetch(`${url}/rest/v1/ranking_exclusions?steam_id=in.(${steamIds.join(',')})`, {
+          method: 'DELETE', headers,
+        })
+      : await fetch(`${url}/rest/v1/ranking_exclusions`, {
+          method: 'POST',
+          headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
+          body: JSON.stringify(
+            steamIds.map((id) => ({ steam_id: id, reason: 'demo seed — not a real account' })),
+          ),
+        });
+    if (!res.ok) return `HTTP ${res.status} (migration 024 not run?)`;
+    return remove ? 'lifted' : 'excluded';
+  } catch (err) {
+    return `failed: ${err.message}`;
+  }
+}
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -262,6 +309,11 @@ if (PURGE) {
       .collection('inhouseCounters')
       .doc('games')
       .set({ value: highest, updatedAt: iso(Date.now()) }, { merge: true });
+  }
+
+  if (APPLY) {
+    const outcome = await setSyntheticRankingExclusions(CAST.map((c) => c.steamId32), true);
+    console.log(`  ranking exclusions for synthetic accounts: ${outcome}`);
   }
 
   console.log(APPLY ? '\n✓ Seed data removed.\n' : '\nDry run complete. Re-run with --apply.\n');
@@ -535,5 +587,8 @@ await db
   .collection('inhouseCounters')
   .doc('games')
   .set({ value: nextNumber - 1, updatedAt: iso(Date.now()) }, { merge: true });
+
+const exclusionOutcome = await setSyntheticRankingExclusions(CAST.map((c) => c.steamId32), false);
+console.log(`  ranking exclusions for the 9 synthetic accounts: ${exclusionOutcome}`);
 
 console.log(`\n✓ Seeded. Log in with Discord as ${DISCORD_ID} and open /inhouse.\n`);
