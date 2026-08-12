@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ChevronDown } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
 import FaqSection from '@/components/inhouse/FaqSection';
@@ -78,9 +79,21 @@ export default async function InhousePage() {
     <InhouseShell width="wide">
       {/* ─── Hero ─────────────────────────────────────────────────────────── */}
       <section className="max-w-3xl">
-        <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.95]">
-          Inhouse <span className="text-[#E7000B]">5v5</span>
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.95]">
+            Inhouse <span className="text-[#E7000B]">5v5</span>
+          </h1>
+          {/* A plain anchor, not a Link: this is a same-page jump, and the
+              smooth scroll comes from `scroll-behavior` already set globally. */}
+          <a
+            href="#faq"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400
+                       transition-colors hover:text-white"
+          >
+            FAQ
+            <ChevronDown className="h-4 w-4" />
+          </a>
+        </div>
         <p className="text-slate-300 text-xl mt-4 leading-relaxed">
           Prawdziwi ludzie, prawie każdego wieczoru. Nie liga. Bez tryhardów.
         </p>

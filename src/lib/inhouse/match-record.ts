@@ -237,12 +237,82 @@ export const STAT_FIELDS = {
 } as const;
 
 /**
+ * Items whose cost counts as "support gold" for the Filantrop category.
+ *
+ * A judgement call, not a fact — Dota has no support-item flag, and neither
+ * OpenDota nor STRATZ classifies them. Kept as an explicit, readable list so
+ * the decision is visible and editable rather than buried in a heuristic.
+ *
+ * Note observer wards cost 0 now (they are charge-based), so warding shows up
+ * here only through sentries and dust. That is Valve's doing, not a bug.
+ */
+export const SUPPORT_ITEMS = new Set([
+  // Vision and detection
+  'ward_sentry', 'dust', 'gem', 'smoke_of_deceit',
+  // Saves and auras the support usually carries
+  'mekansm', 'guardian_greaves', 'glimmer_cape', 'force_staff', 'pipe',
+  'crimson_guard', 'spirit_vessel', 'solar_crest', 'vladmir', 'holy_locket',
+  'aeon_disk', 'lotus_orb', 'ghost', 'medallion_of_courage', 'urn_of_shadows',
+  'headdress', 'buckler', 'ring_of_basilius', 'tranquil_boots', 'arcane_boots',
+]);
+
+/**
+ * Reference data the derived statistics need, fetched once per ingestion run.
+ *
+ * Both only move on a patch, so they are cached for a day. `heroNames` is
+ * needed because the player object carries `hero_id` but the `healing` object
+ * is keyed by the hero's internal name — verified, there is no `hero_name`
+ * field to shortcut it.
+ */
+export interface StatContext {
+  itemCosts: Record<string, number>;
+  heroNames: Record<number, string>;
+}
+
+let cachedContext: StatContext | null = null;
+let contextFetchedAt = 0;
+
+export async function getStatContext(): Promise<StatContext> {
+  const DAY = 24 * 60 * 60_000;
+  if (cachedContext && Date.now() - contextFetchedAt < DAY) return cachedContext;
+
+  const base = process.env.OPENDOTA_BASE_URL || 'https://api.opendota.com/api';
+  const empty: StatContext = { itemCosts: {}, heroNames: {} };
+
+  try {
+    const [itemsRes, heroesRes] = await Promise.all([
+      fetch(`${base}/constants/items`, { next: { revalidate: 86_400 } }),
+      fetch(`${base}/heroes`, { next: { revalidate: 86_400 } }),
+    ]);
+    if (!itemsRes.ok || !heroesRes.ok) return cachedContext ?? empty;
+
+    const items = (await itemsRes.json()) as Record<string, { cost?: number | null }>;
+    const heroes = (await heroesRes.json()) as Array<{ id: number; name: string }>;
+
+    cachedContext = {
+      itemCosts: Object.fromEntries(
+        Object.entries(items).map(([k, v]) => [k, typeof v?.cost === 'number' ? v.cost : 0]),
+      ),
+      heroNames: Object.fromEntries(heroes.map((h) => [h.id, h.name])),
+    };
+    contextFetchedAt = Date.now();
+    return cachedContext;
+  } catch (err) {
+    console.error('stat context fetch failed', err);
+    return cachedContext ?? empty;
+  }
+}
+
+/**
  * Statistics that are not a field but a computation over one.
  *
  * Kept beside the whitelist because the medal catalogue reads them by the same
  * name as the flat fields, and a caller should not have to know which is which.
  */
-function derivedStats(player: Record<string, unknown>): Record<string, number> {
+function derivedStats(
+  player: Record<string, unknown>,
+  ctx: StatContext,
+): Record<string, number> {
   const out: Record<string, number> = {};
 
   // `damage_taken` is an object keyed by damage source, not a total.
@@ -261,11 +331,38 @@ function derivedStats(player: Record<string, unknown>): Record<string, number> {
     if (typeof smoke === 'number' && Number.isFinite(smoke)) out.smokeUsed = smoke;
   }
 
+  // `healing` is keyed by the hero who RECEIVED the healing, so the entry
+  // matching this player's own hero is their self-healing — which is where
+  // lifesteal shows up. Neither API breaks healing down by source, so this is
+  // total self-sustain rather than lifesteal alone.
+  const healing = player.healing;
+  const ownHero =
+    typeof player.hero_id === 'number' ? ctx.heroNames[player.hero_id] : undefined;
+  if (healing && typeof healing === 'object' && typeof ownHero === 'string') {
+    const self = (healing as Record<string, unknown>)[ownHero];
+    if (typeof self === 'number' && Number.isFinite(self)) out.selfHealing = self;
+  }
+
+  // Support gold: what they spent on the items in SUPPORT_ITEMS.
+  const purchases = player.purchase;
+  if (purchases && typeof purchases === 'object') {
+    let spent = 0;
+    for (const [item, count] of Object.entries(purchases as Record<string, unknown>)) {
+      if (!SUPPORT_ITEMS.has(item)) continue;
+      if (typeof count !== 'number' || !Number.isFinite(count)) continue;
+      spent += (ctx.itemCosts[item] ?? 0) * count;
+    }
+    if (spent > 0) out.supportGold = spent;
+  }
+
   return out;
 }
 
 /** Pull the whitelisted numeric fields out of an OpenDota player object. */
-export function extractStats(player: Record<string, unknown>): Record<string, number> {
+export function extractStats(
+  player: Record<string, unknown>,
+  ctx: StatContext = { itemCosts: {}, heroNames: {} },
+): Record<string, number> {
   const out: Record<string, number> = {};
   for (const key of [...STAT_FIELDS.basic, ...STAT_FIELDS.parsed]) {
     const v = player[key];
@@ -274,5 +371,5 @@ export function extractStats(player: Record<string, unknown>): Record<string, nu
     if (typeof v === 'number' && Number.isFinite(v)) out[key] = v;
     else if (typeof v === 'boolean') out[key] = v ? 1 : 0;
   }
-  return { ...out, ...derivedStats(player) };
+  return { ...out, ...derivedStats(player, ctx) };
 }

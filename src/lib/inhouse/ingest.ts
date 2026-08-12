@@ -13,6 +13,7 @@ import {
 } from './opendota';
 import {
   extractStats,
+  getStatContext,
   getMatchRecord,
   patchMatchRecord,
   putMatchRecord,
@@ -90,6 +91,7 @@ function toSteamShape(match: OpenDotaMatchDetail): SteamMatchDetails {
 
 async function buildRoster(match: OpenDotaMatchDetail): Promise<MatchRosterEntry[]> {
   const store = getInhouseStore();
+  const ctx = await getStatContext();
   const roster: MatchRosterEntry[] = [];
 
   for (const p of match.players) {
@@ -109,7 +111,7 @@ async function buildRoster(match: OpenDotaMatchDetail): Promise<MatchRosterEntry
       won: side === 'radiant' ? match.radiant_win : !match.radiant_win,
       playerSlot: p.player_slot ?? null,
       leaverStatus: p.leaver_status ?? null,
-      stats: extractStats(p as Record<string, unknown>),
+      stats: extractStats(p as Record<string, unknown>, ctx),
     });
   }
   return roster;
@@ -344,10 +346,11 @@ export async function checkParse(record: MatchRecord): Promise<'parsed' | 'waiti
 
   // Re-extract stats: the parse is precisely what makes the second half of the
   // whitelist exist, so the roster written at ingestion is missing them.
+  const ctx = await getStatContext();
   const roster = record.roster.map((entry, i) => {
     const player = fetched.match.players[i];
     if (!player) return entry;
-    return { ...entry, stats: extractStats(player as Record<string, unknown>) };
+    return { ...entry, stats: extractStats(player as Record<string, unknown>, ctx) };
   });
 
   const parsedAt = new Date().toISOString();

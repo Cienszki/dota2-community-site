@@ -111,7 +111,7 @@ function StreamerGrid({ streamers, liveChannels }: { streamers: Streamer[]; live
                   style={{ aspectRatio: '16 / 9' }}
                 >
                   <iframe
-                    src={`https://player.twitch.tv/?channel=${streamChannel.channel}&parent=localhost&parent=dota2inhouse.pl&parent=www.dota2inhouse.pl&muted=true`}
+                    src={`https://player.twitch.tv/?channel=${streamChannel.channel}${TWITCH_PARENTS.map((h) => `&parent=${h}`).join('')}&muted=true`}
                     allowFullScreen
                     className="absolute inset-0 w-full h-full"
                     title={`${streamer.nick} — Twitch`}
@@ -174,6 +174,17 @@ async function LiveStreamerGrid({ streamers }: { streamers: Streamer[] }) {
 
   return <StreamerGrid streamers={streamers} liveChannels={liveChannels} />;
 }
+
+// Twitch refuses to start the player unless every host that may embed it is
+// listed here — it checks the framing origin against `parent` exactly. The
+// Vercel domain is currently the live one; dota2inhouse.pl is where it lands
+// after the cutover, and both have to be present through that transition.
+const TWITCH_PARENTS = [
+  'localhost',
+  'dota2inhouse.pl',
+  'www.dota2inhouse.pl',
+  'dota2-community-site-291p-zeta.vercel.app',
+];
 
 export default async function StreamyPage() {
   const { data: streamers, error } = await supabase

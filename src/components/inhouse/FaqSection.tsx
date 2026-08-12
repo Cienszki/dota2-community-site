@@ -14,7 +14,7 @@ export default function FaqSection({ faqs }: { faqs: FaqEntry[] }) {
   if (faqs.length === 0) return null;
 
   return (
-    <section className="mt-16 max-w-[760px] mx-auto">
+    <section className="mt-16 max-w-[760px] mx-auto" id="faq">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

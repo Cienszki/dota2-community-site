@@ -221,7 +221,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
         // right edge ~3px past its layout box, which at a flush 0 poked past
         // the card's 400px edge and forced a horizontal scrollbar inside
         // BorderGlow's `overflow: auto` inner wrapper.
-        <div className="absolute top-[151px] right-1">
+        <div className="absolute top-[151px] right-[18px]">
           <JoinDialog gameId={game.id} lobbyName={game.lobbyName} full={slotsOpen <= 0} />
         </div>
       )}
@@ -233,7 +233,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
 function Pill({ badge }: { badge: BadgeStyle }) {
   return (
     <span
-      className="shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+      className="shrink-0 rounded px-2.5 py-1 text-[12px] font-bold uppercase tracking-wide"
       style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.border}` }}
     >
       {badge.label}

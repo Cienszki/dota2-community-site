@@ -22,6 +22,9 @@ import SkewButton from './SkewButton';
 // sliced consistently from two different places while one of them is live.
 
 const CARD_SLOTS = 3;
+
+/** The league every inhouse is played under — see the League ID in /admin/inhouse. */
+const DOTABUFF_LEAGUE_URL = 'https://www.dotabuff.com/esports/leagues/20119';
 const RECRUITING = ['open', 'ready'];
 const HISTORY_STEP = 8;
 
@@ -303,6 +306,15 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
           )}
         </>
       )}
+
+      {/* Mirrors "Pełny ranking" in the other column. Points at Dotabuff's own
+          league page rather than a page of ours: it already lists every match
+          ever played under league 20119, with nothing for us to maintain. */}
+      <div className="mt-5">
+        <SkewButton href={DOTABUFF_LEAGUE_URL} variant="red" prefetch={false} external>
+          <ExternalLink className="w-4 h-4" /> Pełna historia
+        </SkewButton>
+      </div>
     </div>
   );
 }
