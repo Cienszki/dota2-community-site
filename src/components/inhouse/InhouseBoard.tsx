@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
+import { Trophy, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import { medalTooltip, placeColour, type Medal as MedalAward } from '@/lib/inhouse/medals';
@@ -26,7 +26,9 @@ const CARD_SLOTS = 3;
 /** The league every inhouse is played under — see the League ID in /admin/inhouse. */
 const DOTABUFF_LEAGUE_URL = 'https://www.dotabuff.com/esports/leagues/20119';
 const RECRUITING = ['open', 'ready'];
-const HISTORY_STEP = 12;
+// Matches the Top gracze row count, so the two columns' rows line up.
+const HISTORY_INITIAL = 5;
+const HISTORY_STEP = 8;
 
 /** Highest game number first. Game numbers are allocated from a counter, so
  *  this is a true creation order across every state — which `createdAt` vs
@@ -124,9 +126,12 @@ export default function InhouseBoard({
         <div className="flex items-center gap-3 h-[35px] mb-4">
           <OpenLobbyLink atCapacity={atCapacity} max={maxOpenLobbies} />
           {/* A plain anchor, not a Link: this is a same-page jump, and the
-              smooth scroll comes from `scroll-behavior` already set globally. */}
+              smooth scroll comes from `scroll-behavior` already set globally.
+              FaqSection defaults to collapsed, so this also tells it to open —
+              see the matching listener there. */}
           <a
             href="#faq"
+            onClick={() => window.dispatchEvent(new Event('inhouse:open-faq'))}
             className="inline-flex h-[35px] items-center gap-2 border-[1.5px] border-[#E7000B] px-5
                        text-sm font-extrabold uppercase tracking-wide text-white
                        -skew-x-[12deg] transition-colors hover:bg-[#E7000B]/15"
@@ -228,7 +233,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
                     <li
                       key={medal.id}
                       title={medalTooltip(medal)}
-                      className="flex h-6 w-6 items-center justify-center rounded-full border"
+                      className="flex h-[29px] w-[29px] items-center justify-center rounded-full border"
                       style={{
                         borderColor: `${placeColour(medal.place)}66`,
                         backgroundColor: `${placeColour(medal.place)}1f`,
@@ -237,15 +242,14 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
                       <MedalArt
                         id={medal.id}
                         icon={medal.icon}
-                        size={24}
+                        size={29}
                         colour={placeColour(medal.place)}
                       />
                     </li>
                   ))}
                 </ul>
               )}
-              <span className="shrink-0 inline-flex items-center gap-1.5 text-[13px] text-slate-400 tabular-nums">
-                <Medal className="w-4 h-4" style={{ color: MEDALS[i] ?? '#64748b' }} />
+              <span className="shrink-0 text-[13px] text-slate-400 tabular-nums">
                 {row.value} gier
               </span>
             </li>
@@ -265,7 +269,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
 /* ─── Match history ──────────────────────────────────────────────────────── */
 
 function MatchHistory({ games }: { games: PublicGame[] }) {
-  const [shown, setShown] = useState(HISTORY_STEP);
+  const [shown, setShown] = useState(HISTORY_INITIAL);
   const visible = games.slice(0, shown);
   const hasMore = shown < games.length;
 
@@ -282,7 +286,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
               <div
                 key={g.id}
                 className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
-                           items-center gap-x-2.5 py-2.5 border-b border-white/5"
+                           items-center gap-x-2.5 py-3.5 border-b border-white/5"
               >
                 <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
                 <Link

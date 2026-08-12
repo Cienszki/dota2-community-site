@@ -205,14 +205,14 @@ export default function GameCard({ game }: { game: PublicGame }) {
               href={`https://www.dotabuff.com/matches/${game.dotaMatchId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="absolute top-[160px] left-0 z-[5] inline-flex items-center gap-1 text-base font-bold text-slate-400 hover:text-white transition-colors"
+              className="absolute top-[160px] right-[10px] z-[5] inline-flex items-center gap-1 text-base font-bold text-slate-400 hover:text-white transition-colors"
             >
               Dotabuff <ExternalLink className="w-3 h-3" />
             </a>
           ) : (
             <Link
               href={`/inhouse/${game.id}`}
-              className="absolute top-[160px] left-0 z-[5] text-base font-bold text-slate-400 hover:text-white transition-colors"
+              className="absolute top-[160px] right-[10px] z-[5] text-base font-bold text-slate-400 hover:text-white transition-colors"
             >
               Szczegóły
             </Link>

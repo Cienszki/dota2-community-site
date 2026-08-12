@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { FaqEntry } from '@/lib/inhouse/faq';
 
@@ -9,7 +9,16 @@ import type { FaqEntry } from '@/lib/inhouse/faq';
 // owns the open/close interaction and the numbering.
 
 export default function FaqSection({ faqs }: { faqs: FaqEntry[] }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
+
+  // The board header's FAQ button is a same-page #faq anchor, not a link into
+  // this component — a custom event is the only way it can also expand the
+  // accordion it's jumping to. See InhouseBoard.tsx's matching dispatch.
+  useEffect(() => {
+    const openFaq = () => setOpen(true);
+    window.addEventListener('inhouse:open-faq', openFaq);
+    return () => window.removeEventListener('inhouse:open-faq', openFaq);
+  }, []);
 
   if (faqs.length === 0) return null;
 
