@@ -44,7 +44,10 @@ export const getLeaderboards = unstable_cache(
   async (): Promise<Leaderboards> => ({
     // gamesPublished featured first — the one deliberate incentive (§8.2).
     gamesPublished: await topBy('gamesPublished'),
-    gamesPlayed: await topBy('gamesPlayed'),
+    // 30, not the default 10: this is the leaderboards page's main board, the
+    // one column with room for a long list. Also used sliced-to-5 on the
+    // /inhouse landing page, which the larger fetch doesn't affect.
+    gamesPlayed: await topBy('gamesPlayed', 30),
     nightsPlayed: await topBy('nightsPlayed'),
     distinctTeammates: await topBy('distinctTeammates'),
     heroesPlayed: await topBy('heroesPlayed'),
@@ -53,46 +56,60 @@ export const getLeaderboards = unstable_cache(
   { revalidate: 900 },
 );
 
-export interface CommunityStats {
-  totalGames: number;
-  gamesThisMonth: number;
-  activePlayers7d: number;
-  distinctInitiatorsThisWeek: number;
+export interface PlayerOfWeek {
+  name: string;
+  gamesThisWeek: number;
 }
 
-export const getCommunityStats = unstable_cache(
-  async (): Promise<CommunityStats> => {
+/** Most games attended in the last 7 days. Discord-linked players only — same
+ *  scope as every other board here, all of which read `inhousePlayers`. */
+export const getPlayerOfWeek = unstable_cache(
+  async (): Promise<PlayerOfWeek | null> => {
     const db = getDb();
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
     const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+    const snap = await db.collection('inhouseAttendance').where('createdAt', '>=', weekAgo).get();
 
-    const [totalSnap, monthSnap, attendanceSnap, gamesWeekSnap] = await Promise.all([
-      db.collection('inhouseGames').where('state', '==', 'finished').count().get(),
-      db
-        .collection('inhouseGames')
-        .where('state', '==', 'finished')
-        .where('endedAt', '>=', monthStart.toISOString())
-        .count()
-        .get(),
-      db.collection('inhouseAttendance').where('createdAt', '>=', weekAgo).get(),
-      db.collection('inhouseGames').where('createdAt', '>=', weekAgo).get(),
-    ]);
+    const counts = new Map<string, number>();
+    for (const doc of snap.docs) {
+      const discordId = doc.data().discordId as string | null;
+      if (!discordId) continue;
+      counts.set(discordId, (counts.get(discordId) ?? 0) + 1);
+    }
+    if (counts.size === 0) return null;
 
-    const active = new Set(attendanceSnap.docs.map((d) => d.data().steamId32 as string));
-    const initiators = new Set(
-      gamesWeekSnap.docs.map((d) => d.data().initiatorDiscordId as string).filter(Boolean),
-    );
+    const [topId, gamesThisWeek] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+    const playerDoc = await db.collection('inhousePlayers').doc(topId).get();
+    const name = (playerDoc.data()?.discordName as string | undefined) ?? `Gracz ${topId.slice(0, 6)}`;
 
-    return {
-      totalGames: totalSnap.data().count,
-      gamesThisMonth: monthSnap.data().count,
-      activePlayers7d: active.size,
-      distinctInitiatorsThisWeek: initiators.size,
-    };
+    return { name, gamesThisWeek };
   },
-  ['inhouse-community-stats'],
+  ['inhouse-player-of-week'],
+  { revalidate: 900 },
+);
+
+export interface RecentMedalAward {
+  playerName: string;
+  medal: Medal;
+}
+
+const RECENT_MEDALS_LIMIT = 3;
+
+/** Newest awards across the whole community, for the leaderboards page's
+ *  medal feed. Small collection, full scan — same cost profile as `topBy`. */
+export const getRecentMedalAwards = unstable_cache(
+  async (): Promise<RecentMedalAward[]> => {
+    const snap = await getDb().collection('inhousePlayers').get();
+    const awards: RecentMedalAward[] = [];
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      const medals = Array.isArray(data.medals) ? (data.medals as Medal[]) : [];
+      const playerName = (data.discordName as string | undefined) ?? `Gracz ${doc.id.slice(0, 6)}`;
+      for (const medal of medals) awards.push({ playerName, medal });
+    }
+    awards.sort((a, b) => (b.medal.awardedAt ?? '').localeCompare(a.medal.awardedAt ?? ''));
+    return awards.slice(0, RECENT_MEDALS_LIMIT);
+  },
+  ['inhouse-recent-medals'],
   { revalidate: 900 },
 );
 

@@ -216,7 +216,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
           {rows.map((row, i) => (
             <li
               key={`${row.name}-${i}`}
-              className="flex items-center gap-3.5 py-3.5 border-b border-white/5"
+              className="flex min-h-[57px] items-center gap-3.5 py-3.5 border-b border-white/5"
             >
               <span
                 className="shrink-0 w-7 text-center font-black text-base"
@@ -259,7 +259,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
 
       <div className="mt-auto pt-5">
         <SkewButton href="/inhouse/leaderboards" variant="red" prefetch={false}>
-          <Trophy className="w-4 h-4" /> Pełny ranking
+          <Trophy className="w-4 h-4" /> Klasyfikacja
         </SkewButton>
       </div>
     </div>
@@ -285,7 +285,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
             {visible.map((g) => (
               <div
                 key={g.id}
-                className="grid grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
+                className="grid min-h-[57px] grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
                            items-center gap-x-2.5 py-3.5 border-b border-white/5"
               >
                 <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
@@ -324,7 +324,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
         </>
       )}
 
-      {/* Mirrors "Pełny ranking" in the other column. Points at Dotabuff's own
+      {/* Mirrors "Klasyfikacja" in the other column. Points at Dotabuff's own
           league page rather than a page of ours: it already lists every match
           ever played under league 20119, with nothing for us to maintain. */}
       <div className="mt-auto pt-5">
