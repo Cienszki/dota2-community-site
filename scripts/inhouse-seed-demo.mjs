@@ -112,31 +112,28 @@ const LOBBY_NAMES = ['bursztyn', 'zorza', 'wichura', 'sopel', 'agat'];
 // Made-up medals, in the shape the real awarding task will write (see
 // src/lib/inhouse/medals.ts). There are no fixed categories — each award
 // carries its own label — so these are illustrative, not a schema.
+// Real medals from src/lib/inhouse/medal-catalogue.ts, in the shape the
+// awarding task will write. Six across five categories and all three places,
+// so the artwork, the podium colours and the sorting all get exercised.
 const DEMO_MEDALS = [
-  {
-    id: 'kurierobojca-2026-08',
-    label: 'Kurierobójca',
-    description: 'Najwięcej zabitych kurierów',
-    place: 1, icon: 'target', imageUrl: null, period: 'sierpień 2026',
-  },
-  {
-    id: 'zelazna-frekwencja-2026-08',
-    label: 'Żelazna frekwencja',
-    description: 'Najwięcej rozegranych meczów',
-    place: 2, icon: 'flame', imageUrl: null, period: 'sierpień 2026',
-  },
-  {
-    id: 'filar-druzyny-2026-08',
-    label: 'Filar drużyny',
-    description: 'Najwięcej złota wydanego na wsparcie',
-    place: 1, icon: 'shield', imageUrl: null, period: 'sierpień 2026',
-  },
-  {
-    id: 'maratonczyk-2026-07',
-    label: 'Maratończyk',
-    description: 'Najdłuższy rozegrany mecz',
-    place: 3, icon: 'clock', imageUrl: null, period: 'lipiec 2026',
-  },
+  { id: 'pracownik-kfc', label: 'Pracownik KFC',
+    description: 'Zabił najwięcej kurierów przeciwnika',
+    place: 1, icon: 'target', imageUrl: null, period: 'sierpień 2026' },
+  { id: 'filantrop', label: 'Filantrop',
+    description: 'Najwięcej wydanego złota na przedmioty supportujące',
+    place: 1, icon: 'coins', imageUrl: null, period: 'sierpień 2026' },
+  { id: 'ogluszacz', label: 'Ogłuszacz',
+    description: 'Top 2 ogłuszenia przeciwników',
+    place: 2, icon: 'zap', imageUrl: null, period: 'sierpień 2026' },
+  { id: 'obserwator-meczu', label: 'Obserwator meczu',
+    description: 'Top 3 „dead time”',
+    place: 3, icon: 'clock', imageUrl: null, period: 'sierpień 2026' },
+  { id: 'maratonczyk', label: 'Maratończyk',
+    description: 'Ma najdłuższe gry ze wszystkich',
+    place: 1, icon: 'clock', imageUrl: null, period: 'lipiec 2026' },
+  { id: 'mysliwy', label: 'Myśliwy',
+    description: 'Zabił najwięcej neutralnych creepów',
+    place: 1, icon: 'swords', imageUrl: null, period: 'lipiec 2026' },
 ];
 // 3 wins, 2 losses — a demo where you win everything reads as fake.
 const HERO_WON = [true, false, true, true, false];

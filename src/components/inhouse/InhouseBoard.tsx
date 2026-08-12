@@ -6,7 +6,7 @@ import { Trophy, Medal, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import { medalTooltip, placeColour, type Medal as MedalAward } from '@/lib/inhouse/medals';
-import MedalIcons from './MedalIcons';
+import MedalArt from './MedalArt';
 import GameCard from './GameCard';
 import OpenLobbyCard from './OpenLobbyCard';
 import OpenLobbyButton from './OpenLobbyButton';
@@ -218,10 +218,11 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
                         backgroundColor: `${placeColour(medal.place)}1f`,
                       }}
                     >
-                      <MedalIcons
+                      <MedalArt
+                        id={medal.id}
                         icon={medal.icon}
-                        className="h-3 w-3"
-                        style={{ color: placeColour(medal.place) }}
+                        size={24}
+                        colour={placeColour(medal.place)}
                       />
                     </li>
                   ))}

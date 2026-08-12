@@ -236,6 +236,34 @@ export const STAT_FIELDS = {
   ],
 } as const;
 
+/**
+ * Statistics that are not a field but a computation over one.
+ *
+ * Kept beside the whitelist because the medal catalogue reads them by the same
+ * name as the flat fields, and a caller should not have to know which is which.
+ */
+function derivedStats(player: Record<string, unknown>): Record<string, number> {
+  const out: Record<string, number> = {};
+
+  // `damage_taken` is an object keyed by damage source, not a total.
+  const taken = player.damage_taken;
+  if (taken && typeof taken === 'object') {
+    const total = Object.values(taken as Record<string, unknown>)
+      .filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+      .reduce((a, b) => a + b, 0);
+    if (total > 0) out.damageTaken = total;
+  }
+
+  // Smoke is nested in the item-use counts rather than exposed on its own.
+  const uses = player.item_uses;
+  if (uses && typeof uses === 'object') {
+    const smoke = (uses as Record<string, unknown>).smoke_of_deceit;
+    if (typeof smoke === 'number' && Number.isFinite(smoke)) out.smokeUsed = smoke;
+  }
+
+  return out;
+}
+
 /** Pull the whitelisted numeric fields out of an OpenDota player object. */
 export function extractStats(player: Record<string, unknown>): Record<string, number> {
   const out: Record<string, number> = {};
@@ -246,5 +274,5 @@ export function extractStats(player: Record<string, unknown>): Record<string, nu
     if (typeof v === 'number' && Number.isFinite(v)) out[key] = v;
     else if (typeof v === 'boolean') out[key] = v ? 1 : 0;
   }
-  return out;
+  return { ...out, ...derivedStats(player) };
 }

@@ -5,7 +5,7 @@ import {
 import type { InhouseProfile } from '@/lib/inhouse/profile';
 import { medalTooltip, placeColour, type Medal } from '@/lib/inhouse/medals';
 import MatchHistory from './ProfileMatchHistory';
-import MedalIcons from './MedalIcons';
+import MedalArt from './MedalArt';
 
 // The profile that takes the "how to join" slot once a viewer has linked.
 //
@@ -142,11 +142,7 @@ function MedalChip({ medal }: { medal: Medal }) {
       className="group relative flex h-[34px] w-[34px] items-center justify-center rounded-full border transition-colors"
       style={{ borderColor: `${colour}66`, backgroundColor: `${colour}1f` }}
     >
-      {medal.imageUrl ? (
-        <Image src={medal.imageUrl} alt="" width={20} height={20} unoptimized className="h-5 w-5" />
-      ) : (
-        <MedalIcons icon={medal.icon} className="h-4 w-4" style={{ color: colour }} />
-      )}
+      <MedalArt id={medal.id} icon={medal.icon} size={34} colour={colour} />
       <span
         role="tooltip"
         className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 whitespace-nowrap
