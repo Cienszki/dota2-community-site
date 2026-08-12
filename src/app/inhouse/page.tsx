@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
+import InhousePulse from '@/components/inhouse/InhousePulse';
 import FaqSection from '@/components/inhouse/FaqSection';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
+import { getInhousePulseScore } from '@/lib/inhouse/pulse-stats';
 import { getInhouseProfile, type InhouseProfile } from '@/lib/inhouse/profile';
 import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getFaqs } from '@/lib/inhouse/faq';
@@ -39,6 +41,7 @@ export default async function InhousePage() {
   let recent: PublicGame[] = [];
   let topPlayers: Array<{ name: string; value: number; medals: Medal[] }> = [];
   let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
+  let pulseScore: number | null = null;
   // The profile takes the instructions' place for anyone who has linked. Loaded
   // separately from the board so a slow Steam fetch can't hold up the lobbies.
   let profile: InhouseProfile | null = null;
@@ -48,10 +51,11 @@ export default async function InhousePage() {
 
   if (isInhouseConfigured()) {
     try {
-      const [board, leaderboards, lobbyConfig] = await Promise.all([
+      const [board, leaderboards, lobbyConfig, pulse] = await Promise.all([
         getBoard(),
         getLeaderboards(),
         getLobbyConfig(),
+        getInhousePulseScore(),
       ]);
       maxOpenLobbies = lobbyConfig.maxOpenLobbies;
       live = board.live;
@@ -61,6 +65,7 @@ export default async function InhousePage() {
         value: row.value,
         medals: row.medals,
       }));
+      pulseScore = pulse;
     } catch (err) {
       console.error('inhouse landing data load failed', err);
     }
@@ -77,14 +82,18 @@ export default async function InhousePage() {
   return (
     <InhouseShell width="wide">
       {/* ─── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl">
-        <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
-          Inhouse <span className="text-[#E7000B]">5v5</span>
-        </h1>
-        <p className="text-slate-300 text-lg mt-4 leading-relaxed">
-          Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
-        </p>
-      </section>
+      <div className="flex flex-wrap items-start justify-between gap-8">
+        <section className="max-w-3xl">
+          <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
+            Inhouse <span className="text-[#E7000B]">5v5</span>
+          </h1>
+          <p className="text-slate-300 text-lg mt-4 leading-relaxed">
+            Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
+          </p>
+        </section>
+
+        {pulseScore !== null && <InhousePulse score={pulseScore} />}
+      </div>
 
       {/* ─── Profile, or how to join ──────────────────────────────────────── */}
       {/* Same slot, two audiences: the steps are worth reading exactly once, so
