@@ -434,8 +434,18 @@ const LightPillar = ({
 
     window.addEventListener('resize', handleResize, { passive: true });
 
+    // The container changes height without the window resizing — collapsing the
+    // FAQ section is the case that surfaced this. Three.js writes an explicit
+    // pixel size onto the canvas, so a shrinking container left an
+    // oversized canvas overflowing it, which grew the page and produced a
+    // second scrollbar with nothing in it. `window.resize` alone never fires
+    // for that.
+    const sizeObserver = new ResizeObserver(handleResize);
+    sizeObserver.observe(container);
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      sizeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
       observer.disconnect();
       if (resizeTimeout) clearTimeout(resizeTimeout);

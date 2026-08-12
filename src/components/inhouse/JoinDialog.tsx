@@ -14,9 +14,12 @@ import {
   Lock,
   Wand2,
   LogIn,
+  Trophy,
+  MapPin,
 } from 'lucide-react';
 import { FaDiscord, FaSteam } from 'react-icons/fa';
 import { getJoinInfo, joinGame, type JoinInfo, type JoinResult } from '@/app/inhouse/actions';
+import { modeName, regionName } from '@/lib/inhouse/display';
 
 // The Join dialog (§7.2).
 //
@@ -140,6 +143,18 @@ function Modal({
             )}
           </h2>
           <p className="text-slate-400 text-sm mt-1.5">Wejdź ręcznie albo daj się zaprosić.</p>
+          {info?.status === 'ok' && (
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-300">
+              <span className="inline-flex items-center gap-1.5">
+                <Trophy className="h-4 w-4 text-slate-500" />
+                {modeName(info.gameMode)}
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-slate-500" />
+                {regionName(info.serverRegion)}
+              </span>
+            </div>
+          )}
         </div>
 
         {info === null ? (
@@ -202,7 +217,7 @@ function Columns({
 }) {
   return (
     <div className="grid md:grid-cols-[1fr_auto_1fr] gap-6 md:gap-2 px-6 pb-8 sm:px-8">
-      <ManualColumn lobbyName={info.lobbyName} password={info.password} />
+          <ManualColumn info={info} />
       <Divider />
       <InviteColumn gameId={gameId} info={info} />
     </div>
@@ -219,7 +234,8 @@ function Divider() {
   );
 }
 
-function ManualColumn({ lobbyName, password }: { lobbyName: string | null; password: string | null }) {
+function ManualColumn({ info }: { info: Extract<JoinInfo, { status: 'ok' }> }) {
+  const { lobbyName, password } = info;
   const steps = [
     <>
       Odpal <b className="text-white">Dotę 2</b>
@@ -230,13 +246,19 @@ function ManualColumn({ lobbyName, password }: { lobbyName: string | null; passw
     <>
       Kliknij <b className="text-white">Przeglądaj</b>
     </>,
-    lobbyName ? (
-      <>
-        Wyszukaj lobby <b className="text-white">{lobbyName}</b>
-      </>
-    ) : (
-      <>Wyszukaj lobby po nazwie z karty</>
-    ),
+    // Dota's browser lists every public lobby, so the name alone is a needle in
+    // a haystack — the server and mode filters are what make it findable.
+    <>
+      Wybierz serwer <b className="text-white">{regionName(info.serverRegion)}</b> albo tryb gry{' '}
+      <b className="text-white">{modeName(info.gameMode)}</b>
+      {lobbyName ? (
+        <>
+          {' '}i wyszukaj lobby <b className="text-white">{lobbyName}</b>
+        </>
+      ) : (
+        <> i wyszukaj lobby po nazwie z karty</>
+      )}
+    </>,
     <>Dołącz, podając hasło poniżej</>,
   ];
 

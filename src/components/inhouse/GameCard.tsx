@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import Link from 'next/link';
 import { Trophy, MapPin, ExternalLink } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
@@ -169,15 +168,20 @@ export default function GameCard({ game }: { game: PublicGame }) {
           </span>
         </div>
 
-        {/* in-lobby roster: one wrapped line, capped to two lines' worth of
-            height rather than growing the card past 200px */}
+        {/* In-lobby roster. Every name is shown — a full ten-player lobby must
+            not silently drop four of them, which is what free wrapping into a
+            fixed-height box did.
+            A four-column grid rather than flex-wrap so the layout cannot depend
+            on how long the names happen to be: ten names is always three rows,
+            and each cell is a known 61.5px of the 270px column. At 10px that
+            holds about twelve characters of a typical name, so NAME_CHARS below
+            is what actually gets cut, not the pixel width. */}
         {game.roster.length > 0 && (
-          <div className="mt-1 h-[34px] overflow-hidden flex flex-wrap items-start gap-1.5 text-xs text-slate-300">
+          <div className="mt-1 grid grid-cols-4 gap-x-2 gap-y-0 text-[10px] leading-[1.25] text-slate-300">
             {game.roster.map((name, pi) => (
-              <Fragment key={`${name}-${pi}`}>
-                {pi > 0 && <span className="text-slate-600">|</span>}
-                <span className="truncate max-w-[4.5rem]">{name}</span>
-              </Fragment>
+              <span key={`${name}-${pi}`} className="truncate" title={name}>
+                {shortenName(name)}
+              </span>
             ))}
           </div>
         )}
@@ -228,6 +232,23 @@ export default function GameCard({ game }: { game: PublicGame }) {
       </div>
     </BorderGlow>
   );
+}
+
+/**
+ * How much of a name survives on a card.
+ *
+ * Eleven characters plus an ellipsis, chosen against the cell width rather than
+ * guessed: a 61.5px cell at 10px fits roughly twelve typical characters, so
+ * cutting at eleven means the ellipsis is ours and visible instead of the
+ * browser clipping mid-glyph. Names in all-caps are wider and can still lose a
+ * character or two to CSS truncation — the full name is on the title attribute
+ * either way.
+ */
+const NAME_CHARS = 11;
+
+export function shortenName(name: string): string {
+  const trimmed = name.trim();
+  return trimmed.length <= NAME_CHARS ? trimmed : `${trimmed.slice(0, NAME_CHARS)}…`;
 }
 
 function Pill({ badge }: { badge: BadgeStyle }) {

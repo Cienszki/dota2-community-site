@@ -85,13 +85,18 @@ export default async function InhousePage() {
           </h1>
           {/* A plain anchor, not a Link: this is a same-page jump, and the
               smooth scroll comes from `scroll-behavior` already set globally. */}
+          {/* Deliberately the same skewed outline as the board's own buttons —
+              as muted text it read as a caption rather than something to press. */}
           <a
             href="#faq"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-400
-                       transition-colors hover:text-white"
+            className="inline-flex h-[35px] items-center gap-2 border-[1.5px] border-[#E7000B] px-5
+                       text-sm font-extrabold uppercase tracking-wide text-white
+                       -skew-x-[12deg] transition-colors hover:bg-[#E7000B]/15"
           >
-            FAQ
-            <ChevronDown className="h-4 w-4" />
+            <span className="flex skew-x-[12deg] items-center gap-2">
+              FAQ
+              <ChevronDown className="h-4 w-4" />
+            </span>
           </a>
         </div>
         <p className="text-slate-300 text-xl mt-4 leading-relaxed">

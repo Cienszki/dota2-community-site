@@ -39,6 +39,10 @@ export type JoinInfo =
       lobbyName: string | null;
       /** Null only when no password has been configured yet. */
       password: string | null;
+      /** DOTA_GameMode and EServerRegion — both are filters in Dota's lobby
+       *  browser, so the manual path needs them as much as the name. */
+      gameMode: number;
+      serverRegion: number;
       /** Whether the bot can pull this viewer in without them typing anything. */
       canBeInvited: boolean;
       hasSteam: boolean;
@@ -83,6 +87,8 @@ export async function getJoinInfo(gameId: string): Promise<JoinInfo> {
       status: 'ok',
       lobbyName: game.lobbyName,
       password: game.lobbyPassword || configured.password || null,
+      gameMode: game.settings.gameMode,
+      serverRegion: game.settings.serverRegion,
       // A reservation is keyed on Discord and needs a Steam ID to invite, so an
       // automatic invite needs both halves — the same test `joinGame` applies.
       canBeInvited: Boolean(viewer.discordId && viewer.steamId32),
