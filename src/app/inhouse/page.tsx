@@ -100,7 +100,7 @@ export default async function InhousePage() {
           </a>
         </div>
         <p className="text-slate-300 text-xl mt-4 leading-relaxed">
-          Prawdziwi ludzie, prawie każdego wieczoru. Nie liga. Bez tryhardów.
+          Luźne mecze 5v5 z kolegami i członkami społeczności. Sami wybieracie składy, a dołączysz jednym kliknięciem.
         </p>
       </section>
 

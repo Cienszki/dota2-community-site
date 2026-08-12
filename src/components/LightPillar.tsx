@@ -141,8 +141,10 @@ const LightPillar = ({
     if (!containerRef.current || !webGLSupported) return;
 
     const container = containerRef.current;
+    // Viewport, not container: see the note on the returned element. clientWidth
+    // is still the container's, since that is correctly the viewport width.
     const width = container.clientWidth;
-    const height = container.clientHeight;
+    const height = window.innerHeight;
 
     const scene = new THREE.Scene();
     sceneRef.current = scene;
@@ -425,7 +427,7 @@ const LightPillar = ({
       resizeTimeout = window.setTimeout(() => {
         if (!rendererRef.current || !materialRef.current || !containerRef.current) return;
         const newWidth = containerRef.current.clientWidth;
-        const newHeight = containerRef.current.clientHeight;
+        const newHeight = window.innerHeight;
         rendererRef.current.setPixelRatio(budgetRatio(newWidth, newHeight));
         rendererRef.current.setSize(newWidth, newHeight);
         materialRef.current.uniforms.uResolution.value.set(newWidth, newHeight);
@@ -434,12 +436,9 @@ const LightPillar = ({
 
     window.addEventListener('resize', handleResize, { passive: true });
 
-    // The container changes height without the window resizing — collapsing the
-    // FAQ section is the case that surfaced this. Three.js writes an explicit
-    // pixel size onto the canvas, so a shrinking container left an
-    // oversized canvas overflowing it, which grew the page and produced a
-    // second scrollbar with nothing in it. `window.resize` alone never fires
-    // for that.
+    // Width can still change without a window resize — a scrollbar appearing or
+    // disappearing does it. Height no longer can, now that the canvas is
+    // viewport-sized.
     const sizeObserver = new ResizeObserver(handleResize);
     sizeObserver.observe(container);
 
@@ -483,9 +482,34 @@ const LightPillar = ({
   }
 
   return (
+    /*
+     * Viewport-sized and sticky, not page-sized.
+     *
+     * Every caller wraps this in `absolute inset-0` of a content-height
+     * element, which used to make the canvas as tall as the whole document.
+     * Three things followed from that, all bad:
+     *
+     *   - The shader divides by `uResolution.x / uResolution.y`, so the glow's
+     *     shape was a function of how much content the page happened to have.
+     *     The same background looked different on /inhouse and /kontakt, and
+     *     visibly changed colour when the FAQ section collapsed.
+     *   - A ~4000px canvas at devicePixelRatio 2 is a 23 megapixel buffer for
+     *     something nobody can see more than 900px of at a time.
+     *   - Shrinking content left the canvas overflowing its parent, which grew
+     *     the document and produced a phantom scrollbar.
+     *
+     * `fixed` rather than `sticky`: most callers wrap this in a `main` carrying
+     * `overflow-x-hidden`, which computes `overflow-y: auto` and makes that
+     * element a scroll container — and a sticky child of a container that never
+     * itself scrolls just behaves like `relative`, so it would scroll away.
+     * The wrappers' `opacity` and `z-index` still apply to a fixed child
+     * (opacity does not create a containing block for fixed), so it stays
+     * dimmed and behind the content as before. The one thing that would trap it
+     * is a transformed ancestor, and none of the wrappers has one.
+     */
     <div
       ref={containerRef}
-      className={`w-full h-full absolute top-0 left-0 ${className}`}
+      className={`fixed inset-0 h-screen w-full ${className}`}
       style={{ mixBlendMode }}
     />
   );
