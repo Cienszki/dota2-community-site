@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { Trophy, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
-import { medalTooltip, placeColour, type Medal as MedalAward } from '@/lib/inhouse/medals';
-import MedalArt from './MedalArt';
+import type { Medal as MedalAward } from '@/lib/inhouse/medals';
+import MedalBadge from './MedalBadge';
 import GameCard from './GameCard';
 import OpenLobbyCard from './OpenLobbyCard';
 import OpenLobbyButton from './OpenLobbyButton';
@@ -216,7 +216,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
           {rows.map((row, i) => (
             <li
               key={`${row.name}-${i}`}
-              className="flex min-h-[57px] items-center gap-3.5 py-3.5 border-b border-white/5"
+              className="flex min-h-[63px] items-center gap-3.5 py-3.5 border-b border-white/5"
             >
               <span
                 className="shrink-0 w-7 text-center font-black text-base"
@@ -230,21 +230,8 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
                   {/* Capped at four: past that the row stops being a name with
                       awards and becomes a wall of circles. */}
                   {row.medals.slice(0, 4).map((medal) => (
-                    <li
-                      key={medal.id}
-                      title={medalTooltip(medal)}
-                      className="flex h-[29px] w-[29px] items-center justify-center rounded-full border"
-                      style={{
-                        borderColor: `${placeColour(medal.place)}66`,
-                        backgroundColor: `${placeColour(medal.place)}1f`,
-                      }}
-                    >
-                      <MedalArt
-                        id={medal.id}
-                        icon={medal.icon}
-                        size={29}
-                        colour={placeColour(medal.place)}
-                      />
+                    <li key={medal.id}>
+                      <MedalBadge medal={medal} size={35} />
                     </li>
                   ))}
                 </ul>
@@ -285,7 +272,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
             {visible.map((g) => (
               <div
                 key={g.id}
-                className="grid min-h-[57px] grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
+                className="grid min-h-[63px] grid-cols-[2.5rem_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_auto]
                            items-center gap-x-2.5 py-3.5 border-b border-white/5"
               >
                 <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>

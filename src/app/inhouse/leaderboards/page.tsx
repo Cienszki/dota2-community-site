@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Gamepad2, CalendarDays, Users, Trophy } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import MedalArt from '@/components/inhouse/MedalArt';
+import MedalBadge from '@/components/inhouse/MedalBadge';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import {
   getLeaderboards,
@@ -13,7 +14,7 @@ import {
   type PlayerOfWeek,
   type RecentMedalAward,
 } from '@/lib/inhouse/stats';
-import { medalTooltip, placeColour } from '@/lib/inhouse/medals';
+import { placeColour } from '@/lib/inhouse/medals';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,7 +91,7 @@ export default async function LeaderboardsPage() {
           {recentMedals.map((award, i) => (
             <div key={`${award.playerName}-${award.medal.id}-${i}`} className="flex items-center gap-4 py-3.5">
               <span
-                className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center border"
+                className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center border"
                 style={{
                   borderColor: `${placeColour(award.medal.place)}66`,
                   backgroundColor: `${placeColour(award.medal.place)}1f`,
@@ -99,7 +100,7 @@ export default async function LeaderboardsPage() {
                 <MedalArt
                   id={award.medal.id}
                   icon={award.medal.icon}
-                  size={28}
+                  size={44}
                   colour={placeColour(award.medal.place)}
                 />
               </span>
@@ -170,17 +171,7 @@ function MainBoard({
               {r.medals.length > 0 && (
                 <span className="flex flex-1 min-w-0 flex-wrap items-center gap-[7px]">
                   {r.medals.slice(0, 6).map((medal) => (
-                    <span
-                      key={medal.id}
-                      title={medalTooltip(medal)}
-                      className="shrink-0 w-[26px] h-[26px] rounded-full flex items-center justify-center border"
-                      style={{
-                        borderColor: `${placeColour(medal.place)}66`,
-                        backgroundColor: `${placeColour(medal.place)}1f`,
-                      }}
-                    >
-                      <MedalArt id={medal.id} icon={medal.icon} size={26} colour={placeColour(medal.place)} />
-                    </span>
+                    <MedalBadge key={medal.id} medal={medal} size={31} />
                   ))}
                 </span>
               )}
