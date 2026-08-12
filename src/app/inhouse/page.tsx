@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { ChevronDown } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
 import FaqSection from '@/components/inhouse/FaqSection';
@@ -79,28 +78,11 @@ export default async function InhousePage() {
     <InhouseShell width="wide">
       {/* ─── Hero ─────────────────────────────────────────────────────────── */}
       <section className="max-w-3xl">
-        <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-          <h1 className="text-5xl md:text-6xl font-black tracking-tighter uppercase leading-[0.95]">
-            Inhouse <span className="text-[#E7000B]">5v5</span>
-          </h1>
-          {/* A plain anchor, not a Link: this is a same-page jump, and the
-              smooth scroll comes from `scroll-behavior` already set globally. */}
-          {/* Deliberately the same skewed outline as the board's own buttons —
-              as muted text it read as a caption rather than something to press. */}
-          <a
-            href="#faq"
-            className="inline-flex h-[35px] items-center gap-2 border-[1.5px] border-[#E7000B] px-5
-                       text-sm font-extrabold uppercase tracking-wide text-white
-                       -skew-x-[12deg] transition-colors hover:bg-[#E7000B]/15"
-          >
-            <span className="flex skew-x-[12deg] items-center gap-2">
-              FAQ
-              <ChevronDown className="h-4 w-4" />
-            </span>
-          </a>
-        </div>
-        <p className="text-slate-300 text-xl mt-4 leading-relaxed">
-          Luźne mecze 5v5 z kolegami i członkami społeczności. Sami wybieracie składy, a dołączysz jednym kliknięciem.
+        <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
+          Inhouse <span className="text-[#E7000B]">5v5</span>
+        </h1>
+        <p className="text-slate-300 text-lg mt-4 leading-relaxed">
+          Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
         </p>
       </section>
 
@@ -139,13 +121,6 @@ export default async function InhousePage() {
       />
 
       <FaqSection faqs={faqs} />
-
-      {!isInhouseConfigured() && (
-        <p className="mt-10 text-sm text-slate-500">
-          Integracja z botem lobby jest w trakcie konfiguracji — ten widok odżyje, gdy wszystko będzie
-          podłączone.
-        </p>
-      )}
     </InhouseShell>
   );
 }

@@ -240,7 +240,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
               </th>
               <th className="py-1.5 px-3 w-[18%] text-center whitespace-nowrap">
                 Forma
-                <InfoTooltip text="Ostatnie 14 dni. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
+                <InfoTooltip text="Bilans gier wyników meczy z ostatnich 14 dni. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
             </tr>
           </thead>

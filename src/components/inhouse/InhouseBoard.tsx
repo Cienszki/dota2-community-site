@@ -26,7 +26,7 @@ const CARD_SLOTS = 3;
 /** The league every inhouse is played under — see the League ID in /admin/inhouse. */
 const DOTABUFF_LEAGUE_URL = 'https://www.dotabuff.com/esports/leagues/20119';
 const RECRUITING = ['open', 'ready'];
-const HISTORY_STEP = 8;
+const HISTORY_STEP = 12;
 
 /** Highest game number first. Game numbers are allocated from a counter, so
  *  this is a true creation order across every state — which `createdAt` vs
@@ -123,6 +123,19 @@ export default function InhouseBoard({
       <section id="obecne-mecze" className="mt-14 scroll-mt-24">
         <div className="flex items-center gap-3 h-[35px] mb-4">
           <OpenLobbyLink atCapacity={atCapacity} max={maxOpenLobbies} />
+          {/* A plain anchor, not a Link: this is a same-page jump, and the
+              smooth scroll comes from `scroll-behavior` already set globally. */}
+          <a
+            href="#faq"
+            className="inline-flex h-[35px] items-center gap-2 border-[1.5px] border-[#E7000B] px-5
+                       text-sm font-extrabold uppercase tracking-wide text-white
+                       -skew-x-[12deg] transition-colors hover:bg-[#E7000B]/15"
+          >
+            <span className="flex skew-x-[12deg] items-center gap-2">
+              FAQ
+              <ChevronDown className="h-4 w-4" />
+            </span>
+          </a>
         </div>
 
         <div className="flex flex-wrap gap-4">
@@ -133,7 +146,7 @@ export default function InhouseBoard({
         </div>
       </section>
 
-      <section className="mt-14 grid gap-12 lg:grid-cols-[minmax(300px,420px)_1fr] items-start">
+      <section className="mt-14 grid gap-12 lg:grid-cols-[minmax(300px,420px)_1fr] items-stretch">
         <TopPlayers rows={topPlayers} />
         <MatchHistory games={history} />
       </section>
@@ -186,7 +199,7 @@ const MEDALS = ['#fbbf24', '#cbd5e1', '#d97706'];
 
 function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medals: MedalAward[] }> }) {
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <h2 className="text-[22px] font-black text-white mb-4">Top gracze</h2>
 
       {rows.length === 0 ? (
@@ -240,7 +253,7 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
         </ol>
       )}
 
-      <div className="mt-5">
+      <div className="mt-auto pt-5">
         <SkewButton href="/inhouse/leaderboards" variant="red" prefetch={false}>
           <Trophy className="w-4 h-4" /> Pełny ranking
         </SkewButton>
@@ -257,7 +270,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
   const hasMore = shown < games.length;
 
   return (
-    <div>
+    <div className="flex h-full flex-col">
       <h2 className="text-[22px] font-black text-white mb-4">Historia meczów</h2>
 
       {games.length === 0 ? (
@@ -274,13 +287,13 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
                 <span className="text-[11px] font-mono text-slate-500">#{g.gameNumber}</span>
                 <Link
                   href={`/inhouse/${g.id}`}
-                  className="font-bold text-white text-[13px] truncate hover:text-[#E7000B] transition-colors"
+                  className="font-bold text-white text-[15px] truncate hover:text-[#E7000B] transition-colors"
                 >
                   {g.lobbyName ?? g.initiatorName}
                 </Link>
-                <span className="text-xs text-slate-400 truncate">{modeName(g.settings.gameMode)}</span>
+                <span className="text-[13px] text-slate-400 truncate">{modeName(g.settings.gameMode)}</span>
                 <span
-                  className={`text-xs font-bold truncate ${
+                  className={`text-[13px] font-bold truncate ${
                     g.result
                       ? g.result.radiantWin
                         ? 'text-emerald-300'
@@ -310,7 +323,7 @@ function MatchHistory({ games }: { games: PublicGame[] }) {
       {/* Mirrors "Pełny ranking" in the other column. Points at Dotabuff's own
           league page rather than a page of ours: it already lists every match
           ever played under league 20119, with nothing for us to maintain. */}
-      <div className="mt-5">
+      <div className="mt-auto pt-5">
         <SkewButton href={DOTABUFF_LEAGUE_URL} variant="red" prefetch={false} external>
           <ExternalLink className="w-4 h-4" /> Pełna historia
         </SkewButton>

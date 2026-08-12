@@ -126,7 +126,7 @@ export default function GameCard({ game }: { game: PublicGame }) {
       <div className="relative p-5">
       {showRing && (
         <div
-          className="absolute top-[10px] right-[18px] shrink-0"
+          className="absolute top-[12px] right-[18px] shrink-0"
           style={{ width: 100, height: 100 }}
           title={held > 0 ? `${seated} w lobby, ${held} zarezerwowanych` : `${seated} w lobby`}
         >
@@ -199,20 +199,20 @@ export default function GameCard({ game }: { game: PublicGame }) {
       {inProgress && <div className="min-h-9" />}
 
       {finished && (
-        <div className="flex items-center justify-end min-h-9">
+        <div className="min-h-9">
           {game.dotaMatchId ? (
             <a
               href={`https://www.dotabuff.com/matches/${game.dotaMatchId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              className="absolute top-[160px] left-0 z-[5] inline-flex items-center gap-1 text-base font-bold text-slate-400 hover:text-white transition-colors"
             >
-              Dotabuff <ExternalLink className="w-2.5 h-2.5" />
+              Dotabuff <ExternalLink className="w-3 h-3" />
             </a>
           ) : (
             <Link
               href={`/inhouse/${game.id}`}
-              className="text-xs font-bold text-slate-400 hover:text-white transition-colors"
+              className="absolute top-[160px] left-0 z-[5] text-base font-bold text-slate-400 hover:text-white transition-colors"
             >
               Szczegóły
             </Link>

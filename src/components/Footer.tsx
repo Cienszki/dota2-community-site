@@ -16,7 +16,7 @@ function Footer({ settings }: { settings: GlobalSettings }) {
   ];
 
   return (
-    <footer className="py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <footer className="py-10 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-[#050505]">
       <div className="max-w-7xl mx-auto flex flex-col items-center relative z-10">
         <div className="mb-6 flex items-center justify-center">
           <img
