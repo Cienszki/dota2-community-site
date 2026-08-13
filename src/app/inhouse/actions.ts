@@ -5,6 +5,7 @@ import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getInhouseStore } from '@/lib/inhouse/store';
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import { requestInvite } from '@/lib/inhouse/commands';
+import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { InhouseStore } from '@/lib/inhouse/core';
 
 // Web Join (§7.2). This is ban-enforcement point 3 of 4 (invariant 0.4): the
@@ -68,6 +69,14 @@ export async function getJoinInfo(gameId: string): Promise<JoinInfo> {
   const store = getInhouseStore();
 
   try {
+    // Forced past the throttle, and before the game is read. The reward for a
+    // stale read here is the worst one on the site: a lobby name and password
+    // for a Dota lobby that stopped existing when the worker died, and no way
+    // for the player to tell the difference until they are staring at an empty
+    // lobby browser. If it has gone, `state` is now `expired` and the check
+    // below turns that into an honest "not_open".
+    await reconcileLobbies({ force: true });
+
     const [viewer, game] = await Promise.all([getInhouseViewer(), store.getGame(gameId)]);
     if (!game) return { status: 'not_found' };
     if (!InhouseStore.isPubliclyVisible(game)) return { status: 'not_found' };

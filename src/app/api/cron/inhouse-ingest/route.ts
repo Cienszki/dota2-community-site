@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
-import { sweepStuckLobbies } from '@/lib/inhouse/sweep';
+import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { sweepRankingEnrolment } from '@/lib/inhouse/ranking-enrol';
 import type { InhouseGame } from '@/lib/inhouse/core/types';
 
@@ -68,11 +68,16 @@ export async function GET(request: Request) {
   const gaveUp: string[] = [];
 
   try {
-    // ── Pass 0: lobbies the worker never created ──
+    // ── Pass 0: lobbies the worker stopped tending ──
     //
     // First, because it is the one that unblocks hosting for everyone else and
     // it is cheap — one indexed query that is empty on a healthy system.
-    const swept = await sweepStuckLobbies();
+    //
+    // Forced past the throttle: this is the backstop for the hours when nobody
+    // is on the site to trigger it from a page load, which is exactly when a
+    // stranded lobby would otherwise sit holding an account until morning.
+    const reconciled = await reconcileLobbies({ force: true });
+    const swept = [...reconciled.failed, ...reconciled.expired];
 
     // Additive and idempotent, and it must never take the sweep down with it:
     // a Supabase hiccup should not stop matches being ingested.

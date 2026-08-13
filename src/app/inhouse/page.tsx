@@ -5,6 +5,7 @@ import InhousePulse from '@/components/inhouse/InhousePulse';
 import FaqSection from '@/components/inhouse/FaqSection';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
+import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
 import { getInhousePulse, type PulseReading } from '@/lib/inhouse/pulse-stats';
@@ -53,6 +54,14 @@ export default async function InhousePage() {
 
   if (isInhouseConfigured()) {
     try {
+      // Before reading the board, not after: if the worker died holding a
+      // lobby, the document still says `open` and would render a joinable card
+      // for a Dota lobby that no longer exists. Throttled to once per 20s per
+      // instance, and writes nothing when everything is healthy — see
+      // reconcileLobbies. A failure here must not cost anyone the page, so it
+      // rides the same try/catch as the rest of the board load.
+      await reconcileLobbies();
+
       const [board, leaderboards, lobbyConfig, pulseReading] = await Promise.all([
         getBoard(),
         getLeaderboards(),

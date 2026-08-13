@@ -6,6 +6,7 @@ import { getInhouseStore, resolveSettings, leaseAccount } from '@/lib/inhouse/st
 import { getLobbyConfig } from '@/lib/inhouse/lobby-config';
 import { randomLobbyName } from '@/lib/inhouse/lobby-names';
 import { countRecruitingLobbies } from '@/lib/inhouse/live';
+import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { requestLobbyCreation } from '@/lib/inhouse/commands';
 import { rememberHostedGame } from '@/lib/inhouse/host-token';
 import { supabaseAdmin } from '@/lib/supabase-admin';
@@ -77,6 +78,14 @@ export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Pr
   }
 
   try {
+    // Forced past the throttle, because the cap below is counted from
+    // recruiting games and a lobby the worker abandoned keeps occupying a slot.
+    // That is not hypothetical: two games stuck in `lobby_creating` once
+    // refused every new lobby site-wide for 55 hours. This is also the caller
+    // that must not trust a recent reconcile from the page it was pressed on —
+    // the whole point is to be right at the moment of the decision.
+    await reconcileLobbies({ force: true });
+
     // Two lobbies filling at once is already a stretch for the player pool; a
     // third splits it three ways and none of them reach ten. Enforced here
     // rather than only in the UI — this is the check that actually holds when
