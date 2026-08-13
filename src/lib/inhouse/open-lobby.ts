@@ -27,7 +27,13 @@ export interface HostIdentity {
 }
 
 export type CreateResult =
-  | { status: 'ok'; gameId: string }
+  /**
+   * The credentials travel back with the result. The website reads them off the
+   * game page instead, but a Discord host opening a *private* lobby has no card
+   * and no page in front of them — this is the only moment they can be told
+   * what to send their friends.
+   */
+  | { status: 'ok'; gameId: string; lobbyName: string | null; lobbyPassword: string | null }
   | { status: 'banned' }
   | { status: 'no_bots' }
   | { status: 'too_many_open'; max: number }
@@ -185,7 +191,7 @@ export async function openLobbyFor(
       settings,
     });
 
-    return { status: 'ok', gameId: game.id };
+    return { status: 'ok', gameId: game.id, lobbyName, lobbyPassword };
   } catch (err) {
     console.error('openLobbyFor', err);
     return { status: 'error' };
