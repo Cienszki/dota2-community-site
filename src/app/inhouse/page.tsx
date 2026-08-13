@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import InhouseBoard from '@/components/inhouse/InhouseBoard';
 import InhousePulse from '@/components/inhouse/InhousePulse';
@@ -93,13 +94,25 @@ export default async function InhousePage() {
   return (
     <InhouseShell width="wide">
       {/* ─── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="max-w-3xl">
-        <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
-          Inhouse <span className="text-[#E7000B]">5v5</span>
-        </h1>
-        <p className="text-slate-300 text-lg mt-4 leading-relaxed">
-          Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
-        </p>
+      <section className="max-w-3xl flex items-center gap-5">
+        {/* Decorative — the h1 beside it already names the page, so alt="" keeps
+            a screen reader from announcing the mascot twice. */}
+        <Image
+          src="/images/largo.png"
+          alt=""
+          width={300}
+          height={241}
+          className="h-20 w-auto shrink-0 drop-shadow-[0_0_14px_rgba(231,0,11,0.35)]"
+          priority
+        />
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
+            Inhouse <span className="text-[#E7000B]">5v5</span>
+          </h1>
+          <p className="text-slate-300 text-lg mt-4 leading-relaxed">
+            Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
+          </p>
+        </div>
       </section>
 
       {/* ─── Profile (or how to join), and the pulse ──────────────────────── */}
