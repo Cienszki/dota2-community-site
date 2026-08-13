@@ -132,6 +132,22 @@ function playersInSlots(slots: SlotSnapshot | null): number {
 }
 
 /**
+ * Slots held by someone who pressed Join and hasn't walked in yet.
+ *
+ * Only counts reservations that have not lapsed — `expiresAt` is checked here
+ * rather than trusting the array to have been pruned, because the snapshot is
+ * written by the worker and a stale entry left in it would otherwise hold a
+ * dead lobby open indefinitely.
+ */
+function heldSlots(slots: SlotSnapshot | null, now: number): number {
+  if (!slots?.reserved?.length) return 0;
+  return slots.reserved.filter((r) => {
+    const until = Date.parse(r.expiresAt ?? '');
+    return Number.isFinite(until) && until > now;
+  }).length;
+}
+
+/**
  * Smallest gap between two unforced reconciles.
  *
  * This runs on page loads, so without a throttle a busy evening would have
@@ -355,6 +371,22 @@ function judge(
 
   const idleMs = now - since;
   const occupied = playersInSlots(slots) > 0;
+
+  // A live reservation holds the lobby open.
+  //
+  // Without this the two five-minute clocks race: `reservationTtlSeconds` is
+  // 300 and the empty-lobby rule is 300, so someone who presses Join on an
+  // empty lobby and takes a few minutes to load Dota arrives at a lobby that
+  // closed underneath them. The site promises "trzymamy Ci miejsce na 5 minut"
+  // at that exact moment, so closing it is the one outcome that makes the
+  // promise a lie.
+  //
+  // Bounded, not indefinite: a reservation expires on its own TTL, the worker
+  // rewrites `slotSnapshot` when it lapses (a reservation is part of the slot
+  // picture), and the ordinary empty clock then runs from that moment. Worst
+  // case is one TTL plus one empty window, not forever.
+  if (!occupied && heldSlots(slots, now) > 0) return null;
+
   const limit = occupied ? OCCUPIED_LOBBY_IDLE_TIMEOUT_MS : EMPTY_LOBBY_TIMEOUT_MS;
   if (idleMs < limit) return null;
 
