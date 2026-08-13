@@ -7,6 +7,12 @@ The website never touches the GC. Everything it wants done, it asks for by
 writing to Firestore; everything it displays, it reads from Firestore. This
 document is the complete list of both directions.
 
+**Looking for what's still outstanding? That's
+[`bot-todo.md`](./bot-todo.md)** — a short list of the open work for both bots,
+with what we could and couldn't verify against the live project. This document
+is the reference: the full contract, most of which already works. Use it to look
+things up.
+
 Companion document: [`discord-bot-integration.md`](./discord-bot-integration.md)
 for the gateway. The general design rules live in
 [`../website-integration.md`](../website-integration.md) — read §0 there first if
@@ -16,13 +22,14 @@ you haven't; the invariants in it are easy to break by accident.
 
 ## Contents
 
-- [0. Start here — what you must change](#0-start-here--what-you-must-change)
+- [0. Start here — what you must change](#0-start-here--what-you-must-change) → moved to [`bot-todo.md`](./bot-todo.md)
 - [0a. Configuration you need](#0a-configuration-you-need)
 - [1. The two channels](#1-the-two-channels)
 - [2. Commands the website sends](#2-commands-the-website-sends)
 - [3. What the website expects you to write](#3-what-the-website-expects-you-to-write)
 - [4. Match end — the website owns ingestion](#4-match-end--the-website-owns-ingestion)
 - [5. The lobby lifecycle, end to end](#5-the-lobby-lifecycle-end-to-end)
+- [5a. Closing an empty lobby — NEW](#5a-closing-an-empty-lobby--this-one-has-to-be-yours)
 - [6. Reservations and the waitlist](#6-reservations-and-the-waitlist)
 - [7. Account leasing](#7-account-leasing)
 - [8. Player identity and linking](#8-player-identity-and-linking)
@@ -35,24 +42,14 @@ you haven't; the invariants in it are easy to break by accident.
 
 ## 0. Start here — what you must change
 
-Most of this document describes a seam that already works. This section is the
-part that doesn't yet. In priority order:
+This list moved to its own file: **[`bot-todo.md`](./bot-todo.md)**.
 
-| # | Change | Why it blocks | Where |
-|---|---|---|---|
-| 1 | **Stop ingesting match results.** Don't call `ingestMatchResult` / `writeMatchResult` any more. Write `dotaMatchId` and POST the webhook instead. | While both sides ingest, every player's `gamesPlayed` counts each match **twice**. The attendance ledger survives it; the counters don't. | [§4](#4-match-end--the-website-owns-ingestion) |
-| 2 | **Use the `lobbyName` and `lobbyPassword` the website already wrote.** Only generate your own when they are null — and write what you generated back. | The site shows the name it assigned. If you overwrite it, players search Dota's lobby browser for a lobby that doesn't exist under that name — and that is how most people join. | [§2.1](#21-create_inhouse_lobby) |
-| 3 | **Make `slotSnapshot.inLobby` and `reserved` disjoint and sum to `committed`.** | The lobby card paints a ten-segment ring: red per player in the lobby, amber per held slot. If they overlap the ring disagrees with the number in its own middle. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
-| 4 | **Don't let `publishGateGames` block a website lobby.** The site publishes on the host's behalf at creation, for anyone. | A first-time host would otherwise create a lobby that silently refuses to go public. Set the gate to 0 in the admin panel and don't enforce it on the website path. | [§3](#3-what-the-website-expects-you-to-write) |
-| 5 | **Touch the game document whenever anything the site renders changes** — including a side swap or a `displayName` refresh, not only when the head-count moves. | The website re-reads `memberships` only when the game document changes. Fingerprint `slotSnapshot` too narrowly and the visible player list goes stale. | [§3.1](#31-slotsnapshot--the-one-that-matters-most) |
+It was living here, mixed into a document that is mostly describing a seam which
+already works — which made the outstanding items hard to find and easy to
+mistake for things already built. The to-do file carries the status of each one,
+verified against the live Firestore project rather than assumed.
 
-| 6 | **Assign and hand over the host role automatically**, and announce it in lobby chat 5s later. | **New requirement.** Opening a lobby on the website no longer needs an account, so games now arrive with no host at all — somebody in the lobby has to become one, and only you can see who is actually sitting in a slot. | [§8a](#8a-automatic-host-handover--new-and-it-has-to-be-yours) |
-
-Items 1, 2 and 4 produce visibly wrong behaviour; 3 and 5 produce subtly wrong
-behaviour, which is worse to debug later. Item 6 is new work rather than a fix —
-nothing is broken without it, but hostless lobbies are now reachable in
-production, so it is not optional either. Immortal Draft is a seventh, and the
-field name you were missing is in [§9.4](#94-immortal-draft--the-field-is-do_player_draft).
+Everything from §0a onwards is reference material.
 
 ---
 
@@ -217,10 +214,21 @@ when it does. Inviting someone who cannot currently be seated is harmless.
 { "type": "end_inhouse_session", "gameId": "kQ2f…", "reason": "cancelled from website" }
 ```
 
-Sent when a host closes their own lobby from the game page, or when an admin
-force-releases a Steam account from the bot pool page.
+Sent when a host closes their own lobby from the game page, when an admin
+force-releases a Steam account from the bot pool page, **and now also whenever
+the website's reconcile writes a lobby off** (see [§5a](#5a-closing-an-empty-lobby--this-one-has-to-be-yours)).
 
-**The website has already moved the game to `cancelled` before sending this.**
+**The website has already moved the game to a terminal state before sending
+this.** Which one depends on why:
+
+| `reason` | Game is now | What happened |
+|---|---|---|
+| `cancelled from website` | `cancelled` | A host or admin closed it |
+| `lobby creation timed out` | `failed` | You never moved it out of `lobby_creating` |
+| `worker went silent` | `expired` | Your lease heartbeat went stale while the lobby was open |
+| `lobby empty of players` | `expired` | Nobody in a player slot for 5 minutes |
+| `lobby idle with players seated` | `expired` | Players present but no slot activity for 3 hours |
+
 Close the Dota lobby and release the account; do not try to transition the game
 yourself, and do not treat an already-terminal game as an error. If you never
 receive this command — the website sends it best-effort — the lease heartbeat
@@ -444,6 +452,73 @@ What the website does, in order, when someone presses **Otwórz lobby**:
 
 From step 6 you own it. The host publishes when ready (a plain field write the
 gateway watches), players join, and you drive the game through to `finished`.
+
+---
+
+## 5a. Closing an empty lobby — this one has to be yours
+
+**The rule, from the owner:** a lobby closes once nobody has been in it for
+**five minutes**. A lobby stays up longer only while there are *real players on
+player slots* — observers do not count, and neither does the lobby bot itself.
+
+### Why this is yours and not ours
+
+The website can decide a lobby is dead, and now does. What it cannot do is
+*close* one. Marking `expired` in Firestore is bookkeeping: it hides the card,
+frees the cap slot and releases the lease. The Dota lobby carries on existing,
+still listed in the in-game browser, still joinable by anyone who searches the
+name — and now completely unknown to the site. That is a worse state than the
+one it replaced, and only you can prevent it.
+
+So please implement the five-minute close in the bot, as the primary mechanism.
+Treat everything the website does here as a backstop for when you are down.
+
+### What the website now does (backstop only)
+
+Three checks, run on every `/inhouse` page load, before opening a lobby, before
+revealing join credentials, and on the ingest cron:
+
+| Condition | Result |
+|---|---|
+| `lobby_creating` for > 5 min | `failed` |
+| Lease heartbeat stale > 6 min while `open`/`ready` | `expired` |
+| No player in a playing slot for > 5 min | `expired` |
+| Players seated but no slot activity for > 3 h | `expired` |
+
+Each sends you `end_inhouse_session` with the matching `reason` above.
+
+### What we need from you
+
+1. **Keep writing `slotSnapshot` when the lobby empties.** You already do —
+   observed on live data, the snapshot landed one second after the last player
+   left, which is the fact the whole five-minute clock rests on.
+
+2. **Only move `slotSnapshot.updatedAt` when the slots actually change.** This
+   is the one that would silently break everything. The website reads that
+   timestamp as "empty since", so a periodic or heartbeat-style rewrite with
+   unchanged contents resets the clock on every pass and no empty lobby ever
+   closes again. (Rule 5 in §0 asks you to touch the *game document* on any
+   visible change — that is still right, and it is a different field.)
+
+3. **Never put the bot account in `radiant`, `dire` or `unassigned`.** You
+   already don't: a lobby the bot was demonstrably sitting in reported
+   `inLobby: []`. Stated so it stays true.
+
+4. **Record observers as `side: 'spectator'`.** `computeSlots` filters on
+   PLAYING_SIDES, which excludes spectators — so this is what makes "observers
+   don't count" work. If observers are currently written as `unassigned`, a
+   lobby holding nothing but spectators looks occupied and will never close.
+   **Please confirm which you do.**
+
+5. **Release leases on a clean shutdown.** A redeploy that leaves accounts
+   heartbeating-stale for over six minutes will have the website expire lobbies
+   that were only waiting for you to come back. Under six minutes and nothing
+   happens, so this is about long deploys, not fast ones.
+
+6. **Fill in `botAccounts.steamId32`.** Every account in the pool currently has
+   `steamId` and `steamId32` set to `""`. Nothing depends on it today, precisely
+   because of (3) — but it is the field that would let the site verify (3)
+   rather than trust it.
 
 ---
 

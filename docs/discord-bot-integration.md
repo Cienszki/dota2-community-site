@@ -11,11 +11,17 @@ Companion document: [`lobby-bot-integration.md`](./lobby-bot-integration.md) for
 the lobby worker. General design rules:
 [`../website-integration.md`](../website-integration.md).
 
+
+**Looking for what's still outstanding? That's
+[`bot-todo.md`](./bot-todo.md)** — a short list of the open work for both bots,
+with what we could and couldn't verify against the live project. This document
+is the reference: the full contract, most of which already works.
+
 ---
 
 ## Contents
 
-- [0. Start here — what you must change](#0-start-here--what-you-must-change)
+- [0. Start here — what you must change](#0-start-here--what-you-must-change) → moved to [`bot-todo.md`](./bot-todo.md)
 - [1. How the website reaches you](#1-how-the-website-reaches-you)
 - [2. Events the website emits](#2-events-the-website-emits)
 - [3. Document writes you should react to](#3-document-writes-you-should-react-to)
@@ -28,18 +34,15 @@ the lobby worker. General design rules:
 
 ## 0. Start here — what you must change
 
-Far less than the lobby worker. Most of this seam already works; this is the
-part that doesn't.
+This list moved to its own file: **[`bot-todo.md`](./bot-todo.md)**, which
+covers this gateway and the lobby worker together — they are one project now, so
+one to-do list.
 
-| # | Change | Why it matters | Where |
-|---|---|---|---|
-| 1 | **Handle `inhouse_ban_lifted`.** Add the case to the `onWorkerEvent` switch in `src/discord/watcher.ts` and call the `liftBan()` that already exists. | Today an unban restores lobby access but silently leaves the Discord role removed. The person is told they're unbanned and still can't see the channels. ~10 lines. | [§2.2](#22-inhouse_ban_lifted) |
-| 2 | **Confirm website-created games get a host panel.** Check whether your card/panel creation triggers off the game document appearing, or only off a Discord-initiated flow. | A host who opens a lobby at `/inhouse/new` gets no DM panel if it's the latter. The website deliberately sends no command for this — creation is a document write you already watch. | [§3.1](#31-games-created-from-the-website-need-a-host-panel) |
-| 3 | **Don't increment `gamesPlayed`.** Result ingestion moved to the website. | Double-counting if both sides do it. | [§4](#4-identity-and-linking) |
-| 4 | **Apply the open-lobby cap if you add a Discord create path.** | Otherwise the cap is bypassed by starting a game from Discord instead of the site. | [§5.1](#51-the-open-lobby-cap) |
+It was living here, mixed into a document that is mostly describing a seam which
+already works, which made the outstanding items hard to find and easy to mistake
+for things already built.
 
-No new configuration is needed on your side. The webhook secret in the lobby-bot
-document is for the worker, not the gateway.
+Everything from §1 onwards is reference material.
 
 ---
 
