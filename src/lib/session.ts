@@ -3,7 +3,9 @@ import crypto from 'crypto';
 import { requireEnv } from './env';
 
 const SECRET = requireEnv('PDL_SESSION_SECRET', process.env.PDL_SESSION_SECRET);
-const COOKIE_NAME = 'pdl_session';
+/** Exported so the logout route clears the same name the Steam callback sets. */
+export const SESSION_COOKIE_NAME = 'pdl_session';
+const COOKIE_NAME = SESSION_COOKIE_NAME;
 
 function hmac(data: string): string {
   return crypto.createHmac('sha256', SECRET).update(data).digest('hex');

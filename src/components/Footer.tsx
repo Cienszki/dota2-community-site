@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { FaTwitch, FaYoutube, FaInstagram, FaDiscord } from 'react-icons/fa';
 import Link from 'next/link';
 import type { GlobalSettings } from '@/lib/global-settings';
+import FooterLogout from './FooterLogout';
 
 function Footer({ settings }: { settings: GlobalSettings }) {
   const twitchLink = settings.twitch_link ?? '';
@@ -93,6 +94,7 @@ function Footer({ settings }: { settings: GlobalSettings }) {
           >
             Polityka prywatności
           </Link>
+          <FooterLogout />
         </p>
       </div>
     </footer>
