@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import crypto from 'crypto';
 import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
 import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { sweepRankingEnrolment } from '@/lib/inhouse/ranking-enrol';
+import { STATS_TAG } from '@/lib/inhouse/stats';
 import type { InhouseGame } from '@/lib/inhouse/core/types';
 
 export const runtime = 'nodejs';
@@ -118,6 +120,10 @@ export async function GET(request: Request) {
       if (outcome === 'parsed') parsed.push(label);
       else if (outcome === 'gave_up') gaveUp.push(label);
     }
+
+    // Anything that changed a counter invalidates the boards, same as the
+    // webhook. Parsed replays count too: that is when medals and awards land.
+    if (ingested.length > 0 || parsed.length > 0) revalidateTag(STATS_TAG, { expire: 0 });
 
     return NextResponse.json(
       {

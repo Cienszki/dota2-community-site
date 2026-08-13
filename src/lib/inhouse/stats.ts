@@ -10,7 +10,30 @@ import {
 
 // Participation stats only — never performance (§8). These are cumulative,
 // non-rivalrous, monotonic counters; none can be improved by playing selfishly
-// and none decay. Cached 15 min (§10.5) — nothing here is time-critical.
+// and none decay.
+//
+// ── When these recompute ────────────────────────────────────────────────────
+// They used to expire on a 15-minute timer, which was wasted work: the numbers
+// below are read off `inhousePlayers`, and nothing writes those counters except
+// match ingestion. Between two matches the answer cannot change, so a timer
+// only guarantees recomputing the same result four times an hour.
+//
+// They are now cached indefinitely and invalidated by event: ingestion calls
+// `revalidateTag(STATS_TAG, { expire: 0 })` once a match lands. See
+// `api/inhouse/matches/finished` and `api/cron/inhouse-ingest`.
+//
+// Not everything qualifies. `getInhousePulse` deliberately stays on a timer —
+// it measures activity against a rolling baseline, so its inputs shrink as time
+// passes with no new games. Event-driven invalidation would freeze a dead
+// league at its last healthy reading forever. See the note in pulse-stats.ts.
+
+/**
+ * Cache tag for everything that changes only when a match is ingested.
+ *
+ * One tag rather than one per board: they share a single trigger, and a match
+ * that moves `gamesPlayed` can move every other counter in the same write.
+ */
+export const STATS_TAG = 'inhouse-stats';
 
 export interface LeaderRow {
   discordId: string;
@@ -58,7 +81,9 @@ export const getLeaderboards = unstable_cache(
     heroesPlayed: await topBy('heroesPlayed'),
   }),
   ['inhouse-leaderboards'],
-  { revalidate: 900 },
+  // No timer: these counters only move when a match is ingested, and ingestion
+  // invalidates STATS_TAG when one is.
+  { revalidate: false, tags: [STATS_TAG] },
 );
 
 export interface PlayerOfWeek {
@@ -68,13 +93,47 @@ export interface PlayerOfWeek {
   steam: SteamProfile | null;
 }
 
+/**
+ * The most recently *completed* Monday-to-Sunday week, as an ISO range plus a
+ * key identifying it.
+ *
+ * "Gracz tygodnia" is settled at the end of a week and then stands — which is
+ * what the title claims, and what a rolling seven-day window quietly failed to
+ * deliver: under that, today's winner could lose the title tomorrow because a
+ * game aged out of the window, with nobody having played anything.
+ *
+ * A bounded range also makes the answer *deterministic*, and that is what lets
+ * this be cached indefinitely with no persistence and no scheduled job. The
+ * week key goes in the cache key, so the first visit after Sunday midnight
+ * computes the new week; recomputing after a cache eviction re-reads the same
+ * fixed range and returns the same winner. A rolling window could not be
+ * cached this way without eventually contradicting itself.
+ */
+function lastCompletedWeek(now = Date.now()): { key: string; from: string; to: string } {
+  const d = new Date(now);
+  // getUTCDay: 0 = Sunday. Shift so Monday = 0, matching the Polish week.
+  const dayIndex = (d.getUTCDay() + 6) % 7;
+
+  const thisMonday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - dayIndex * 86_400_000;
+  const from = thisMonday - 7 * 86_400_000;
+
+  return {
+    key: new Date(from).toISOString().slice(0, 10),
+    from: new Date(from).toISOString(),
+    to: new Date(thisMonday).toISOString(),
+  };
+}
+
 /** Most games attended in the last 7 days. Discord-linked players only — same
  *  scope as every other board here, all of which read `inhousePlayers`. */
-export const getPlayerOfWeek = unstable_cache(
-  async (): Promise<PlayerOfWeek | null> => {
+const playerOfWeekFor = unstable_cache(
+  async (week: { key: string; from: string; to: string }): Promise<PlayerOfWeek | null> => {
     const db = getDb();
-    const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
-    const snap = await db.collection('inhouseAttendance').where('createdAt', '>=', weekAgo).get();
+    const snap = await db
+      .collection('inhouseAttendance')
+      .where('createdAt', '>=', week.from)
+      .where('createdAt', '<', week.to)
+      .get();
 
     const counts = new Map<string, number>();
     for (const doc of snap.docs) {
@@ -101,8 +160,27 @@ export const getPlayerOfWeek = unstable_cache(
     };
   },
   ['inhouse-player-of-week'],
-  { revalidate: 900 },
+  // The week key is an argument, so it is part of the cache key: a new week is
+  // a cache miss and recomputes once, and every read inside the same week is a
+  // hit. No timer and no scheduled job — the calendar does the invalidating.
+  //
+  // Not tagged with STATS_TAG on purpose. A match ingested today belongs to
+  // *this* week, which this function doesn't report on until Monday, so busting
+  // it on ingest would recompute a settled answer that cannot have changed.
+  { revalidate: false },
 );
+
+/**
+ * Player of the Week — the winner of the last completed Monday-to-Sunday week.
+ *
+ * Rolls over on Monday 00:00 UTC, on the first page view after that; nothing is
+ * scheduled. Returns null when that week had no games at all, which the card
+ * already renders as an empty state — better than showing a "winner" of a week
+ * nobody played in.
+ */
+export async function getPlayerOfWeek(): Promise<PlayerOfWeek | null> {
+  return playerOfWeekFor(lastCompletedWeek());
+}
 
 export interface RecentMedalAward {
   playerName: string;
@@ -127,7 +205,8 @@ export const getRecentMedalAwards = unstable_cache(
     return awards.slice(0, RECENT_MEDALS_LIMIT);
   },
   ['inhouse-recent-medals'],
-  { revalidate: 900 },
+  // Medals are only ever awarded off the back of a match, so same trigger.
+  { revalidate: false, tags: [STATS_TAG] },
 );
 
 const WEEKDAYS_PL = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];

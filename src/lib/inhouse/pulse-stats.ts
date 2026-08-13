@@ -187,7 +187,17 @@ export const getInhousePulseInputs = unstable_cache(
     return { games, avgGames, players, avgPlayers, mixPercent, heroEntropyPercent };
   },
   ['inhouse-pulse-inputs'],
-  { revalidate: 900 },
+  // Stays on a timer, unlike the leaderboards next door.
+  //
+  // The pulse measures a rolling window against a three-week baseline, so its
+  // inputs change as time passes even when nothing is played — that is the
+  // whole point of a gauge that can fall. Invalidating it on match ingest
+  // instead would freeze a league that stopped playing at its last healthy
+  // reading, which is the one number it must never show.
+  //
+  // An hour rather than 15 minutes: it moves slowly by construction, and the
+  // sub-hour precision was only ever costing Firestore reads.
+  { revalidate: 3600 },
 );
 
 export interface PulseReading {
@@ -208,5 +218,6 @@ export const getInhousePulse = unstable_cache(
     return { score: computePulseScore(await getInhousePulseInputs()) };
   },
   ['inhouse-pulse-reading'],
-  { revalidate: 900 },
+  // Same reasoning as the inputs above — time-based on purpose.
+  { revalidate: 3600 },
 );
