@@ -2,6 +2,11 @@ import 'server-only';
 import { unstable_cache } from 'next/cache';
 import { getDb } from '@/lib/firebase-admin';
 import { sortMedals, type Medal } from './medals';
+import {
+  ensureSteamProfile,
+  type PlayerWithProfile,
+  type SteamProfile,
+} from './steam-profile';
 
 // Participation stats only — never performance (§8). These are cumulative,
 // non-rivalrous, monotonic counters; none can be improved by playing selfishly
@@ -59,6 +64,8 @@ export const getLeaderboards = unstable_cache(
 export interface PlayerOfWeek {
   name: string;
   gamesThisWeek: number;
+  /** Null for a player whose Steam profile is private, unlinked or unfetched. */
+  steam: SteamProfile | null;
 }
 
 /** Most games attended in the last 7 days. Discord-linked players only — same
@@ -79,9 +86,19 @@ export const getPlayerOfWeek = unstable_cache(
 
     const [topId, gamesThisWeek] = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
     const playerDoc = await db.collection('inhousePlayers').doc(topId).get();
-    const name = (playerDoc.data()?.discordName as string | undefined) ?? `Gracz ${topId.slice(0, 6)}`;
+    const player = playerDoc.data() as PlayerWithProfile | undefined;
 
-    return { name, gamesThisWeek };
+    // Same self-healing read the profile page uses: returns the stored avatar,
+    // and only reaches out to Steam when it is missing, stale, or belongs to an
+    // account they no longer play on. Never throws — a card with an initial in
+    // place of a photo is a smaller problem than a leaderboards page that fails.
+    const steam = player ? await ensureSteamProfile(player) : null;
+
+    return {
+      name: player?.discordName ?? steam?.personaName ?? `Gracz ${topId.slice(0, 6)}`,
+      gamesThisWeek,
+      steam: steam ?? null,
+    };
   },
   ['inhouse-player-of-week'],
   { revalidate: 900 },

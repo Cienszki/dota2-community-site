@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Gamepad2, CalendarDays, Users, Trophy, ArrowLeft } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
 import MedalBadge from '@/components/inhouse/MedalBadge';
@@ -77,11 +78,7 @@ export default async function LeaderboardsPage() {
           <div className="shrink-0">
             <div className="text-[13px] uppercase tracking-wide text-slate-500 mb-4">Gracz tygodnia</div>
             <div className="flex items-center gap-[22px]">
-              <div className="shrink-0 w-[88px] h-[88px] rounded-full bg-[#E7000B]/10 border border-[#E7000B]/30 flex items-center justify-center">
-                <span className="text-3xl font-black text-[#E7000B]">
-                  {playerOfWeek.name.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <WeekAvatar player={playerOfWeek} />
               <div className="min-w-0">
                 <div className="text-[34px] font-black text-white leading-tight truncate">
                   {playerOfWeek.name}
@@ -127,6 +124,43 @@ export default async function LeaderboardsPage() {
   );
 }
 
+/**
+ * The Gracz tygodnia photo.
+ *
+ * `avatarFull` is Steam's 184px size, for an 88px circle. The 64px
+ * `avatarMedium` would be upscaled and visibly soft, and these come straight
+ * from Steam's CDN already square, so `unoptimized` skips a transformation that
+ * would buy nothing.
+ *
+ * Falls back through the smaller sizes and then to an initial: a private Steam
+ * profile is normal, and a broken image would be worse than no image.
+ */
+function WeekAvatar({ player }: { player: PlayerOfWeek }) {
+  const src =
+    player.steam?.avatarFull ?? player.steam?.avatarMedium ?? player.steam?.avatarSmall ?? null;
+
+  if (!src) {
+    return (
+      <div className="flex h-[88px] w-[88px] shrink-0 items-center justify-center rounded-full border border-[#E7000B]/30 bg-[#E7000B]/10">
+        <span className="text-3xl font-black text-[#E7000B]">
+          {player.name.charAt(0).toUpperCase()}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt=""
+      width={88}
+      height={88}
+      unoptimized
+      className="h-[88px] w-[88px] shrink-0 rounded-full border border-[#E7000B]/30 object-cover"
+    />
+  );
+}
+
 function PlayerLink({ row, className }: { row: LeaderRow; className: string }) {
   if (!row.steamId32) return <span className={className}>{row.name}</span>;
   return (
@@ -159,7 +193,14 @@ function MainBoard({
       ) : (
         <div>
           {rows.map((r, i) => (
-            <div key={r.discordId} className="flex items-baseline gap-3.5 py-[11px] border-b border-white/5">
+            // `items-center`, matching Top gracze on /inhouse. It was
+            // `items-baseline`, which sat the medals on the text baseline — so
+            // a 31px badge next to a 19px name hung its whole overhang above
+            // the line and looked like it had floated up out of the row.
+            <div
+              key={r.discordId}
+              className="flex min-h-[53px] items-center gap-3.5 border-b border-white/5 py-[11px]"
+            >
               <span className={`w-[26px] shrink-0 text-[16px] font-black ${i < 3 ? 'text-[#E7000B]' : 'text-slate-500'}`}>
                 {i + 1}
               </span>
