@@ -57,6 +57,7 @@ alter table ranking_exclusions enable row level security;
 -- No public read policy: this is a list of people who asked not to be listed,
 -- and publishing it would defeat the point. Everything that needs it runs
 -- server-side through supabaseAdmin (service_role), same as migration 015.
+drop policy if exists "Service role full access for ranking_exclusions" on ranking_exclusions;
 create policy "Service role full access for ranking_exclusions"
   on ranking_exclusions for all
   to service_role
