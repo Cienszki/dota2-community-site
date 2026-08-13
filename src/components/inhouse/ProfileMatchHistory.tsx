@@ -29,7 +29,12 @@ export default function MatchHistory({ matches }: { matches: ProfileMatch[] }) {
 
   return (
     <>
-      <div>
+      {/* A container query, not a viewport one: this list now lives in a third
+          of the board strip, so what decides whether a row fits on one line is
+          the column's width — about 298px at the `lg` breakpoint — and not the
+          window's. `sm:` would have got that exactly backwards, showing the
+          most columns precisely where there was least room for them. */}
+      <div className="@container">
         <h3 className="text-[11px] uppercase tracking-[0.16em] text-slate-600 mb-1">
           Ostatnie mecze
         </h3>
@@ -38,24 +43,45 @@ export default function MatchHistory({ matches }: { matches: ProfileMatch[] }) {
             <li key={m.dotaMatchId}>
               <button
                 onClick={() => setOpen(m)}
-                className="group flex w-full items-center gap-3 border-b border-white/5 py-2.5 text-left
+                className="group flex w-full items-center gap-2 border-b border-white/5 py-2.5 text-left
                            transition-colors hover:bg-white/[0.03]"
               >
                 <HeroIcon hero={m.you.hero} />
-                <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
-                  {m.you.hero?.name ?? 'Nieznany bohater'}
-                </span>
-                <Kda you={m.you} />
-                <span
-                  className={`w-[5.5rem] shrink-0 text-right text-xs font-bold ${
-                    m.you.won ? 'text-emerald-300' : 'text-red-300'
-                  }`}
-                >
-                  {m.you.won ? 'Wygrana' : 'Przegrana'}
-                </span>
-                <span className="hidden w-24 shrink-0 text-right text-xs text-slate-500 sm:block">
-                  {shortDate(m.startedAt)}
-                </span>
+
+                {/* Below @sm the name takes a line of its own and the numbers
+                    drop underneath it. Hero names run to "Keeper of the Light",
+                    which no honest single-line layout fits in a ~300px column
+                    beside three other values — and truncating the one thing the
+                    row is *about* is the worst way to spend the space. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-y-0.5 @sm:flex-row @sm:items-center @sm:gap-x-2">
+                  {/* Wraps rather than truncating. The column is pinned at
+                      exactly 384px by the shell's max-w-7xl, so whether the
+                      longest name clears the numbers by a few pixels comes down
+                      to font metrics — and a layout that depends on guessing
+                      those right is one that silently clips a name the day the
+                      font changes. Wrapping degrades to a taller row instead,
+                      and the text is always all there. */}
+                  <span className="min-w-0 text-sm leading-snug text-slate-200 @sm:flex-1">
+                    {m.you.hero?.name ?? 'Nieznany bohater'}
+                  </span>
+
+                  {/* Widths trimmed to what the content actually needs. They
+                      were 96/88/96px around values like "8/5/4" and "9 sie",
+                      which is where the slack the name wanted had gone. */}
+                  <span className="flex shrink-0 items-center gap-2">
+                    <Kda you={m.you} />
+                    <span
+                      className={`w-[4.25rem] shrink-0 text-right text-xs font-bold ${
+                        m.you.won ? 'text-emerald-300' : 'text-red-300'
+                      }`}
+                    >
+                      {m.you.won ? 'Wygrana' : 'Przegrana'}
+                    </span>
+                    <span className="w-11 shrink-0 text-right text-xs text-slate-500">
+                      {shortDate(m.startedAt)}
+                    </span>
+                  </span>
+                </div>
               </button>
             </li>
           ))}
@@ -67,12 +93,15 @@ export default function MatchHistory({ matches }: { matches: ProfileMatch[] }) {
   );
 }
 
+// w-14 fits the widest realistic line ("24/13/38") with tabular-nums keeping
+// the slashes in a column down the list. It was w-24, most of which was always
+// empty — that whitespace is what the hero name wanted.
 function Kda({ you }: { you: ProfileMatch['you'] }) {
   if (you.kills === null || you.deaths === null || you.assists === null) {
-    return <span className="w-24 shrink-0 text-right text-xs text-slate-600">—</span>;
+    return <span className="w-14 shrink-0 text-right text-xs text-slate-600">—</span>;
   }
   return (
-    <span className="w-24 shrink-0 text-right text-sm tabular-nums text-slate-300">
+    <span className="w-14 shrink-0 text-right text-sm tabular-nums text-slate-300">
       {you.kills}<span className="text-slate-600">/</span>
       {you.deaths}<span className="text-slate-600">/</span>
       {you.assists}
@@ -231,8 +260,13 @@ function Team({
             }`}
           >
             <HeroIcon hero={p.hero} size={24} />
+            {/* The hero name never truncates — it is a known, bounded set. The
+                player name still can: that one is arbitrary user input, and
+                something in the row has to yield. */}
             <span className="min-w-0 flex-1 truncate">{p.name}</span>
-            <span className="shrink-0 truncate text-xs text-slate-500">{p.hero?.name ?? ''}</span>
+            <span className="shrink-0 whitespace-nowrap text-xs text-slate-500">
+              {p.hero?.name ?? ''}
+            </span>
           </li>
         ))}
       </ul>
