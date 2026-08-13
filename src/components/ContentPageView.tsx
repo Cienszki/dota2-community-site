@@ -5,9 +5,12 @@ import SmoothScroll from '@/components/SmoothScroll';
 import { CONTENT_PAGES, type ContentPageMeta } from '@/lib/content-pages';
 
 // Shared renderer for the DB-backed content pages. Each explicit route
-// (rekrutacja, o-nas, polityka-prywatnosci) passes its slug; the markup and the
-// Supabase read are identical to the old `app/[slug]` page, just without the
-// dynamic segment that used to swallow tournament paths.
+// (rekrutacja, o-nas, polityka-prywatnosci) passes its slug; the markup is
+// identical to the old `app/[slug]` page, just without the dynamic segment that
+// used to swallow tournament paths.
+//
+// Content comes from `content_pages` (migration 025). It used to be read out of
+// `news` under category = 'ContentPage'.
 
 export default async function ContentPageView({ slug }: { slug: keyof typeof CONTENT_PAGES }) {
   const meta: ContentPageMeta = CONTENT_PAGES[slug];
@@ -15,12 +18,11 @@ export default async function ContentPageView({ slug }: { slug: keyof typeof CON
   let content: string | null = null;
   try {
     const { data } = await supabase
-      .from('news')
+      .from('content_pages')
       .select('content')
-      .eq('category', 'ContentPage')
-      .eq('title', slug)
+      .eq('slug', slug)
       .maybeSingle();
-    if (data) content = data.content as string;
+    if (data) content = (data.content as string) || null;
   } catch {
     // Fall through to the placeholder.
   }

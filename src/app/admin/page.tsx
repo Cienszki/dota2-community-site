@@ -13,6 +13,7 @@ import {
   Swords, Eye, EyeOff, Gamepad2, ChevronRight, HelpCircle,
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
+import { CONTENT_PAGES, type ContentSlug } from '@/lib/content-pages';
 import { toast } from 'sonner';
 import {
   addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions,
@@ -27,7 +28,7 @@ import {
 } from './actions';
 
 
-type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'tournaments' | 'rekrutacja' | 'o-nas' | 'polityka' | null;
+type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'tournaments' | 'pages' | null;
 
 const TOURNAMENT_TAGS = ['Zapisy otwarte', 'Trwający', 'Zakończony'] as const;
 
@@ -269,12 +270,12 @@ export default function AdminPage() {
   const [tournamentError, setTournamentError] = useState<string | null>(null);
 
   // ── Content Pages state ──
-  const [rekrutacjaContent, setRekrutacjaContent] = useState('');
-  const [oNasContent, setONasContent] = useState('');
-  const [politykaContent, setPolitykaContent] = useState('');
-  const [rekrutacjaLoading, setRekrutacjaLoading] = useState(false);
-  const [oNasLoading, setONasLoading] = useState(false);
-  const [politykaLoading, setPolitykaLoading] = useState(false);
+  // One editor, one selected slug. This used to be three sidebar tabs with a
+  // triplicated set of state hooks; the page list now comes from CONTENT_PAGES,
+  // so adding a static page is one entry there plus its route folder.
+  const [pageSlug, setPageSlug] = useState<ContentSlug>('rekrutacja');
+  const [pageContent, setPageContent] = useState('');
+  const [pageLoading, setPageLoading] = useState(false);
   const [pagesSaving, setPagesSaving] = useState(false);
   const [pagesSuccess, setPagesSuccess] = useState<string | null>(null);
   const [pagesError, setPagesError] = useState<string | null>(null);
@@ -508,11 +509,11 @@ export default function AdminPage() {
       .from('news')
       .select('*')
       .neq('category', 'SystemSettings')
-      .neq('category', 'ContentPage')
       .order('created_at', { ascending: false });
     if (!error && data) {
-      // Safety filter — ensure content pages never appear in the news list
-      setNews((data as NewsItem[]).filter((n) => n.category !== 'ContentPage'));
+      // No ContentPage filter needed any more — the static pages moved to their
+      // own `content_pages` table in migration 025.
+      setNews(data as NewsItem[]);
     }
     setLoading(false);
   };
@@ -1145,9 +1146,7 @@ export default function AdminPage() {
     { tab: 'ranking', icon: Users, label: 'Ranking' },
     { tab: 'streamers', icon: Radio, label: 'Streamerzy' },
     { tab: 'testimonials', icon: MessageSquare, label: 'Opinie' },
-    { tab: 'rekrutacja', icon: FileText, label: 'Rekrutacja' },
-    { tab: 'o-nas', icon: FileText, label: 'O nas' },
-    { tab: 'polityka', icon: FileText, label: 'Polityka' },
+    { tab: 'pages', icon: FileText, label: 'Strony' },
   ];
 
   return (
@@ -2673,64 +2672,54 @@ export default function AdminPage() {
         {/* ================================================================ */}
         {/* STRONY CMS                                                       */}
         {/* ================================================================ */}
-        {activeTab === 'rekrutacja' && (
-          <RenderContentPageEditor
-            key="rekrutacja"
-            slug="rekrutacja"
-            label="Rekrutacja"
-            content={rekrutacjaContent}
-            setContent={setRekrutacjaContent}
-            loading={rekrutacjaLoading}
-            setLoading={setRekrutacjaLoading}
-            fetchContentPage={fetchContentPage}
-            handleSave={handleSaveContentPage}
-            pagesSaving={pagesSaving}
-            pagesSuccess={pagesSuccess}
-            pagesError={pagesError}
-          />
-        )}
-
-        {activeTab === 'o-nas' && (
-          <RenderContentPageEditor
-            key="o-nas"
-            slug="o-nas"
-            label="O nas"
-            content={oNasContent}
-            setContent={setONasContent}
-            loading={oNasLoading}
-            setLoading={setONasLoading}
-            fetchContentPage={fetchContentPage}
-            handleSave={handleSaveContentPage}
-            pagesSaving={pagesSaving}
-            pagesSuccess={pagesSuccess}
-            pagesError={pagesError}
-          />
-        )}
-
-        {activeTab === 'polityka' && (
+        {activeTab === 'pages' && (
           <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(CONTENT_PAGES) as ContentSlug[]).map((slug) => {
+                const isActive = pageSlug === slug;
+                return (
+                  <button
+                    key={slug}
+                    type="button"
+                    onClick={() => setPageSlug(slug)}
+                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${
+                      isActive
+                        ? 'bg-red-600/15 text-red-400 border-red-500/25'
+                        : 'bg-slate-900/40 text-slate-400 border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    {CONTENT_PAGES[slug].title}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Keyed on the slug so switching pages remounts the editor — it
+                loads its own content on mount, and a stale body must never be
+                left in the box under a different page's Zapisz button. */}
             <RenderContentPageEditor
-              key="polityka"
-              slug="polityka-prywatnosci"
-              label="Polityka Prywatności"
-              content={politykaContent}
-              setContent={setPolitykaContent}
-              loading={politykaLoading}
-              setLoading={setPolitykaLoading}
+              key={pageSlug}
+              slug={pageSlug}
+              label={CONTENT_PAGES[pageSlug].title}
+              content={pageContent}
+              setContent={setPageContent}
+              loading={pageLoading}
+              setLoading={setPageLoading}
               fetchContentPage={fetchContentPage}
               handleSave={handleSaveContentPage}
               pagesSaving={pagesSaving}
               pagesSuccess={pagesSuccess}
               pagesError={pagesError}
             />
+
             <button
               type="button"
               onClick={async () => {
-                if (!window.confirm('Usunąć zawartość Polityki Prywatności i zacząć od nowa?')) return;
-                await deleteContentPage('polityka-prywatnosci');
-                setPolitykaContent('');
-                setPolitykaLoading(true);
-                fetchContentPage('polityka-prywatnosci', setPolitykaContent, setPolitykaLoading);
+                if (!window.confirm(`Usunąć zawartość strony „${CONTENT_PAGES[pageSlug].title}” i zacząć od nowa?`)) return;
+                await deleteContentPage(pageSlug);
+                setPageContent('');
+                setPageLoading(true);
+                fetchContentPage(pageSlug, setPageContent, setPageLoading);
               }}
               className="text-sm text-red-400 hover:text-red-300 underline underline-offset-2"
             >

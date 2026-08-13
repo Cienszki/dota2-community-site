@@ -155,22 +155,27 @@ export async function deleteStreamer(id: string) {
   }
 }
 
+// ── Static content pages (rekrutacja, o-nas, polityka-prywatnosci) ──
+//
+// Backed by `content_pages`, keyed on slug (migration 025). These used to be
+// rows in `news` under category = 'ContentPage', which is why every news query
+// had to filter them out.
+
 export async function getContentPage(slug: string) {
   try {
     await checkAdminAuth();
 
     const { data, error } = await supabaseAdmin
-      .from('news')
-      .select('id, title, content, created_at')
-      .eq('category', 'ContentPage')
-      .eq('title', slug)
+      .from('content_pages')
+      .select('content')
+      .eq('slug', slug)
       .maybeSingle();
 
     if (error) throw error;
 
     return {
       success: true as const,
-      data: { id: (data?.id as number) ?? 0, content: (data?.content as string) ?? '' },
+      data: { content: (data?.content as string) ?? '' },
     };
   } catch (err: unknown) {
     console.error('Server action — getContentPage:', err);
@@ -186,26 +191,14 @@ export async function upsertContentPage(slug: string, content: string) {
   try {
     await checkAdminAuth();
 
-    // Check if row exists
-    const { data: existing } = await supabaseAdmin
-      .from('news')
-      .select('id')
-      .eq('category', 'ContentPage')
-      .eq('title', slug)
-      .maybeSingle();
+    // A single upsert, now that the slug is the primary key — the old
+    // select-then-insert-or-update dance was only there because `news` had no
+    // key to conflict on.
+    const { error } = await supabaseAdmin
+      .from('content_pages')
+      .upsert({ slug, content, updated_at: new Date().toISOString() }, { onConflict: 'slug' });
 
-    if (existing) {
-      const { error } = await supabaseAdmin
-        .from('news')
-        .update({ content })
-        .eq('id', existing.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabaseAdmin
-        .from('news')
-        .insert({ title: slug, content, category: 'ContentPage' });
-      if (error) throw error;
-    }
+    if (error) throw error;
 
     return { success: true as const };
   } catch (err: unknown) {
@@ -223,10 +216,9 @@ export async function deleteContentPage(slug: string) {
     await checkAdminAuth();
 
     const { error } = await supabaseAdmin
-      .from('news')
+      .from('content_pages')
       .delete()
-      .eq('category', 'ContentPage')
-      .eq('title', slug);
+      .eq('slug', slug);
 
     if (error) throw error;
 
