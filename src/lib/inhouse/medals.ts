@@ -3,13 +3,15 @@
 // Pure — no server imports — so both the profile card and anything client-side
 // can read the shape.
 //
-// There is deliberately no enum of categories. A medal is whatever an admin's
-// awarding task decided to hand out that round: it carries its own label and
-// description rather than referencing a fixed list, so adding "most courier
-// kills" later is data, not a schema change and a deploy. The task that derives
-// them from match data does not exist yet — the numbers behind it are being
-// collected (see `match-record.ts`, `STAT_FIELDS`), but which categories to
-// award is still open.
+// There is deliberately no enum of categories. A medal is whatever the awarding
+// task decided to hand out that round: it carries its own label and description
+// rather than referencing a fixed list, so adding "most courier kills" later is
+// data, not a schema change and a deploy.
+//
+// The task that derives them lives in `medal-awards.ts` and runs after every
+// ingested or newly parsed match. The categories it draws from are in
+// `medal-catalogue.ts`; the per-match numbers behind them are collected by
+// `match-record.ts` (`STAT_FIELDS`).
 //
 // Stored inline on `inhousePlayers/{discordId}.medals`. A player accumulates a
 // handful, they are read on every profile render, and they are never queried

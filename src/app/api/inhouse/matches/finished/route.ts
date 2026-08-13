@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { revalidateTag } from 'next/cache';
 import { ingestFinishedMatch } from '@/lib/inhouse/ingest';
+import { recomputeMedals } from '@/lib/inhouse/medal-awards';
 import { STATS_TAG } from '@/lib/inhouse/stats';
 
 export const runtime = 'nodejs';
@@ -68,12 +69,29 @@ export async function POST(request: Request) {
   try {
     const outcome = await ingestFinishedMatch(gameId, dotaMatchId);
 
-    // The stats boards are cached indefinitely and invalidated by event rather
-    // than on a timer — this is that event. `{ expire: 0 }` rather than the
-    // deprecated single-argument form: the docs call this out specifically for
-    // webhooks, where an external system needs the data expired immediately
-    // instead of on the next natural revalidation.
-    if (outcome.status === 'ingested') revalidateTag(STATS_TAG, { expire: 0 });
+    if (outcome.status === 'ingested') {
+      // Medals first, cache second, so the boards re-read the new standings
+      // rather than caching the old ones until the next match.
+      //
+      // Only the seven non-parseGated categories can move here — the rest have
+      // no data until the replay is parsed, which the cron picks up later and
+      // recomputes again.
+      //
+      // Never fails the webhook: the match is ingested either way, and the next
+      // cron run recomputes.
+      try {
+        await recomputeMedals();
+      } catch (err) {
+        console.error('inhouse match finished webhook: medal recompute failed', err);
+      }
+
+      // The stats boards are cached indefinitely and invalidated by event rather
+      // than on a timer — this is that event. `{ expire: 0 }` rather than the
+      // deprecated single-argument form: the docs call this out specifically for
+      // webhooks, where an external system needs the data expired immediately
+      // instead of on the next natural revalidation.
+      revalidateTag(STATS_TAG, { expire: 0 });
+    }
 
     // `not_ready` is the expected answer in the first minute or two after a
     // match: OpenDota has not ingested it yet. 202 says "accepted, the sweep

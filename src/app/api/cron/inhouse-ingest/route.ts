@@ -6,6 +6,7 @@ import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
 import { reconcileLobbies } from '@/lib/inhouse/sweep';
 import { sweepRankingEnrolment } from '@/lib/inhouse/ranking-enrol';
+import { recomputeMedals } from '@/lib/inhouse/medal-awards';
 import { STATS_TAG } from '@/lib/inhouse/stats';
 import type { InhouseGame } from '@/lib/inhouse/core/types';
 
@@ -121,9 +122,35 @@ export async function GET(request: Request) {
       else if (outcome === 'gave_up') gaveUp.push(label);
     }
 
-    // Anything that changed a counter invalidates the boards, same as the
-    // webhook. Parsed replays count too: that is when medals and awards land.
-    if (ingested.length > 0 || parsed.length > 0) revalidateTag(STATS_TAG, { expire: 0 });
+    // ── Pass 3: medals ──
+    //
+    // Recomputed from match history whenever this run changed any of it, and
+    // *before* the cache is invalidated so the boards re-read the new standings
+    // instead of caching the old ones for another round.
+    //
+    // Both triggers matter: a parse is what gives the six parseGated categories
+    // their data, while the other seven are final at ingestion.
+    //
+    // `?medals=force` recomputes regardless — for backfilling matches ingested
+    // before this existed, and for checking the standings on demand. Pair it
+    // with `&dryRun=1` to see what would change without writing.
+    const url = new URL(request.url);
+    const forceMedals = url.searchParams.get('medals') === 'force';
+    const dryRun = url.searchParams.get('dryRun') === '1';
+    const matchDataChanged = ingested.length > 0 || parsed.length > 0;
+
+    let medals = null;
+    if (matchDataChanged || forceMedals) {
+      // Never take the sweep down with it: matches being ingested matters more
+      // than the podium being current, and the next run recomputes anyway.
+      try {
+        medals = await recomputeMedals({ dryRun });
+      } catch (err) {
+        console.error('inhouse ingest cron: medal recompute failed', err);
+      }
+    }
+
+    if (matchDataChanged) revalidateTag(STATS_TAG, { expire: 0 });
 
     return NextResponse.json(
       {
@@ -134,6 +161,7 @@ export async function GET(request: Request) {
         awaitingOpenDota: pending,
         parsed,
         gaveUp,
+        medals,
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );
