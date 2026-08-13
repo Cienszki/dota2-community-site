@@ -22,6 +22,21 @@ const DAY_MS = 86_400_000;
 const QUALITY_WINDOW_DAYS = 28;
 const BASELINE_WINDOW_DAYS = 28;
 
+/**
+ * How much history the baseline needs before a score means anything.
+ *
+ * Every input here is a comparison against the 3 weeks before this one, so a
+ * league younger than that is measured against almost nothing: with 3 finished
+ * games in the baseline, `avgGames` is 1.0 and `avgPlayers` 3.3, which makes an
+ * ordinary week of 2 games and 10 players read as a ratio of 3.0 and pins the
+ * gauge at its maximum. The number isn't wrong so much as meaningless — it is
+ * measuring the league's youth, not its activity.
+ *
+ * So below this threshold the gauge reports no score at all rather than a
+ * flattering one.
+ */
+const HISTORY_REQUIRED_DAYS = 28;
+
 function isoAt(msAgo: number): string {
   return new Date(Date.now() - msAgo).toISOString();
 }
@@ -50,6 +65,37 @@ async function attendanceInRange(
     q = q.where('createdAt', '<', isoAt(untilMsAgo));
   }
   return q.get();
+}
+
+/**
+ * Whether the league has enough history for the baseline to mean anything.
+ *
+ * Two conditions, and both matter. The first finished game must be at least 4
+ * weeks old — that is the league having a past at all. And the baseline window
+ * itself must contain at least one game, because a month-old league that went
+ * quiet for three weeks has a past but not a comparable one.
+ *
+ * Deliberately keyed on the league's age rather than on "every one of the last
+ * 4 weeks had a game": a single quiet week — holidays, a patch nobody liked —
+ * must not throw the gauge back to "collecting data" a year in.
+ */
+async function hasEnoughHistory(db: FirebaseFirestore.Firestore): Promise<boolean> {
+  const [oldest, baselineGames] = await Promise.all([
+    db
+      .collection('inhouseGames')
+      .where('state', '==', 'finished')
+      .orderBy('endedAt', 'asc')
+      .limit(1)
+      .get(),
+    countFinishedGames(db, BASELINE_WINDOW_DAYS * DAY_MS, 7 * DAY_MS),
+  ]);
+
+  if (oldest.empty || baselineGames === 0) return false;
+
+  const firstEndedAt = Date.parse(oldest.docs[0].data().endedAt as string);
+  if (Number.isNaN(firstEndedAt)) return false;
+
+  return Date.now() - firstEndedAt >= HISTORY_REQUIRED_DAYS * DAY_MS;
 }
 
 export const getInhousePulseInputs = unstable_cache(
@@ -144,7 +190,23 @@ export const getInhousePulseInputs = unstable_cache(
   { revalidate: 900 },
 );
 
-/** `getInhousePulseInputs` is already cached — this just applies the formula. */
-export async function getInhousePulseScore(): Promise<number> {
-  return computePulseScore(await getInhousePulseInputs());
+export interface PulseReading {
+  /** null while the league is too young for the baseline to mean anything. */
+  score: number | null;
 }
+
+/**
+ * The reading the gauge renders.
+ *
+ * Cached alongside the inputs rather than inside them, because the readiness
+ * check is two extra Firestore reads that would otherwise run on every request
+ * to /inhouse.
+ */
+export const getInhousePulse = unstable_cache(
+  async (): Promise<PulseReading> => {
+    if (!(await hasEnoughHistory(getDb()))) return { score: null };
+    return { score: computePulseScore(await getInhousePulseInputs()) };
+  },
+  ['inhouse-pulse-reading'],
+  { revalidate: 900 },
+);

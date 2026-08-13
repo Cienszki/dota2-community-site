@@ -5,13 +5,21 @@ import { pulseStatusFor, type PulseTier } from '@/lib/inhouse/pulse';
 
 // The gauge from the designer's simulator (ZMIANY/gemini-code-*.html),
 // ported to React. The sliders and the math-parameter debug grid from that
-// file are gone on purpose — this is the read-only, public-facing version:
-// a score, a name for it, and the arc/particle effects that sell the mood.
+// file are gone on purpose — this is the read-only, public-facing version.
+//
+// Stripped of the tier emoji that used to sit next to the heading. The tier
+// *name* stays — "Mocne inhousy", "Przeciążenie ligi!" — because that is the
+// part people read; a bare 7.4/10 says nothing about whether 7.4 is good.
 //
 // `score` is fixed for the component's lifetime (one server-rendered number,
 // cached 15 min upstream in pulse-stats.ts) — there is no slider re-driving
 // it here, so the whole particle/icicle/lightning system is seeded once from
 // the prop rather than re-read every frame from live state.
+//
+// A null score means the league is too young for the baseline to mean anything
+// (see pulse-stats.ts). That renders as a dead grey dial rather than a zero,
+// because 0.0 is itself a real reading — "nobody played this week" — and the
+// two must not look alike.
 
 const TIER_TEXT_COLOR: Record<PulseTier, string> = {
   'deep-freeze': 'text-sky-300',
@@ -200,17 +208,24 @@ function drawLightning(ctx: CanvasRenderingContext2D, width: number, score: numb
   ctx.stroke();
 }
 
-export default function InhousePulse({ score }: { score: number }) {
-  const clamped = Math.min(Math.max(score, 0), 10);
+export default function InhousePulse({ score }: { score: number | null }) {
+  const pending = score === null;
+  const clamped = Math.min(Math.max(score ?? 0, 0), 10);
   const status = pulseStatusFor(clamped);
-  const overlays = overlaysFor(clamped);
-  const angleDeg = -90 + (clamped / 10) * 180;
-  const shiver = status.tier === 'overload';
+  const overlays = pending
+    ? { ice: 0, frost: 0, fire: 0, purple: 0, glow: '', solidStroke: '#334155' }
+    : overlaysFor(clamped);
+  const angleDeg = pending ? -90 : -90 + (clamped / 10) * 180;
+  const shiver = !pending && status.tier === 'overload';
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Nothing to animate while the score is withheld — no particles, no
+    // icicles, and no rAF loop left spinning behind a static grey dial.
+    if (pending) return;
+
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
@@ -261,19 +276,19 @@ export default function InhousePulse({ score }: { score: number }) {
       observer.disconnect();
       particles = [];
     };
-  }, [clamped]);
+  }, [clamped, pending]);
 
   return (
-    <div className="shrink-0">
-      <div className={`flex items-center justify-center gap-1.5 text-xs font-bold uppercase tracking-wide ${TIER_TEXT_COLOR[status.tier]}`}>
-        <span>{status.icon}</span> Puls ligi
-      </div>
+    <div className="mx-auto w-full max-w-[256px]">
+      <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400">
+        Puls ligi
+      </h2>
 
       <div
         ref={containerRef}
-        className={`relative w-64 h-32 mt-2 overflow-hidden transition-all duration-300 ${overlays.glow}`}
+        className={`relative mt-5 h-32 w-full overflow-hidden transition-all duration-300 ${overlays.glow}`}
       >
-        <svg className="w-64 h-32 overflow-visible" viewBox="0 0 176 88">
+        <svg className="h-32 w-full overflow-visible" viewBox="0 0 176 88">
           <defs>
             <linearGradient id="pulseGaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#22c55e" />
@@ -311,27 +326,49 @@ export default function InhousePulse({ score }: { score: number }) {
           }
         >
           <svg className="absolute -left-2.5 -top-28 w-5 h-28 overflow-visible" viewBox="0 0 20 128">
-            <polygon points="10,0 18,128 2,128" fill="#f8fafc" stroke="#94a3b8" strokeWidth="1" />
+            <polygon
+              points="10,0 18,128 2,128"
+              fill={pending ? '#475569' : '#f8fafc'}
+              stroke={pending ? '#334155' : '#94a3b8'}
+              strokeWidth="1"
+            />
             <polygon points="10,8 14,120 6,120" fill="#334155" />
           </svg>
         </div>
 
-        <div className="absolute bottom-0 left-1/2 w-6 h-6 bg-slate-800 border-2 border-slate-300 rounded-full -translate-x-1/2 translate-y-1/2 z-30 shadow-xl flex items-center justify-center">
-          <div className={`w-2 h-2 rounded-full ${TIER_DOT_COLOR[status.tier]}`} />
+        <div
+          className={`absolute bottom-0 left-1/2 z-30 flex h-6 w-6 -translate-x-1/2 translate-y-1/2 items-center justify-center rounded-full border-2 bg-slate-800 shadow-xl ${
+            pending ? 'border-slate-700' : 'border-slate-300'
+          }`}
+        >
+          <div className={`h-2 w-2 rounded-full ${pending ? 'bg-slate-600' : TIER_DOT_COLOR[status.tier]}`} />
         </div>
 
         <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-10" />
       </div>
 
-      <div className="text-center mt-2">
-        <span className={`text-2xl font-black tracking-tight ${TIER_TEXT_COLOR[status.tier]} ${TIER_PULSE_ANIM[status.tier] ?? ''}`}>
-          {clamped.toFixed(1)}
-        </span>
-        <span className="text-sm text-slate-500 font-normal"> / 10</span>
+      <div className="mt-2 text-center">
+        {pending ? (
+          <span className="text-sm font-semibold text-slate-600">Zbieramy dane</span>
+        ) : (
+          <>
+            <span
+              className={`text-2xl font-black tracking-tight ${TIER_TEXT_COLOR[status.tier]} ${TIER_PULSE_ANIM[status.tier] ?? ''}`}
+            >
+              {clamped.toFixed(1)}
+            </span>
+            <span className="text-sm font-normal text-slate-500"> / 10</span>
+          </>
+        )}
       </div>
-      <div className={`text-center text-xs font-bold uppercase tracking-wide mt-0.5 ${TIER_TEXT_COLOR[status.tier]}`}>
-        {status.label}
-      </div>
+
+      {!pending && (
+        <div
+          className={`mt-0.5 text-center text-xs font-bold uppercase tracking-wide ${TIER_TEXT_COLOR[status.tier]}`}
+        >
+          {status.label}
+        </div>
+      )}
     </div>
   );
 }

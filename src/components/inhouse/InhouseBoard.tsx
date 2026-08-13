@@ -6,7 +6,7 @@ import { Trophy, ExternalLink, ChevronDown } from 'lucide-react';
 import type { PublicGame } from '@/lib/inhouse/public';
 import { modeName } from '@/lib/inhouse/display';
 import type { Medal as MedalAward } from '@/lib/inhouse/medals';
-import MedalBadge from './MedalBadge';
+import MedalStrip from './MedalStrip';
 import GameCard from './GameCard';
 import OpenLobbyCard from './OpenLobbyCard';
 import OpenLobbyButton from './OpenLobbyButton';
@@ -225,17 +225,10 @@ function TopPlayers({ rows }: { rows: Array<{ name: string; value: number; medal
                 {i + 1}
               </span>
               <h3 className="min-w-0 flex-1 text-[15px] font-bold text-white truncate">{row.name}</h3>
-              {row.medals.length > 0 && (
-                <ul className="flex shrink-0 gap-1.5">
-                  {/* Capped at four: past that the row stops being a name with
-                      awards and becomes a wall of circles. */}
-                  {row.medals.slice(0, 4).map((medal) => (
-                    <li key={medal.id}>
-                      <MedalBadge medal={medal} size={35} />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {/* Capped at four: past that the row stops being a name with
+                  awards and becomes a wall of circles. The rest are counted by
+                  the strip's "+N" chip rather than dropped. */}
+              <MedalStrip medals={row.medals} max={4} size={35} className="shrink-0 gap-1.5" />
               <span className="shrink-0 text-[13px] text-slate-400 tabular-nums">
                 {row.value} gier
               </span>

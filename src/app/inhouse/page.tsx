@@ -7,7 +7,7 @@ import { isInhouseConfigured } from '@/lib/firebase-admin';
 import { getBoard } from '@/lib/inhouse/live';
 import { getLobbyConfig, DEFAULT_MAX_OPEN_LOBBIES } from '@/lib/inhouse/lobby-config';
 import { getLeaderboards } from '@/lib/inhouse/stats';
-import { getInhousePulseScore } from '@/lib/inhouse/pulse-stats';
+import { getInhousePulse, type PulseReading } from '@/lib/inhouse/pulse-stats';
 import { getInhouseProfile, type InhouseProfile } from '@/lib/inhouse/profile';
 import { getInhouseViewer } from '@/lib/inhouse/session';
 import { getFaqs } from '@/lib/inhouse/faq';
@@ -41,7 +41,9 @@ export default async function InhousePage() {
   let recent: PublicGame[] = [];
   let topPlayers: Array<{ name: string; value: number; medals: Medal[] }> = [];
   let maxOpenLobbies = DEFAULT_MAX_OPEN_LOBBIES;
-  let pulseScore: number | null = null;
+  // null means the reading never loaded (Firestore down) — distinct from a
+  // loaded reading whose `score` is null because the league is still too young.
+  let pulse: PulseReading | null = null;
   // The profile takes the instructions' place for anyone who has linked. Loaded
   // separately from the board so a slow Steam fetch can't hold up the lobbies.
   let profile: InhouseProfile | null = null;
@@ -51,11 +53,11 @@ export default async function InhousePage() {
 
   if (isInhouseConfigured()) {
     try {
-      const [board, leaderboards, lobbyConfig, pulse] = await Promise.all([
+      const [board, leaderboards, lobbyConfig, pulseReading] = await Promise.all([
         getBoard(),
         getLeaderboards(),
         getLobbyConfig(),
-        getInhousePulseScore(),
+        getInhousePulse(),
       ]);
       maxOpenLobbies = lobbyConfig.maxOpenLobbies;
       live = board.live;
@@ -65,7 +67,7 @@ export default async function InhousePage() {
         value: row.value,
         medals: row.medals,
       }));
-      pulseScore = pulse;
+      pulse = pulseReading;
     } catch (err) {
       console.error('inhouse landing data load failed', err);
     }
@@ -82,44 +84,48 @@ export default async function InhousePage() {
   return (
     <InhouseShell width="wide">
       {/* ─── Hero ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-8">
-        <section className="max-w-3xl">
-          <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
-            Inhouse <span className="text-[#E7000B]">5v5</span>
-          </h1>
-          <p className="text-slate-300 text-lg mt-4 leading-relaxed">
-            Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
-          </p>
-        </section>
+      <section className="max-w-3xl">
+        <h1 className="text-4xl font-black tracking-tighter uppercase leading-[0.95]">
+          Inhouse <span className="text-[#E7000B]">5v5</span>
+        </h1>
+        <p className="text-slate-300 text-lg mt-4 leading-relaxed">
+          Prywatne gry 5v5 dla społeczności PD2IH, każdy może dołączyć! Luźna atmosfera, ciekawe wyzwania, bez tryhardu.
+        </p>
+      </section>
 
-        {pulseScore !== null && <InhousePulse score={pulseScore} />}
-      </div>
+      {/* ─── Profile (or how to join), and the pulse ──────────────────────── */}
+      {/* One three-column strip. Signed in: identity | match history | pulse.
+          Signed out: the steps take the first two columns and the pulse keeps
+          the third, so the gauge sits in the same place either way.
 
-      {/* ─── Profile, or how to join ──────────────────────────────────────── */}
-      {/* Same slot, two audiences: the steps are worth reading exactly once, so
-          anyone who has linked gets their own record there instead. */}
-      {profile ? (
-        <PlayerProfile profile={profile} />
-      ) : (
-        <section className="mt-10">
-          <h2 className="text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-5">
-            Jak dołączyć
-          </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <div key={i} className="flex gap-3.5">
-                <span
-                  className="shrink-0 w-8 h-8 rounded-full bg-[#E7000B]/15 border border-[#E7000B]/40
-                             text-[#f87171] font-black text-[15px] flex items-center justify-center"
-                >
-                  {i + 1}
-                </span>
-                <p className="text-[15px] text-slate-200 leading-relaxed">{step}</p>
-              </div>
-            ))}
+          The pulse used to float beside the h1, which left it reading as page
+          furniture rather than as one of the numbers about the league. */}
+      <section className="mt-10 grid items-start gap-x-10 gap-y-8 lg:grid-cols-3">
+        {profile ? (
+          <PlayerProfile profile={profile} />
+        ) : (
+          <div className="lg:col-span-2">
+            <h2 className="text-[13px] font-bold uppercase tracking-[0.16em] text-slate-400 mb-5">
+              Jak dołączyć
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {STEPS.map((step, i) => (
+                <div key={i} className="flex gap-3.5">
+                  <span
+                    className="shrink-0 w-8 h-8 rounded-full bg-[#E7000B]/15 border border-[#E7000B]/40
+                               text-[#f87171] font-black text-[15px] flex items-center justify-center"
+                  >
+                    {i + 1}
+                  </span>
+                  <p className="text-[15px] text-slate-200 leading-relaxed">{step}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
+        )}
+
+        {pulse && <InhousePulse score={pulse.score} />}
+      </section>
 
       {/* Board and history are one feed sliced in two, so they live together. */}
       <InhouseBoard

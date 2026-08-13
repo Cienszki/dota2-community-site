@@ -3,9 +3,9 @@ import {
   Trophy, Flame, Star, Shield, Crown, Target, Zap, Heart, Coins, Eye, Clock, Swords,
 } from 'lucide-react';
 import type { InhouseProfile } from '@/lib/inhouse/profile';
-import { medalTooltip, placeColour, type Medal } from '@/lib/inhouse/medals';
+import type { Medal } from '@/lib/inhouse/medals';
 import MatchHistory from './ProfileMatchHistory';
-import MedalArt from './MedalArt';
+import MedalStrip from './MedalStrip';
 
 // The profile that takes the "how to join" slot once a viewer has linked.
 //
@@ -14,8 +14,10 @@ import MedalArt from './MedalArt';
 // person has actually done. So this is a *replacement*, not an addition — the
 // page keeps its shape and nothing below moves.
 //
-// Two-column hero (identity + badges on the left, recent matches on the
-// right), stacking to one column on mobile — the v5 redesign's layout.
+// Renders as two siblings rather than a wrapping <section>: identity + badges,
+// then the match history. The page owns the grid they sit in, because the third
+// column beside them (the Puls gauge) has to line up with both, and it is not
+// this component's business. Mobile stacking is the grid's job too.
 //
 // The win rate here is a deliberate narrowing of §8.1's "participation, never
 // performance", asked for by the designer and consistent with the K/D/A on the
@@ -28,46 +30,44 @@ export default function PlayerProfile({ profile }: { profile: InhouseProfile }) 
   const { steam } = profile;
 
   return (
-    <section className="mt-10">
-      <div className="grid gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,340px)_1fr] items-start">
-        <div>
-          <div className="flex items-center gap-4">
-            <Avatar src={steam?.avatarFull ?? steam?.avatarMedium ?? null} name={profile.displayName} />
+    <>
+      <div>
+        <div className="flex items-center gap-4">
+          <Avatar src={steam?.avatarFull ?? steam?.avatarMedium ?? null} name={profile.displayName} />
 
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <h2 className="text-xl font-black text-white truncate">{profile.displayName}</h2>
-                {profile.rank !== null && (
-                  <span
-                    className="shrink-0 text-sm font-black"
-                    style={{ color: rankColour(profile.rank) }}
-                  >
-                    #{profile.rank} w rankingu
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-slate-400">
-                <span className="text-slate-200 font-semibold tabular-nums">{profile.gamesPlayed}</span>{' '}
-                {gamesWord(profile.gamesPlayed)}
-                {profile.winRate !== null && (
-                  <>
-                    {' · '}
-                    <span className="font-semibold tabular-nums text-emerald-300">
-                      {profile.winRate}%
-                    </span>{' '}
-                    winrate
-                  </>
-                )}
-              </p>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <h2 className="truncate text-xl font-black text-white">{profile.displayName}</h2>
+              {profile.rank !== null && (
+                <span
+                  className="shrink-0 text-sm font-black"
+                  style={{ color: rankColour(profile.rank) }}
+                >
+                  #{profile.rank} w rankingu
+                </span>
+              )}
             </div>
+            <p className="mt-1 text-sm text-slate-400">
+              <span className="font-semibold tabular-nums text-slate-200">{profile.gamesPlayed}</span>{' '}
+              {gamesWord(profile.gamesPlayed)}
+              {profile.winRate !== null && (
+                <>
+                  {' · '}
+                  <span className="font-semibold tabular-nums text-emerald-300">
+                    {profile.winRate}%
+                  </span>{' '}
+                  winrate
+                </>
+              )}
+            </p>
           </div>
-
-          <Medals medals={profile.medals} />
         </div>
 
-        <MatchHistory matches={profile.matches} />
+        <Medals medals={profile.medals} />
       </div>
-    </section>
+
+      <MatchHistory matches={profile.matches} />
+    </>
   );
 }
 
@@ -102,10 +102,11 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 /**
  * The badge shelf, under the name rather than beside it (v5).
  *
- * Icons rather than artwork, because the artwork does not exist yet — `imageUrl`
- * is honoured when it is set, so filling that in later needs no change here.
- * Colour carries the podium place, which is the only ranking information a
- * medal exposes: which award, and whether it was first, second or third.
+ * Every badge here is a full `MedalBadge`, the same one the leaderboards and
+ * Top gracze use. It used to be a local `MedalChip` whose hover was a one-line
+ * text tooltip — which meant the artwork, which is the whole point of a medal,
+ * was only ever visible somewhere else. No cap: this is the owner's own shelf,
+ * and the one place every badge earns its space.
  */
 function Medals({ medals }: { medals: Medal[] }) {
   if (medals.length === 0) {
@@ -115,43 +116,8 @@ function Medals({ medals }: { medals: Medal[] }) {
   return (
     <div className="mt-5">
       <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-slate-600">Odznaki</div>
-      <ul className="grid grid-cols-[repeat(auto-fill,34px)] gap-2.5">
-        {medals.map((medal) => (
-          <li key={medal.id}>
-            <MedalChip medal={medal} />
-          </li>
-        ))}
-      </ul>
+      <MedalStrip medals={medals} max={medals.length} size={34} className="gap-2.5" />
     </div>
-  );
-}
-
-/**
- * A single badge, with a hover tooltip in place of the old native `title`.
- *
- * Pure CSS (`group`/`group-hover`) rather than hover state in JS — no
- * client component needed to show a label on hover.
- */
-function MedalChip({ medal }: { medal: Medal }) {
-  const colour = placeColour(medal.place);
-  const tooltip = medalTooltip(medal);
-
-  return (
-    <span
-      aria-label={tooltip}
-      className="group relative flex h-[34px] w-[34px] items-center justify-center rounded-full border transition-colors"
-      style={{ borderColor: `${colour}66`, backgroundColor: `${colour}1f` }}
-    >
-      <MedalArt id={medal.id} icon={medal.icon} size={34} colour={colour} />
-      <span
-        role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 whitespace-nowrap
-                   rounded-md border border-white/15 bg-zinc-900 px-2.5 py-1 text-[11px] font-semibold text-white
-                   opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100"
-      >
-        {tooltip}
-      </span>
-    </span>
   );
 }
 

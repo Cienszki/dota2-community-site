@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Gamepad2, CalendarDays, Users, Trophy } from 'lucide-react';
+import { Gamepad2, CalendarDays, Users, Trophy, ArrowLeft } from 'lucide-react';
 import InhouseShell from '@/components/inhouse/InhouseShell';
-import MedalArt from '@/components/inhouse/MedalArt';
 import MedalBadge from '@/components/inhouse/MedalBadge';
+import MedalStrip from '@/components/inhouse/MedalStrip';
 import { isInhouseConfigured } from '@/lib/firebase-admin';
 import {
   getLeaderboards,
@@ -14,7 +14,6 @@ import {
   type PlayerOfWeek,
   type RecentMedalAward,
 } from '@/lib/inhouse/stats';
-import { placeColour } from '@/lib/inhouse/medals';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +55,16 @@ export default async function LeaderboardsPage() {
 
   return (
     <InhouseShell width="wide">
+      {/* Above the h1, where the same link sits on every /admin/inhouse page —
+          this is a leaf page reached from the board, and the only way back was
+          the browser button or the navbar. */}
+      <Link
+        href="/inhouse"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 transition-colors hover:text-white"
+      >
+        <ArrowLeft className="h-4 w-4" /> Inhouse
+      </Link>
+
       <div className="flex flex-wrap items-start justify-between gap-8">
         <div>
           <h1 className="text-4xl font-extrabold tracking-tight text-white">Klasyfikacja</h1>
@@ -90,20 +99,7 @@ export default async function LeaderboardsPage() {
         <div className="mt-12 pb-9 border-b border-white/10">
           {recentMedals.map((award, i) => (
             <div key={`${award.playerName}-${award.medal.id}-${i}`} className="flex items-center gap-4 py-3.5">
-              <span
-                className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center border"
-                style={{
-                  borderColor: `${placeColour(award.medal.place)}66`,
-                  backgroundColor: `${placeColour(award.medal.place)}1f`,
-                }}
-              >
-                <MedalArt
-                  id={award.medal.id}
-                  icon={award.medal.icon}
-                  size={44}
-                  colour={placeColour(award.medal.place)}
-                />
-              </span>
+              <MedalBadge medal={award.medal} size={44} />
               <p className="text-base text-slate-300">
                 <span className="font-black text-white">{award.playerName}</span> otrzymał nową odznakę —{' '}
                 <span className="font-black text-[#E7000B]">{award.medal.label}</span>
@@ -168,13 +164,7 @@ function MainBoard({
                 {i + 1}
               </span>
               <PlayerLink row={r} className="shrink-0 text-[19px] text-slate-200 whitespace-nowrap" />
-              {r.medals.length > 0 && (
-                <span className="flex flex-1 min-w-0 flex-wrap items-center gap-[7px]">
-                  {r.medals.slice(0, 6).map((medal) => (
-                    <MedalBadge key={medal.id} medal={medal} size={31} />
-                  ))}
-                </span>
-              )}
+              <MedalStrip medals={r.medals} max={6} size={31} className="min-w-0 flex-1" />
               <span className="ml-auto shrink-0 w-[60px] text-right text-[15px] text-slate-500 tabular-nums">
                 {r.value}
               </span>
