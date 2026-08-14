@@ -5,6 +5,7 @@ import { getDb, isInhouseConfigured } from '@/lib/firebase-admin';
 import { checkParse, ingestFinishedMatch } from '@/lib/inhouse/ingest';
 import { getMatchRecord, listAwaitingParse } from '@/lib/inhouse/match-record';
 import { reconcileLobbies } from '@/lib/inhouse/sweep';
+import { alertBotTrouble } from '@/lib/inhouse/alerts';
 import { sweepRankingEnrolment } from '@/lib/inhouse/ranking-enrol';
 import { recomputeMedals } from '@/lib/inhouse/medal-awards';
 import { STATS_TAG } from '@/lib/inhouse/stats';
@@ -82,6 +83,13 @@ export async function GET(request: Request) {
     const reconciled = await reconcileLobbies({ force: true });
     const swept = [...reconciled.failed, ...reconciled.expired];
 
+    // Mail the admins if any of that was the worker misbehaving rather than an
+    // empty lobby closing on schedule. Only from the cron, not from the page
+    // loads that also reconcile: this is the copy that runs whether or not
+    // anyone is looking, and one alerting path is easier to reason about than
+    // one per visitor. Never fails the pass — see alertBotTrouble.
+    const alerted = await alertBotTrouble(swept);
+
     // Additive and idempotent, and it must never take the sweep down with it:
     // a Supabase hiccup should not stop matches being ingested.
     let enrolled = null;
@@ -156,6 +164,7 @@ export async function GET(request: Request) {
       {
         ok: true,
         sweptStuckLobbies: swept,
+        alerted,
         rankingEnrolment: enrolled,
         ingested,
         awaitingOpenDota: pending,

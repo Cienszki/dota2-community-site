@@ -53,11 +53,22 @@ import { mirrorMatchRecord } from './match-mirror';
 const RESOLVE_GIVE_UP_MS = 6 * 60 * 60_000;
 
 /**
- * Replays expire from Valve's servers after roughly two weeks, after which no
- * parse will ever succeed. Well inside that, so a stuck record stops consuming
- * sweep budget rather than being retried forever.
+ * How long we keep retrying a parse before writing the replay off.
+ *
+ * This was 10 days, chosen against the roughly two weeks after which Valve
+ * drops a replay. That reasoning does not hold for these matches: they are
+ * played under a league id, and league replays are retained far longer than
+ * pub ones — so the deadline was enforcing an expiry that was not going to
+ * happen, and a match that hit a bad fortnight with OpenDota got marked
+ * `unavailable` while it was still perfectly recoverable. Six of the thirteen
+ * medal categories are parse-gated, so writing a replay off is not cosmetic.
+ *
+ * Still bounded rather than infinite: the cron's parse pass has a fixed budget
+ * per run (PARSE_LIMIT), and a genuinely dead record retried forever would sit
+ * in that budget starving newer matches. Sixty days is long enough that only a
+ * truly dead one reaches it.
  */
-const PARSE_GIVE_UP_MS = 10 * 24 * 60 * 60_000;
+const PARSE_GIVE_UP_MS = 60 * 24 * 60 * 60_000;
 
 export type IngestOutcome =
   | { status: 'ingested'; gameId: string; matchId: number; players: number }
@@ -126,8 +137,11 @@ function steamIdsIn(roster: MatchRosterEntry[]): string[] {
  * Phase 1 — resolve a finished match and write everything derived from it.
  *
  * Safe to call repeatedly for the same game: it short-circuits once a match
- * record exists, and the underlying ledger write is keyed on (gameId, steamId32)
- * so even a racing duplicate cannot double-count attendance.
+ * record exists, and the ledger write is additionally guarded on the attendance
+ * ledger itself — which is what makes it safe against the *bot* having ingested
+ * the same match, not just against us doing it twice. Attendance rows are keyed
+ * on (gameId, steamId32) and survive a duplicate; the player counters are a
+ * plain increment and do not, which is why the guard is on the ledger.
  */
 export async function ingestFinishedMatch(
   gameId: string,
@@ -162,7 +176,30 @@ export async function ingestFinishedMatch(
 
   // Ledger, player counters, game.result and the transition to `finished` — all
   // of it the shared core's job, not ours.
-  await writeMatchResult(store, game, toSteamShape(match));
+  //
+  // Guarded on the ledger rather than only on our own match record, because the
+  // two sides guard over different collections and that made the double-write
+  // one-directional. The bot's `ingestMatchResult` checks `hasAttendance`, which
+  // our write does populate — so website-first is safe and the bot skips. But
+  // our check above is `getMatchRecord`, which reads `inhouseMatches`, a
+  // collection the bot never writes. So bot-first sailed straight past it and
+  // called this a second time, and `bumpPlayerTotals` increments with a plain
+  // `gamesPlayed + 1` — no dedupe, no idempotency. Every player in that match
+  // ends up with two games for one.
+  //
+  // Checking the ledger closes it from our side alone, so this no longer
+  // depends on the bot having switched its own ingestion off first. Everything
+  // below still runs: the match record, roster and parse request are ours, the
+  // bot writes none of them, and skipping them would cost the stats and medals
+  // that read them.
+  if (await store.hasAttendance(gameId)) {
+    console.warn(
+      `inhouse ingest: game ${gameId} already has attendance — skipping the ledger ` +
+        `write for match ${matchId}. The bot is still ingesting results; see docs/bot-todo.md.`,
+    );
+  } else {
+    await writeMatchResult(store, game, toSteamShape(match));
+  }
 
   const nowIso = new Date().toISOString();
   const parsedAlready = isParsed(match);

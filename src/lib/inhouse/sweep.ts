@@ -42,6 +42,16 @@ export interface SweptGame {
   gameNumber: number;
   ageMinutes: number;
   botAccountReleased: boolean;
+  /** Why it was written off, in English — server logs and the admin alert. */
+  reason: string;
+  /**
+   * True when this reflects the bot misbehaving rather than routine cleanup.
+   *
+   * An empty lobby closing after five minutes is the system working. A lobby
+   * the worker never created, or stopped tending while it was open, is the
+   * worker being broken — and only that kind is worth waking someone for.
+   */
+  fault: boolean;
 }
 
 // ─── Reconciling against a worker that stopped talking ───────────────────────
@@ -278,6 +288,8 @@ export async function reconcileLobbies(
       gameNumber: game.gameNumber,
       ageMinutes: Math.round(verdict.idleMs / 60_000),
       botAccountReleased,
+      reason: verdict.log,
+      fault: verdict.fault,
     };
     (verdict.state === 'failed' ? failed : expired).push(swept);
     console.warn(
@@ -291,6 +303,8 @@ export async function reconcileLobbies(
 
 interface Verdict {
   state: GameState;
+  /** See SweptGame.fault. */
+  fault: boolean;
   /** Shown to players on the board and in the admin log — hence Polish. */
   endReason: string;
   /** Sent to the worker and written to the server log — hence not. */
@@ -326,6 +340,7 @@ function judge(
     if (idleMs < LOBBY_CREATING_TIMEOUT_MS) return null;
     return {
       state: 'failed',
+      fault: true,
       endReason: 'Bot nie utworzył lobby w Docie',
       log: 'lobby creation timed out',
       idleMs,
@@ -343,6 +358,7 @@ function judge(
   if (game.botAccountId && silentMs >= WORKER_SILENT_TIMEOUT_MS) {
     return {
       state: 'expired',
+      fault: true,
       endReason: 'Bot przestał odpowiadać — lobby nie istnieje',
       log: 'worker went silent',
       idleMs: silentMs,
@@ -392,6 +408,7 @@ function judge(
 
   return {
     state: 'expired',
+    fault: false,
     endReason: occupied
       ? 'Lobby nie zapełniło się — zbyt długo bez zmian'
       : 'Nikt nie był w lobby przez 5 minut',
