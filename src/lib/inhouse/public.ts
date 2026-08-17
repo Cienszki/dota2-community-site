@@ -8,6 +8,81 @@
 
 import type { GameState, SlotSnapshot } from './core/types';
 
+// ── Server-action result shapes ─────────────────────────────────────────────
+//
+// These describe what `joinLobbyFor` and `openLobbyFor` hand back, so they
+// belong beside those functions — and they used to. They live here because the
+// client components that render them cannot reach them any other way.
+//
+// The obvious route, re-exporting them from the `'use server'` action module
+// the client already imports, does not work: every export of a `'use server'`
+// file is registered as a server function, and this fork's compiler runs that
+// transform before the TypeScript type-only re-export is erased. The emitted
+// module then references a type as a value and dies on load with
+// `ReferenceError: JoinInfo is not defined` — taking the whole route with it,
+// because a module that throws while evaluating never finishes.
+//
+// The other route, importing them straight from join-lobby.ts / open-lobby.ts,
+// means a client component naming a `server-only` module. `import type` is
+// erased so it would work, but it puts the Admin SDK one careless edit away
+// from the browser bundle — exactly what this module exists to prevent.
+//
+// So: declared here, re-exported by both server modules for their own callers.
+// A `'use server'` file must export nothing but async functions.
+
+/** The outcome of pressing Join, on either surface. */
+export type JoinResult =
+  | { status: 'needs_link' }
+  | { status: 'unavailable' }
+  | { status: 'banned' }
+  | { status: 'not_open' }
+  | { status: 'locked' }
+  | { status: 'error' }
+  | { status: 'waitlisted'; position: number }
+  | {
+      status: 'reserved' | 'already_reserved' | 'in_lobby';
+      password: string | null;
+      lobbyName: string | null;
+      expiresAt: string | null;
+      slotsOpen: number | null;
+    };
+
+/** What a join dialog needs to render, on either surface. */
+export type JoinInfo =
+  | { status: 'unavailable' | 'not_found' | 'not_open' }
+  | { status: 'banned' }
+  | {
+      status: 'ok';
+      /** Name to search for in Dota's lobby browser. */
+      lobbyName: string | null;
+      /** Null only when no password has been configured yet. */
+      password: string | null;
+      /** DOTA_GameMode and EServerRegion — both are filters in Dota's lobby
+       *  browser, so the manual path needs them as much as the name. */
+      gameMode: number;
+      serverRegion: number;
+      /** Whether the bot can pull this player in without them typing anything. */
+      canBeInvited: boolean;
+      hasSteam: boolean;
+      hasDiscord: boolean;
+      name: string | null;
+    };
+
+/** The outcome of opening a lobby, on either surface. */
+export type CreateResult =
+  /**
+   * The credentials travel back with the result. The website reads them off the
+   * game page instead, but a Discord host opening a *private* lobby has no card
+   * and no page in front of them — this is the only moment they can be told
+   * what to send their friends.
+   */
+  | { status: 'ok'; gameId: string; lobbyName: string | null; lobbyPassword: string | null }
+  | { status: 'banned' }
+  | { status: 'no_bots' }
+  | { status: 'too_many_open'; max: number }
+  | { status: 'unavailable' }
+  | { status: 'error' };
+
 /** What a signed-out visitor is allowed to know about a game. */
 export interface PublicGame {
   id: string;

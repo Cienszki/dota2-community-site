@@ -26,19 +26,12 @@ export interface HostIdentity {
   steamId32: string | null;
 }
 
-export type CreateResult =
-  /**
-   * The credentials travel back with the result. The website reads them off the
-   * game page instead, but a Discord host opening a *private* lobby has no card
-   * and no page in front of them — this is the only moment they can be told
-   * what to send their friends.
-   */
-  | { status: 'ok'; gameId: string; lobbyName: string | null; lobbyPassword: string | null }
-  | { status: 'banned' }
-  | { status: 'no_bots' }
-  | { status: 'too_many_open'; max: number }
-  | { status: 'unavailable' }
-  | { status: 'error' };
+// Declared in public.ts, not here, because the client components that render it
+// need to name it and this module is server-only. See the note there.
+// Imported as well as re-exported — a re-export does not bind the name locally,
+// and `openLobbyFor` is typed with it.
+import type { CreateResult } from './public';
+export type { CreateResult };
 
 /**
  * Steam persona for a host who signed in with Steam but never linked Discord.

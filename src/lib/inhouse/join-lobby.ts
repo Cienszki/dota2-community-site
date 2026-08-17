@@ -17,42 +17,12 @@ import type { HostIdentity } from '@/lib/inhouse/open-lobby';
 // Extracted from the server action so Discord's Dołącz button runs the same
 // reservation, the same waitlist and the same invite, rather than a lookalike.
 
-export type JoinResult =
-  | { status: 'needs_link' }
-  | { status: 'unavailable' }
-  | { status: 'banned' }
-  | { status: 'not_open' }
-  | { status: 'locked' }
-  | { status: 'error' }
-  | { status: 'waitlisted'; position: number }
-  | {
-      status: 'reserved' | 'already_reserved' | 'in_lobby';
-      password: string | null;
-      lobbyName: string | null;
-      expiresAt: string | null;
-      slotsOpen: number | null;
-    };
-
-/** What a join dialog needs to render, on either surface. */
-export type JoinInfo =
-  | { status: 'unavailable' | 'not_found' | 'not_open' }
-  | { status: 'banned' }
-  | {
-      status: 'ok';
-      /** Name to search for in Dota's lobby browser. */
-      lobbyName: string | null;
-      /** Null only when no password has been configured yet. */
-      password: string | null;
-      /** DOTA_GameMode and EServerRegion — both are filters in Dota's lobby
-       *  browser, so the manual path needs them as much as the name. */
-      gameMode: number;
-      serverRegion: number;
-      /** Whether the bot can pull this player in without them typing anything. */
-      canBeInvited: boolean;
-      hasSteam: boolean;
-      hasDiscord: boolean;
-      name: string | null;
-    };
+// Declared in public.ts, not here, because the client components that render
+// them need to name them and this module is server-only. See the note there.
+// Imported as well as re-exported — a re-export does not bind the name locally,
+// and the functions below are typed with it.
+import type { JoinInfo, JoinResult } from './public';
+export type { JoinInfo, JoinResult };
 
 /**
  * Everything the join dialog shows, resolved in one round trip.

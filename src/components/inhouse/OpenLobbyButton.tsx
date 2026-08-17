@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plus, Loader2 } from 'lucide-react';
-import { createInhouseGame, type CreateResult } from '@/app/inhouse/new/actions';
+import { createInhouseGame } from '@/app/inhouse/new/actions';
+import type { CreateResult } from '@/lib/inhouse/public';
 
 // Opening a lobby is one press, in place.
 //

@@ -1,8 +1,9 @@
 'use server';
 
 import { getInhouseViewer } from '@/lib/inhouse/session';
-import { openLobbyFor, type CreateResult } from '@/lib/inhouse/open-lobby';
+import { openLobbyFor } from '@/lib/inhouse/open-lobby';
 import { rememberHostedGame } from '@/lib/inhouse/host-token';
+import type { CreateResult } from '@/lib/inhouse/public';
 
 // Create a game from the website (§5.4, §7.3). One press: everything but the
 // host comes from admin defaults, so a first-time host opens a correctly
@@ -12,8 +13,12 @@ import { rememberHostedGame } from '@/lib/inhouse/host-token';
 // The lobby itself is opened by `openLobbyFor`, which the Discord bot calls too
 // — see lib/inhouse/open-lobby.ts. What stays here is the browser-shaped part:
 // the cookie identity, and the host token.
-
-export type { CreateResult };
+//
+// **Exports nothing but async functions.** A `'use server'` file registers every
+// export as a server function, and this fork's compiler does that before erasing
+// a TypeScript type-only re-export — so `export type { CreateResult }` here
+// emitted a reference to a type as a value and killed the module on load.
+// Callers import the type from '@/lib/inhouse/public' instead.
 
 /**
  * Open a lobby. **No account required.**

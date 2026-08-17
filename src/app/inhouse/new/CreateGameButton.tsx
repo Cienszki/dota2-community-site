@@ -4,7 +4,8 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Rocket, Loader2, Sparkles } from 'lucide-react';
-import { createInhouseGame, type CreateResult } from './actions';
+import { createInhouseGame } from './actions';
+import type { CreateResult } from '@/lib/inhouse/public';
 
 export default function CreateGameButton() {
   const router = useRouter();

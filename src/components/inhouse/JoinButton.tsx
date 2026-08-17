@@ -3,7 +3,8 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { LogIn, Loader2, Copy, Check, Ban, Clock } from 'lucide-react';
-import { joinGame, type JoinResult } from '@/app/inhouse/actions';
+import { joinGame } from '@/app/inhouse/actions';
+import type { JoinResult } from '@/lib/inhouse/public';
 
 // Web Join button. Calls the server action (which independently enforces the
 // ban and reveals the password only on success) and renders the outcome inline

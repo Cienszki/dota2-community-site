@@ -18,7 +18,8 @@ import {
   MapPin,
 } from 'lucide-react';
 import { FaDiscord, FaSteam } from 'react-icons/fa';
-import { getJoinInfo, joinGame, type JoinInfo, type JoinResult } from '@/app/inhouse/actions';
+import { getJoinInfo, joinGame } from '@/app/inhouse/actions';
+import type { JoinInfo, JoinResult } from '@/lib/inhouse/public';
 import { modeName, regionName } from '@/lib/inhouse/display';
 
 // The Join dialog (§7.2).
