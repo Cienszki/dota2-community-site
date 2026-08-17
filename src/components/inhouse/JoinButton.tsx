@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { LogIn, Loader2, Copy, Check, Ban, Clock } from 'lucide-react';
 import { joinGame } from '@/app/inhouse/actions';
+import InviteAgainButton from './InviteAgainButton';
 import type { JoinResult } from '@/lib/inhouse/public';
 
 // Web Join button. Calls the server action (which independently enforces the
@@ -19,7 +20,15 @@ export default function JoinButton({ gameId, full }: { gameId: string; full?: bo
       setResult(await joinGame(gameId));
     });
 
-  if (result) return <JoinOutcome result={result} onRetry={() => setResult(null)} />;
+  if (result)
+    return (
+      <JoinOutcome
+        result={result}
+        gameId={gameId}
+        onResult={setResult}
+        onRetry={() => setResult(null)}
+      />
+    );
 
   return (
     <button
@@ -37,7 +46,17 @@ export default function JoinButton({ gameId, full }: { gameId: string; full?: bo
   );
 }
 
-function JoinOutcome({ result, onRetry }: { result: JoinResult; onRetry: () => void }) {
+function JoinOutcome({
+  result,
+  gameId,
+  onResult,
+  onRetry,
+}: {
+  result: JoinResult;
+  gameId: string;
+  onResult: (result: JoinResult) => void;
+  onRetry: () => void;
+}) {
   switch (result.status) {
     case 'needs_link':
       return (
@@ -66,7 +85,7 @@ function JoinOutcome({ result, onRetry }: { result: JoinResult; onRetry: () => v
     case 'reserved':
     case 'already_reserved':
     case 'in_lobby':
-      return <Credentials result={result} />;
+      return <Credentials result={result} gameId={gameId} onResult={onResult} />;
     case 'waitlisted':
       return (
         <Panel tone="accent">
@@ -87,8 +106,12 @@ function JoinOutcome({ result, onRetry }: { result: JoinResult; onRetry: () => v
 
 function Credentials({
   result,
+  gameId,
+  onResult,
 }: {
   result: Extract<JoinResult, { status: 'reserved' | 'already_reserved' | 'in_lobby' }>;
+  gameId: string;
+  onResult: (result: JoinResult) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -126,6 +149,11 @@ function Credentials({
           </button>
         )}
       </div>
+      {/* Not for `in_lobby`: they are already there, and the server declines to
+          send an invite to someone who does not need one. */}
+      {result.status !== 'in_lobby' && (
+        <InviteAgainButton gameId={gameId} onResult={onResult} />
+      )}
     </Panel>
   );
 }

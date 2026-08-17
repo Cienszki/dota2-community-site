@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { FaDiscord, FaSteam } from 'react-icons/fa';
 import { getJoinInfo, joinGame } from '@/app/inhouse/actions';
+import InviteAgainButton from './InviteAgainButton';
 import type { JoinInfo, JoinResult } from '@/lib/inhouse/public';
 import { modeName, regionName } from '@/lib/inhouse/display';
 
@@ -356,7 +357,12 @@ function InviteColumn({
       </p>
 
       {result ? (
-        <InviteOutcome result={result} onRetry={() => setResult(null)} />
+        <InviteOutcome
+          result={result}
+          gameId={gameId}
+          onResult={setResult}
+          onRetry={() => setResult(null)}
+        />
       ) : info.canBeInvited ? (
         <>
           <p className="flex items-center gap-2 text-sm text-emerald-300 mb-4">
@@ -459,7 +465,17 @@ function LinkButton({
   );
 }
 
-function InviteOutcome({ result, onRetry }: { result: JoinResult; onRetry: () => void }) {
+function InviteOutcome({
+  result,
+  gameId,
+  onResult,
+  onRetry,
+}: {
+  result: JoinResult;
+  gameId: string;
+  onResult: (result: JoinResult) => void;
+  onRetry: () => void;
+}) {
   switch (result.status) {
     case 'reserved':
     case 'already_reserved':
@@ -472,6 +488,11 @@ function InviteOutcome({ result, onRetry }: { result: JoinResult; onRetry: () =>
           <p className="text-slate-300 text-sm mt-1">
             Otwórz Dotę — zaproszenie do lobby już do Ciebie leci.
           </p>
+          {/* Not for `in_lobby`: they are already there, and the server declines
+              to send an invite to someone who does not need one. */}
+          {result.status !== 'in_lobby' && (
+            <InviteAgainButton gameId={gameId} onResult={onResult} />
+          )}
         </Panel>
       );
     case 'waitlisted':
