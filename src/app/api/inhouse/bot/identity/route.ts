@@ -44,6 +44,10 @@ export async function GET(request: Request) {
       steamId32: player?.steamId32 ?? null,
       discordName: player?.discordName ?? null,
       gamesPlayed: player?.gamesPlayed ?? 0,
+      // How the first account got here, so Discord can answer "why am I already
+      // linked?" — most often `discord_connection`, i.e. it happened for free
+      // from their Discord Steam connection and they never did anything.
+      linkSource: player?.linkSource ?? null,
     },
     { headers: { 'Cache-Control': 'no-store' } }
   );
