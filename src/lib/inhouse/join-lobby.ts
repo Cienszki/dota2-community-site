@@ -187,7 +187,17 @@ export async function joinLobbyFor(viewer: HostIdentity, gameId: string): Promis
       return { status: 'waitlisted', position: position > 0 ? position : waitlist.length };
     }
     case 'already_reserved':
-      // They already hold a slot — just show them the credentials again.
+      // They already hold a slot — but holding a slot is not the same as having
+      // an invite. A Steam invite sent to a closed Dota client is simply lost,
+      // and that is the single most common reason "the invite never came", so
+      // pressing Join again has to actually send another one rather than
+      // re-showing credentials to someone who is telling us the first one
+      // didn't work. Both surfaces get this: it is the only retry there is.
+      await requestInvite(game, {
+        steamId32: viewer.steamId32,
+        discordId: viewer.discordId,
+        playerName: viewer.discordName,
+      });
       return reveal('already_reserved', null, null);
     case 'already_in_lobby':
       return reveal('in_lobby', null, null);
