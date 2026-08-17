@@ -85,16 +85,21 @@ export async function openLobbyFor(
 
   const store = getInhouseStore();
 
-  // Still enforced against whatever identity the caller does have. A fully
-  // anonymous visitor can't be matched against the ban index — but they also
-  // can't play in the lobby they opened: the bot kicks banned Steam IDs on
-  // sight (enforcement point 4 of 4), which is the check that actually holds.
-  if (host.discordId || host.steamId32) {
-    const ban = await store.checkBan({ discordId: host.discordId, steamId32: host.steamId32 });
-    if (ban.banned) return { status: 'banned' };
-  }
-
   try {
+    // Still enforced against whatever identity the caller does have. A fully
+    // anonymous visitor can't be matched against the ban index — but they also
+    // can't play in the lobby they opened: the bot kicks banned Steam IDs on
+    // sight (enforcement point 4 of 4), which is the check that actually holds.
+    //
+    // Inside the try: it was outside, which meant a Firestore hiccup here threw
+    // straight through the caller and out of the server action, replacing the
+    // page with the root error boundary instead of the inline message this
+    // function's own `error` status already renders.
+    if (host.discordId || host.steamId32) {
+      const ban = await store.checkBan({ discordId: host.discordId, steamId32: host.steamId32 });
+      if (ban.banned) return { status: 'banned' };
+    }
+
     // Forced past the throttle, because the cap below is counted from
     // recruiting games and a lobby the worker abandoned keeps occupying a slot.
     // That is not hypothetical: two games stuck in `lobby_creating` once

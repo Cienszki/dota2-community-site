@@ -27,19 +27,41 @@ export type { CreateResult };
  * lobby can still cancel it without an account.
  */
 export async function createInhouseGame(opts: { newcomerFriendly: boolean }): Promise<CreateResult> {
-  const viewer = await getInhouseViewer();
+  // Nothing here may throw. A server action that throws is not a failed button
+  // press — it unmounts the page and replaces it with the root error boundary,
+  // showing a digest instead of the amber inline message OpenLobbyButton
+  // already renders for every `CreateResult` this returns.
+  try {
+    const viewer = await getInhouseViewer();
 
-  const result = await openLobbyFor(
-    {
-      discordId: viewer.discordId,
-      discordName: viewer.discordName,
-      steamId32: viewer.steamId32,
-    },
-    { newcomerFriendly: opts.newcomerFriendly, published: true }
-  );
+    const result = await openLobbyFor(
+      {
+        discordId: viewer.discordId,
+        discordName: viewer.discordName,
+        steamId32: viewer.steamId32,
+      },
+      { newcomerFriendly: opts.newcomerFriendly, published: true }
+    );
 
-  // How an account-less host keeps control of the lobby they just opened.
-  if (result.status === 'ok') await rememberHostedGame(result.gameId);
+    // How an account-less host keeps control of the lobby they just opened.
+    //
+    // Deliberately not fatal, and deliberately not inside the block above: by
+    // this point the lobby exists, a bot account is leased and the worker has
+    // its command. Failing the whole call would report "nie udało się" for a
+    // lobby that is about to appear on the board — and would strand the account
+    // until the sweep reclaims it. Losing the cookie costs an anonymous host
+    // the cancel button, which is the smaller harm by a wide margin.
+    if (result.status === 'ok') {
+      try {
+        await rememberHostedGame(result.gameId);
+      } catch (err) {
+        console.error('createInhouseGame: host token write failed', err);
+      }
+    }
 
-  return result;
+    return result;
+  } catch (err) {
+    console.error('createInhouseGame', err);
+    return { status: 'error' };
+  }
 }
