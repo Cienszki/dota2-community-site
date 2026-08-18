@@ -206,6 +206,19 @@ DNS points elsewhere, and it is your rollback.
 Order matters here. Step 5 makes the app *start using* these URLs; if they
 aren't registered first, every login breaks the moment you redeploy.
 
+> **Symptom if you get here before step 5 is done:** you click Discord login on
+> `dota2inhouse.pl` and land on
+> `https://<old-host>/inhouse/link?error=state`.
+>
+> Both halves of that URL are the diagnosis. Landing on the *old host* means
+> `NEXT_PUBLIC_SITE_URL` still names it, so that is the `redirect_uri` we handed
+> Discord. And `error=state` follows from it: the state cookie is host-only, it
+> was set on `dota2inhouse.pl`, and the callback ran on a different host — so no
+> cookie was sent and the state could not be matched. Nothing is misconfigured
+> in Discord; the origin is simply not the one the browser started on.
+>
+> Fix by finishing step 4 and then step 5, in that order.
+
 **Add, don't replace** — the old URLs can stay for now, which is what keeps the
 Vercel URL working as an escape hatch.
 
