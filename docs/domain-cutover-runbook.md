@@ -85,7 +85,14 @@ break Steam OpenID, which compares the realm against the return URL host.
 > dota2inhouse.pl`.
 >
 > To fix: **Edit** `dota2inhouse.pl` → set redirect to **No Redirect**. Then
-> **Edit** `www.dota2inhouse.pl` → redirect to `dota2inhouse.pl` (308).
+> **Edit** `www.dota2inhouse.pl` → redirect to `dota2inhouse.pl`. When it is
+> right, the apex is labelled **Production** and `www` shows the arrow.
+>
+> Vercel defaults that redirect to **307 (temporary)**. If the edit dialog
+> offers a status code, choose **308 (permanent)** — this redirect is never
+> going to be undone, and 307 tells search engines the opposite, which leaves
+> `www.` indexed alongside the canonical host instead of consolidating onto it.
+> Functionally either is fine; this is an SEO detail, not a blocker.
 >
 > Left the wrong way round, every visitor lands on `www.`, while
 > `NEXT_PUBLIC_SITE_URL`, the sitemap, the canonicals and the OAuth callbacks all
