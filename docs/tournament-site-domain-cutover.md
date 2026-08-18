@@ -11,6 +11,34 @@ against assumptions.
 
 ---
 
+## 0. Status — we are ready on our side
+
+Everything on the community-site side is built, deployed and verified. **The
+cutover now waits on one thing: TASK 1 below (`assetPrefix`).**
+
+Please reply with:
+
+1. **Confirmation that `assetPrefix` is deployed to production.** We verify with:
+
+   ```bash
+   curl -s https://tournament-tracker-f35tb.web.app/<a-real-slug> \
+     | grep -o 'src="[^"]*_next[^"]*"' | head -3
+   ```
+
+   Every result must be an absolute `https://tournament-tracker-f35tb.web.app/...`
+   URL. If any is a bare `/_next/...`, it is not deployed yet.
+
+2. **A date/time that suits you.** Pick a quiet hour. We flip DNS; you do
+   nothing at that moment. Rollback is a DNS change and takes minutes.
+
+3. **Anything in §4/§5 that doesn't match how your app actually works.** Those
+   are the two checks we could not fully verify from outside.
+
+Nothing here is urgent to the minute — but until `assetPrefix` ships, the
+cutover would serve your pages unstyled, so we will not schedule it.
+
+---
+
 ## 1. What is changing
 
 Today, DNS for `dota2inhouse.pl` points at Firebase Hosting, and your app serves
@@ -28,7 +56,8 @@ app**, proxied, with the URL unchanged in the browser.
                     │        /hall-of-fame  /basher  /streamy    │
                     │        /kontakt  /rekrutacja  /o-nas       │
                     │        /polityka-prywatnosci /wesprzyj-nas │
-                    │        /admin/*  /api/*  /players/*        │
+                    │        /players/*  /admin/*  /admin-login  │
+                    │        /auth/*  /api/*                     │
                     │                                            │
                     │  everything else ──────┐                   │
                     └────────────────────────┼───────────────────┘
@@ -226,6 +255,20 @@ a tournament can never be created with a slug that the community site would
 shadow. Nothing further to do; just keep it in mind when adding top-level
 routes to either app. If either of us adds a new top-level path, tell the
 other.
+
+The current, complete list of top-level paths we own — please check this against
+your reserved-slug list, as two entries were missing from earlier versions of
+this document (`admin-login`, `auth`):
+
+```
+admin          hall-of-fame   o-nas                  ranking
+admin-login    inhouse        players                rekrutacja
+api            kontakt        polityka-prywatnosci   streamy
+auth           newsy          basher                 wesprzyj-nas
+```
+
+Plus the files `favicon.ico`, `icon1.png`, `icon2.png`, `robots.txt`,
+`sitemap.xml`, and the `_next/` prefix — which is the one TASK 1 is about.
 
 ### SSR and caching
 
