@@ -41,14 +41,33 @@ for `/_next/static/...` — and after the cutover that path is *ours*. Our app o
 `/_next`, so it would answer with its own bundles or a 404. Their pages would
 arrive as unstyled HTML with dead JavaScript.
 
-Verify before touching DNS:
+Verify before touching DNS. **Count, do not sample** — and match `href` as well
+as `src`, because the stylesheets are `<link href>` and the scripts are
+`<script src>`:
 
 ```bash
-curl -s https://tournament-tracker-f35tb.web.app/<a-real-slug> | grep -o 'src="[^"]*_next[^"]*"' | head -3
+curl -s https://tournament-tracker-f35tb.web.app/<a-real-slug> > /tmp/t.html
+echo "relative: $(grep -o '"/_next/static[^"]*"' /tmp/t.html | wc -l)"
+echo "absolute: $(grep -o '"https://tournament-tracker-f35tb.web.app/_next/static[^"]*"' /tmp/t.html | wc -l)"
 ```
 
-Every hit must be an **absolute** URL to their Firebase origin. If you see
-`src="/_next/..."`, stop — they haven't deployed it.
+**`relative` must be 0.** Anything else means the pages will break.
+
+This is not hypothetical. On the first cutover attempt (2026-08-19) the count
+was **35 absolute, 15 relative** — `assetPrefix` had been deployed and applied
+to most chunks, but not to the three CSS files or the webpack runtime. An
+earlier version of this document grepped only `src="…"`, which matches the
+scripts and misses the stylesheets entirely, so the check passed on both sides
+while the pages were in fact unstyled with dead JavaScript.
+
+Partial application is the dangerous case precisely because "assetPrefix is
+deployed" is true and the obvious check agrees.
+
+**We cannot compensate for this on our side.** `/_next/static/*` is our app's
+own namespace; Next answers those requests itself and 404s a miss without ever
+consulting the fallback rewrite, so their assets cannot fall through. And a
+blanket rewrite of `/_next/static/*` to their origin would break ours. Two Next
+apps cannot share `/_next` — which is the entire reason `assetPrefix` exists.
 
 ---
 
@@ -125,8 +144,13 @@ they differ:
 | **edit** | `A` → **`CNAME`** | `dota2inhouse.pl` (`@`) | `a1d066e46203d16d.vercel-dns-017.com` | **DNS only** | Auto |
 | **add** | `CNAME` | `www` | `a1d066e46203d16d.vercel-dns-017.com` | **DNS only** | Auto |
 
-A `CNAME` at the apex is fine here — Cloudflare flattens it automatically. Drop
-the trailing dot Vercel shows; Cloudflare adds it.
+A `CNAME` at the apex is fine here — Cloudflare flattens it automatically.
+
+**Keep the trailing dot** that Vercel shows on the value
+(`…vercel-dns-017.com.`). Cloudflare accepts the record either way, but Vercel
+kept reporting *Invalid Configuration* until the dot was included — the dot
+makes it a fully-qualified name rather than one Cloudflare may append the zone
+to. If Vercel will not validate, that is the first thing to check.
 
 Until the `www` row exists, Cloudflare shows *"Visitors cannot reach
 www.dota2inhouse.pl — add an A, AAAA, or CNAME record for www and optionally
