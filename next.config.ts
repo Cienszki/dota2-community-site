@@ -19,6 +19,20 @@ const nextConfig: NextConfig = {
   //
   // Only the SPA's HTML shell + JS/CSS bundle are proxied here; its data
   // (Firestore) and images (Firebase Storage) load straight from Google.
+  //
+  // ── Paths the tournament site owns. Do not create routes for these. ──
+  //
+  //   /api/session   Their session endpoint. It lived at /api/auth/session,
+  //                  which collided with ours, and they moved it here in
+  //                  Aug 2026 so we would not need an exception. It only keeps
+  //                  working because we have no route at that path and the
+  //                  fallback carries it — adding one would silently break
+  //                  their auth, with no error on either side.
+  //
+  // The reverse list (everything we own, which they reserve as tournament
+  // slugs) is in docs/tournament-site-domain-cutover.md. If either side adds a
+  // top-level path, tell the other — this is the one class of change that
+  // breaks the other app without failing anywhere visible.
   async rewrites() {
     return {
       fallback: [

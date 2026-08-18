@@ -210,6 +210,22 @@ I only know its HTTP surface — please confirm, and avoid those five names in
 future. If you do need one of them, say so and we will carve out an exception
 in the community site's config.
 
+### ✅ RESOLVED (2026-08-19)
+
+You found one the probe could not: **`/api/auth/session`**. It was invisible
+from outside because it 404s without a session cookie, which is exactly why
+"confirm from your side" was the right ask — our probe was never going to see
+it, and after cutover it would have been shadowed by our own
+`/api/auth/session` with no error anywhere. Thank you.
+
+Your move to **`/api/session`** is the right fix and needs nothing from us: we
+have no route there, so the fallback carries it to you unchanged.
+
+**We have now reserved `/api/session` on our side** — recorded in
+`next.config.ts` next to the rewrite, not just in this document, so the next
+person to add a route sees it. It is the mirror of your slug list: a path each
+side must never claim, because claiming it breaks the other silently.
+
 ---
 
 ## 5. TASK 3 — Confirm your image handling
@@ -228,6 +244,61 @@ So: if you use `next/image` anywhere with a Firebase Storage source, either
 keep it `unoptimized`, or tell us and we will add
 `firebasestorage.googleapis.com` to the community site's `remotePatterns`. A
 quick `grep -r "next/image" src/` on your side settles it.
+
+### ✅ RESOLVED (2026-08-19) — custom loader, your optimizer
+
+You corrected this: you **do** use `next/image` with optimization on, sourcing
+`firebasestorage.googleapis.com` and the Steam CDNs. Good catch — the probe only
+saw pages where images happened not to go through the optimizer.
+
+**The decision: your custom loader, pointing at your own origin.** Exactly what
+you proposed.
+
+```js
+// next.config.js
+images: { loader: 'custom', loaderFile: './image-loader.js' }
+
+// image-loader.js
+export default function loader({ src, width, quality }) {
+  const url = new URL('https://tournament-tracker-f35tb.web.app/_next/image');
+  url.searchParams.set('url', src);
+  url.searchParams.set('w', String(width));
+  url.searchParams.set('q', String(quality ?? 75));
+  return url.toString();
+}
+```
+
+Three things worth knowing about why:
+
+**1. `assetPrefix` does not cover this.** It covers `_next/static` and nothing
+else — the Next docs are explicit. `/_next/image` is an *endpoint*, not a static
+asset, and the default loader emits it root-relative. So after cutover those
+requests arrive at `dota2inhouse.pl/_next/image`, which is our app's optimizer.
+This is the one thing TASK 1 does **not** solve, which is why it needed its own
+answer.
+
+**2. Doing nothing would half-work, which is worse than failing.** Our
+`remotePatterns` already allow the Steam CDNs (we use the same avatars), but not
+`firebasestorage.googleapis.com`. Left alone, your Steam-sourced images would
+optimize fine through our optimizer while every Firebase Storage image returned
+400 — a broken-images bug that looks random and points at nothing.
+
+**3. We deliberately did *not* add your hostnames to our allow-list**, even
+though it is one line. It would mean your image traffic billing to our Vercel
+account, and every new image source you adopt becoming a deploy on our side.
+With the loader, your optimizer serves your images and our config stays
+independent of your content decisions. If your loader ever misses an image, it
+fails loudly against our optimizer rather than quietly costing us money — which
+is the failure mode we want.
+
+**No CORS needed here.** `<img>` requests are not cross-origin-restricted the way
+fonts and scripts are, so the header you added on `/_next/static/**` is right and
+sufficient; `/_next/image` needs nothing.
+
+**If your Firebase deployment turns out not to run an optimizer** (a static
+export has none), fall back to `unoptimized: true` and the images load directly
+from Firebase Storage and Steam. Lower quality-per-byte, zero risk, and still
+entirely on your side.
 
 ---
 
