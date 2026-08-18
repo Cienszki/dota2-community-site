@@ -96,11 +96,20 @@ bot repo before copying. Zero behavioural drift.
   `memberships` directly remains optional, not a correctness requirement.
 - **The spectate link was never verified** and is currently unused. The helper
   is kept in `display.ts` with its findings; spectating is deferred.
-- **Medals need a product decision before code.** Per-player stats are
-  captured (`match-record.ts`, `STAT_FIELDS`) and `/api/cron/inhouse-backfill`
-  can pull a league's whole history in, so the data side is ready. What's
-  missing is the category list — the exact medals, and whether they're
-  all-time or per-season. Don't start building until that's answered.
+- **Medals are built but have never run on real data.** `medal-standings.ts`
+  ranks, `medal-awards.ts` writes, and both the match-finished webhook and the
+  ingest cron recompute. All 13 categories are awardable; scope is all-time,
+  averages need 5 contributing matches. Verified against synthetic history
+  (17 assertions), never against a real match — because no real match has been
+  ingested yet. That is the same blocker as everything else below, not a
+  separate one.
+
+  One open calibration question, deliberately not decided unilaterally:
+  **"Najdłuższe gry" and "Najkrótsze gry" are mirrors of one statistic**, so
+  with fewer than ~6 eligible players the same person can hold both podiums.
+  It resolves itself as the pool grows. A minimum-eligible-players guard would
+  fix it sooner at the cost of no medals at all for the first months — a
+  one-constant change either way.
 
 ---
 
@@ -158,16 +167,31 @@ Two fixes, deliberately different:
 
 ## Next steps, in order
 
-1. **Lobby bot deployment.** The production worker is still tournament-only, so
-   no lobby can actually be created yet. In progress with the bot developer;
-   everything below is downstream of it.
-2. **Verify one lobby end to end** once that lands: press Otwórz lobby, confirm
-   the Dota lobby appears with the name and password the *website* assigned
-   (that path has never run successfully — the bot's own fix for it is
-   unverified), join it, play it, and confirm the result ingests.
-3. **Immortal Draft on a throwaway lobby.** Wired on the bot side, never
+Updated 2026-08-19. Both the bot developer and the tournament developer have
+finished their side, so everything remaining is ours.
+
+1. **Three settings, or nothing works.** These gate every item below, and none
+   of them is visible from the code — each has to be checked in a console:
+   - **`leagueId` in the admin panel.** If it is still `0` the bot opens an
+     ordinary private lobby, OpenDota never sees the match, and **nothing is
+     ever ingested** — no retry helps and no error appears anywhere.
+   - **`CRON_SECRET` in Vercel**, which was last seen as the placeholder `123`.
+   - **`INHOUSE_SITE_URL` and `CRON_SECRET` as GitHub Actions secrets**, and
+     Actions enabled on the fork. The workflow was last seen failing on these.
+     This is not a safety net: OpenDota rarely has a match when the webhook
+     fires, so the webhook almost always returns `202` and **the cron is the
+     path that actually imports matches**.
+2. **Play one real inhouse, end to end.** Open a lobby, confirm the Dota lobby
+   appears with the name and password the *website* assigned, join it, play it,
+   and confirm the result ingests, the counters move, and medals appear. Every
+   piece below has been verified in isolation and none of it against a real
+   match.
+3. **Domain cutover** — see [`domain-cutover-runbook.md`](./domain-cutover-runbook.md)
+   for our steps. Both other developers are done and confirmed.
+4. **Immortal Draft on a throwaway lobby.** Wired on the bot side, never
    confirmed against a live GC, and unverified whether it combines with
    `selection_priority_rules = 1`.
-4. **Medals — needs a decision first.** See above.
-5. **Domain cutover** — `dota2inhouse.pl` to Vercel; see
-   [`tournament-site-domain-cutover.md`](./tournament-site-domain-cutover.md).
+5. **The medal mirror-category question.** See above — worth answering only
+   once there are enough real matches to see it happen.
+6. **External uptime monitoring.** Still nobody's job. The site can now alert on
+   a worker that abandons lobbies, but nothing watches the site itself.
