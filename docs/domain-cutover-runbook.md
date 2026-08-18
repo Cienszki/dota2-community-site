@@ -128,6 +128,16 @@ they differ:
 A `CNAME` at the apex is fine here — Cloudflare flattens it automatically. Drop
 the trailing dot Vercel shows; Cloudflare adds it.
 
+Until the `www` row exists, Cloudflare shows *"Visitors cannot reach
+www.dota2inhouse.pl — add an A, AAAA, or CNAME record for www and optionally
+create a redirect rule."* The record is the fix and the warning clears with it.
+
+**Do not create the redirect rule it offers.** Vercel already redirects `www` to
+the apex, and it has to be Vercel that does it: a Cloudflare Redirect Rule only
+fires on a **proxied** record, so taking that suggestion means turning the orange
+cloud on — the one thing that stops Vercel validating its certificate. Point
+`www` at Vercel and let Vercel answer it.
+
 Vercel's own note says the legacy `76.76.21.21` and `cname.vercel-dns.com` still
 work, so either is valid. Prefer the dedicated hostname: it keeps working when
 Vercel changes IPs, which is exactly what that note is warning about.
