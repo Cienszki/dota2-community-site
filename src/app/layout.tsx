@@ -27,8 +27,25 @@ const exo2 = Exo_2({
 // ISR: revalidate settings every 5 minutes instead of force-dynamic
 export const revalidate = 300;
 
+/**
+ * Origin that relative metadata URLs resolve against.
+ *
+ * This is why the Discord embed had no picture: `metadataBase` was hardcoded to
+ * dota2inhouse.pl, so `og:image` went out as
+ * `https://dota2inhouse.pl/images/...` while the site was still being served
+ * from the Vercel URL — and dota2inhouse.pl was still the tournament site, which
+ * 404s that path. Discord asked for an image that did not exist and drew the
+ * embed without one.
+ *
+ * Driven by `NEXT_PUBLIC_SITE_URL` (the variable the OAuth redirects already
+ * use, see lib/inhouse/oauth.ts) so the two cannot drift, and so the domain
+ * cutover is one environment change rather than a code change. The literal is
+ * the post-cutover answer and the right default.
+ */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || 'https://dota2inhouse.pl';
+
 export const metadata: Metadata = {
-  metadataBase: new URL('https://dota2inhouse.pl'),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: 'Polish Dota2 Inhouse | Główna Polska Społeczność Dota 2',
     template: '%s | Polish Dota2 Inhouse',
@@ -48,12 +65,20 @@ export const metadata: Metadata = {
     siteName: 'Polish Dota2 Inhouse',
     locale: 'pl_PL',
     type: 'website',
+    // The banner, not og-image.png — that one is 3840x2160 and 3.7 MB, which is
+    // above what Discord's image proxy will fetch, so it would stay blank even
+    // once the URL resolves. This is 3192x700 and 101 KB.
+    //
+    // Note the aspect ratio is 4.6:1 against the 1.91:1 that Discord and
+    // Facebook lay out for, so it renders as a short wide strip rather than a
+    // full card. That is a design call, not a bug — a 1200x630 version would
+    // fill the card.
     images: [
       {
-        url: '/images/og-image.png',
-        width: 3840,
-        height: 2160,
-        alt: 'Polish Dota2 Inhouse Banner',
+        url: '/images/og-embed.png',
+        width: 3192,
+        height: 700,
+        alt: 'Polish Dota2 Inhouse',
       },
     ],
   },
@@ -61,7 +86,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Polish Dota2 Inhouse | Polska Społeczność Dota 2',
     description: 'Oficjalna strona polskiej społeczności Dota 2. Turnieje, rankingi, magazyn Basher i liga inhouse.',
-    images: ['/images/og-image.png'],
+    images: ['/images/og-embed.png'],
   },
   robots: {
     index: true,

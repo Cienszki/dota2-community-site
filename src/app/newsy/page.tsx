@@ -15,12 +15,14 @@ export const metadata: Metadata = {
     siteName: 'Polish Dota2 Inhouse',
     locale: 'pl_PL',
     type: 'website',
+    // Same banner as the root layout, for the same reason: og-image.png is
+    // 3.7 MB, above what Discord's image proxy fetches.
     images: [
       {
-        url: '/images/og-image.png',
-        width: 3840,
-        height: 2160,
-        alt: 'Polish Dota2 Inhouse Banner',
+        url: '/images/og-embed.png',
+        width: 3192,
+        height: 700,
+        alt: 'Polish Dota2 Inhouse',
       },
     ],
   },
@@ -28,7 +30,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Aktualności i Wydarzenia | Polish Dota2 Inhouse',
     description: 'Aktualności o turniejach Dota 2, życiu polskiej społeczności oraz najważniejszych wydarzeniach ligowych.',
-    images: ['/images/og-image.png'],
+    images: ['/images/og-embed.png'],
   },
 };
 
