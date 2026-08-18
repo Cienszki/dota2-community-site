@@ -74,6 +74,24 @@ Everything in the codebase — sitemap, robots, canonical URLs, OAuth redirects 
 already assumes the bare domain. A www/non-www mismatch is the classic way to
 break Steam OpenID, which compares the realm against the return URL host.
 
+> ⚠️ **Check the direction Vercel picked for you.** Adding `www` first can leave
+> Vercel with the redirect the wrong way round — the Domains list then shows
+>
+> ```
+> dota2inhouse.pl   ↳ 308 → www.dota2inhouse.pl
+> ```
+>
+> which is backwards for this project. It must be `www.dota2inhouse.pl ↳ 308 →
+> dota2inhouse.pl`.
+>
+> To fix: **Edit** `dota2inhouse.pl` → set redirect to **No Redirect**. Then
+> **Edit** `www.dota2inhouse.pl` → redirect to `dota2inhouse.pl` (308).
+>
+> Left the wrong way round, every visitor lands on `www.`, while
+> `NEXT_PUBLIC_SITE_URL`, the sitemap, the canonicals and the OAuth callbacks all
+> say bare — so Steam OpenID compares a `www` return URL against a bare realm and
+> refuses, and Discord bounces on an unregistered redirect URI.
+
 Vercel will show **"Invalid Configuration"** until DNS points at it. That is
 expected — it's telling you what to do in step 3, not that anything is wrong.
 
@@ -81,17 +99,43 @@ expected — it's telling you what to do in step 3, not that anything is wrong.
 
 ## Step 3 — Switch DNS in Cloudflare
 
-Delete (or note down and replace) the existing A records that point at Firebase
-Hosting, and add what Vercel's Domains page shows you. Typically:
+**Write down the current apex record before you touch it.** As of 2026-08-19 it
+is:
 
-| Type | Name | Value | Proxy |
-|---|---|---|---|
-| A | `@` | `76.76.21.21` | **DNS only (grey)** |
-| CNAME | `www` | `cname.vercel-dns.com` | **DNS only (grey)** |
+```
+dota2inhouse.pl    A    199.36.158.100    DNS only
+```
 
-**Use exactly the values Vercel displays** — they are authoritative and do
-change. Cloudflare supports CNAME flattening at the apex, so if Vercel offers a
-CNAME for the root, that works too.
+That is Firebase Hosting, and it is the rollback. Note anything else at the
+apex (a second A, an AAAA) if present.
+
+Then make exactly two changes. Vercel issued this project a dedicated CNAME
+target — **use the value your Vercel Domains page shows**, not the one below, if
+they differ:
+
+| | Type | Name | Value | Proxy | TTL |
+|---|---|---|---|---|---|
+| **edit** | `A` → **`CNAME`** | `dota2inhouse.pl` (`@`) | `a1d066e46203d16d.vercel-dns-017.com` | **DNS only** | Auto |
+| **add** | `CNAME` | `www` | `a1d066e46203d16d.vercel-dns-017.com` | **DNS only** | Auto |
+
+A `CNAME` at the apex is fine here — Cloudflare flattens it automatically. Drop
+the trailing dot Vercel shows; Cloudflare adds it.
+
+Vercel's own note says the legacy `76.76.21.21` and `cname.vercel-dns.com` still
+work, so either is valid. Prefer the dedicated hostname: it keeps working when
+Vercel changes IPs, which is exactly what that note is warning about.
+
+### Do not touch anything else
+
+The zone has ~34 records, most of them `NS` delegations for subdomains
+(`mail`, `email`, `_dmarc`, `_domainkey`, `aws`, `dev`, `k8s`, `news`,
+`newsletter`, …) pointing at `ns1/ns2.seohost.pl`. **None of them is involved.**
+They delegate subdomains to another provider and changing them breaks mail and
+whatever else lives there. Only the apex record changes, and `www` is added.
+
+Cloudflare will keep warning that "Email cannot reach @dota2inhouse.pl" — that
+is pre-existing (there is no apex `MX`), unrelated to this cutover, and not
+something to fix under time pressure while flipping a domain.
 
 ### Grey cloud, not orange — this matters
 
