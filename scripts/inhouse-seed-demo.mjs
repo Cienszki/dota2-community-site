@@ -25,17 +25,7 @@ import { cert, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import fs from 'node:fs';
 
-/**
- * Keep the nine invented Steam accounts out of the public ranking.
- *
- * Ranking enrolment adds everyone who has played an inhouse, and it reads the
- * attendance ledger — which the seed writes. Without this, running migration
- * 024 would put nine accounts that do not exist onto the public ranking page
- * within one cron tick, where the daily OpenDota sync would then fail on each
- * of them forever. Best-effort: if Supabase isn't reachable, or migration 024
- * hasn't been run yet, the seed still succeeds and this is reported.
- */
-async function setSyntheticRankingExclusions(steamIds, remove) {
+function supabaseCreds() {
   let env;
   try {
     env = Object.fromEntries(
@@ -45,29 +35,78 @@ async function setSyntheticRankingExclusions(steamIds, remove) {
         .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]),
     );
   } catch {
-    return 'no .env.local — skipped';
+    return null;
   }
   const url = env.NEXT_PUBLIC_SUPABASE_URL;
   const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) return 'no Supabase credentials — skipped';
+  if (!url || !key) return null;
+  return { url, headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' } };
+}
 
-  const headers = { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
+/**
+ * Keep the nine invented Steam accounts out of the public ranking.
+ *
+ * Ranking enrolment adds everyone who has played an inhouse, and it reads the
+ * attendance ledger — which the seed writes. Without this, running migration
+ * 024 would put nine accounts onto the public ranking page within one cron
+ * tick, where the daily OpenDota sync would then fail on each of them forever.
+ * Best-effort: if Supabase isn't reachable, or migration 024 hasn't been run
+ * yet, the seed still succeeds and this is reported.
+ */
+async function excludeSyntheticFromRanking(steamIds) {
+  const creds = supabaseCreds();
+  if (!creds) return 'no Supabase credentials — skipped';
   try {
-    const res = remove
-      ? await fetch(`${url}/rest/v1/ranking_exclusions?steam_id=in.(${steamIds.join(',')})`, {
-          method: 'DELETE', headers,
-        })
-      : await fetch(`${url}/rest/v1/ranking_exclusions`, {
-          method: 'POST',
-          headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
-          body: JSON.stringify(
-            steamIds.map((id) => ({ steam_id: id, reason: 'demo seed — not a real account' })),
-          ),
-        });
+    const res = await fetch(`${creds.url}/rest/v1/ranking_exclusions`, {
+      method: 'POST',
+      headers: { ...creds.headers, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify(
+        steamIds.map((id) => ({ steam_id: id, reason: 'demo seed — not a real account' })),
+      ),
+    });
     if (!res.ok) return `HTTP ${res.status} (migration 024 not run?)`;
-    return remove ? 'lifted' : 'excluded';
+    return 'excluded';
   } catch (err) {
     return `failed: ${err.message}`;
+  }
+}
+
+/**
+ * Purge the synthetic accounts from the ranking — permanently.
+ *
+ * Deliberately **not** the inverse of the seed. An earlier version lifted the
+ * exclusions here, on the reasoning that the attendance rows were gone so
+ * nothing could re-enrol them. That was wrong twice over:
+ *
+ *   1. It never deleted the `ranking_leaderboard` rows themselves. Any account
+ *      enrolled before the exclusion existed stayed on the public ranking, and
+ *      the daily OpenDota sync kept trying to refresh it.
+ *   2. These Steam32 IDs (900000001…9) are *syntactically valid* and very
+ *      likely belong to real strangers. Re-listing them would put real people
+ *      on our ranking page because of our test data.
+ *
+ * So the exclusion stays forever, and the row is deleted. Same order as
+ * `excludeFromRanking` in src/lib/inhouse/ranking-enrol.ts, and for the same
+ * reason: record the exclusion *first*, so a sweep running concurrently cannot
+ * re-add the row in the gap between the delete and the insert.
+ */
+async function purgeSyntheticFromRanking(steamIds) {
+  const creds = supabaseCreds();
+  if (!creds) return 'no Supabase credentials — SKIPPED (they may still be listed)';
+
+  const excluded = await excludeSyntheticFromRanking(steamIds);
+  if (excluded !== 'excluded') return `exclusion write failed: ${excluded} — ranking row NOT deleted`;
+
+  try {
+    const res = await fetch(
+      `${creds.url}/rest/v1/ranking_leaderboard?steam_id=in.(${steamIds.join(',')})`,
+      { method: 'DELETE', headers: { ...creds.headers, Prefer: 'return=representation' } },
+    );
+    if (!res.ok) return `excluded, but leaderboard delete failed: HTTP ${res.status}`;
+    const removed = await res.json().catch(() => []);
+    return `excluded permanently, ${Array.isArray(removed) ? removed.length : 0} ranking row(s) deleted`;
+  } catch (err) {
+    return `excluded, but leaderboard delete failed: ${err.message}`;
   }
 }
 
@@ -308,12 +347,30 @@ if (PURGE) {
       .set({ value: highest, updatedAt: iso(Date.now()) }, { merge: true });
   }
 
+  const castIds = CAST.map((c) => c.steamId32);
   if (APPLY) {
-    const outcome = await setSyntheticRankingExclusions(CAST.map((c) => c.steamId32), true);
-    console.log(`  ranking exclusions for synthetic accounts: ${outcome}`);
+    console.log(`  ranking: ${await purgeSyntheticFromRanking(castIds)}`);
+  } else {
+    console.log(
+      `  ranking: would exclude ${castIds.length} synthetic accounts permanently ` +
+        'and delete any ranking_leaderboard rows they have',
+    );
   }
 
-  console.log(APPLY ? '\n✓ Seed data removed.\n' : '\nDry run complete. Re-run with --apply.\n');
+  if (APPLY) {
+    console.log('\n✓ Seed data removed.\n');
+    console.log('One thing left, and it is not something this script can do:\n');
+    console.log('  Medals are derived from match history by src/lib/inhouse/medal-awards.ts,');
+    console.log('  which did not exist when this script was written. Stripping DEMO_MEDALS by');
+    console.log('  id above only removes what the seed itself wrote — any medal the awarding');
+    console.log('  task computed *from* the seeded matches is still sitting on a player.');
+    console.log('  Recompute against what is actually left:\n');
+    console.log('    curl -H "Authorization: Bearer $CRON_SECRET" \\');
+    console.log('      "https://dota2inhouse.pl/api/cron/inhouse-ingest?medals=force&dryRun=1"\n');
+    console.log('  Check the reported counts, then re-run without &dryRun=1.\n');
+  } else {
+    console.log('\nDry run complete. Re-run with --apply.\n');
+  }
   process.exit(0);
 }
 
@@ -585,7 +642,7 @@ await db
   .doc('games')
   .set({ value: nextNumber - 1, updatedAt: iso(Date.now()) }, { merge: true });
 
-const exclusionOutcome = await setSyntheticRankingExclusions(CAST.map((c) => c.steamId32), false);
+const exclusionOutcome = await excludeSyntheticFromRanking(CAST.map((c) => c.steamId32));
 console.log(`  ranking exclusions for the 9 synthetic accounts: ${exclusionOutcome}`);
 
 console.log(`\n✓ Seeded. Log in with Discord as ${DISCORD_ID} and open /inhouse.\n`);
