@@ -56,7 +56,7 @@ export default function KontaktForm() {
   };
 
   return (
-    <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
+    <main className="relative bg-[#050505] text-slate-100 overflow-hidden">
       <SmoothScroll />
 
       {/* BACKGROUND */}
