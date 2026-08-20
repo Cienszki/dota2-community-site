@@ -97,9 +97,9 @@ function StreamerGrid({ streamers, liveChannels }: { streamers: Streamer[]; live
                   )}
                 </div>
                 {streamer.motto && (
-                  <p className="text-sm text-slate-400 leading-relaxed mb-4 line-clamp-3">
-                    {streamer.motto.length > 250
-                      ? streamer.motto.slice(0, 250) + '…'
+                  <p className="text-[11px] text-slate-400 leading-relaxed mb-4 line-clamp-3">
+                    {streamer.motto.length > 300
+                      ? streamer.motto.slice(0, 300) + '…'
                       : streamer.motto}
                   </p>
                 )}

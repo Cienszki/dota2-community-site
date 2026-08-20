@@ -2287,16 +2287,16 @@ export default function AdminPage() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                  Opis / motto (max 250 znaków)
+                  Opis / motto (max 300 znaków)
                 </label>
                 <textarea
-                  required maxLength={250} value={streamerMotto}
+                  required maxLength={300} value={streamerMotto}
                   onChange={(e) => { setStreamerMotto(e.target.value); setDirty(true); }}
                   placeholder="Krótki opis streamera..."
                   rows={3}
                   className="w-full max-w-lg bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all resize-none"
                 />
-                <p className="text-xs text-slate-500 mt-1">{streamerMotto.length}/250</p>
+                <p className="text-xs text-slate-500 mt-1">{streamerMotto.length}/300</p>
               </div>
 
               <div>
