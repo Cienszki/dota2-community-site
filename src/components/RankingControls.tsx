@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown, Lock } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -307,10 +307,10 @@ export default function RankingControls({ players }: RankingControlsProps) {
                       <span className="text-slate-500 text-lg">—</span>
                     ) : player.winRate === null ? (
                       <span
-                        className="text-slate-500 text-xs font-normal"
-                        title="Profil gracza ma prywatną historię meczów"
+                        className="inline-flex items-center justify-center gap-1 text-slate-500 text-xs font-normal"
+                        title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}
                       >
-                        Brak danych
+                        {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                       </span>
                     ) : (
                       player.winRate
@@ -322,10 +322,10 @@ export default function RankingControls({ players }: RankingControlsProps) {
                       <span className="text-slate-500 text-lg">—</span>
                     ) : player.trend === null ? (
                       <span
-                        className="text-slate-500 text-xs font-normal"
-                        title="Profil gracza ma prywatną historię meczów"
+                        className="inline-flex items-center justify-center gap-1 text-slate-500 text-xs font-normal"
+                        title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}
                       >
-                        Brak danych
+                        {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                       </span>
                     ) : player.trend >= 5 ? (
                       <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-sm" title="ON FIRE! Niesamowity winstreak!">
@@ -417,8 +417,8 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   {player.isOfficial ? (
                     'Winrate: —'
                   ) : player.winRate === null ? (
-                    <span className="font-normal text-slate-500" title="Profil gracza ma prywatną historię meczów">
-                      Brak danych meczowych
+                    <span className="inline-flex items-center gap-1 font-normal text-slate-500" title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}>
+                      {player.hasPublicMatches ? 'Brak danych meczowych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                     </span>
                   ) : (
                     `Winrate: ${player.winRate}`
@@ -428,8 +428,8 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   {player.isOfficial ? (
                     <span className="text-slate-500">Forma: —</span>
                   ) : player.trend === null ? (
-                    <span className="text-slate-500" title="Profil gracza ma prywatną historię meczów">
-                      Brak danych
+                    <span className="inline-flex items-center gap-1 text-slate-500" title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}>
+                      {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                     </span>
                   ) : player.trend >= 5 ? (
                     <span className="flex items-center gap-1 text-orange-400 font-black" title="ON FIRE! Niesamowity winstreak!">
