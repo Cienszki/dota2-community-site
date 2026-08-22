@@ -73,6 +73,124 @@ export async function deleteRankPlayer(steamId: string) {
   }
 }
 
+// The top-5000 JSON source (a separate repo's scraper) has no SteamID field
+// at all — these rows land in ranking_leaderboard as name + leaderboard_rank
+// only. The admin knows most of these players personally, so rather than
+// waiting for each one to self-link, they can attach a SteamID by hand here.
+// Once set, the existing daily sync-player-stats cron treats the row exactly
+// like a self-registered one — it syncs every row with a steam_id, with no
+// idea (or need to know) how that id got there.
+export async function getTop5000Players() {
+  try {
+    await checkAdminAuth();
+
+    const { data, error } = await supabaseAdmin
+      .from('ranking_leaderboard')
+      .select('id, name, source_name, leaderboard_rank, steam_id')
+      .eq('is_official_leaderboard', true)
+      .order('leaderboard_rank', { ascending: true });
+
+    if (error) throw error;
+
+    const normalized = (data ?? []).map((row) => ({
+      id: row.id as string,
+      name: row.name as string,
+      source_name: row.source_name as string | null,
+      leaderboard_rank: row.leaderboard_rank as number | null,
+      steam_id: row.steam_id as string | null,
+    }));
+
+    return { success: true as const, data: normalized };
+  } catch (err: unknown) {
+    console.error('Server action — getTop5000Players:', err);
+    const isAuthError = err instanceof Error && (err.message.startsWith('Unauthenticated') || err.message.startsWith('Unauthorized'));
+    return {
+      success: false as const,
+      error: isAuthError ? (err as Error).message : 'Wystąpił błąd podczas pobierania listy top 5000.',
+    };
+  }
+}
+
+export async function setTop5000SteamId(id: string, steamId: string | null) {
+  try {
+    await checkAdminAuth();
+
+    const trimmed = steamId?.trim() || null;
+    if (trimmed !== null && !/^\d+$/.test(trimmed)) {
+      return {
+        success: false as const,
+        error: 'SteamID musi być liczbą (32-bitowe Account ID — ten sam numer, co w linku do profilu Dotabuff/OpenDota).',
+      };
+    }
+
+    // Snapshot the top5000-source nickname the first time this row gets a
+    // SteamID — sync-player-stats overwrites `name` with OpenDota's live
+    // persona on its next run, and the JSON source never learns about
+    // renames, so this is the only chance to keep both around to cross-check.
+    const update: { steam_id: string | null; source_name?: string } = { steam_id: trimmed };
+    if (trimmed !== null) {
+      const { data: current, error: readError } = await supabaseAdmin
+        .from('ranking_leaderboard')
+        .select('name, source_name')
+        .eq('id', id)
+        .single();
+      if (readError) throw readError;
+      if (!current.source_name) {
+        update.source_name = current.name as string;
+      }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('ranking_leaderboard')
+      .update(update)
+      .eq('id', id);
+
+    if (error) {
+      // Postgres unique_violation — this SteamID is already on another row.
+      if (error.code === '23505') {
+        return { success: false as const, error: 'Ten SteamID jest już przypisany do innego gracza w rankingu.' };
+      }
+      throw error;
+    }
+
+    return { success: true as const };
+  } catch (err: unknown) {
+    console.error('Server action — setTop5000SteamId:', err);
+    const isAuthError = err instanceof Error && (err.message.startsWith('Unauthenticated') || err.message.startsWith('Unauthorized'));
+    return {
+      success: false as const,
+      error: isAuthError ? (err as Error).message : 'Wystąpił błąd podczas zapisywania SteamID.',
+    };
+  }
+}
+
+// Plain delete, not an exclusion list like ranking_exclusions (migration
+// 024) — that table exists for people who asked to be removed and must stay
+// removed. A top-5000 entry the admin deletes here can legitimately come
+// back on the next JSON scrape, and that's fine; this is just "get this row
+// out of my way right now", not a permanent opt-out.
+export async function deleteTop5000Player(id: string) {
+  try {
+    await checkAdminAuth();
+
+    const { error } = await supabaseAdmin
+      .from('ranking_leaderboard')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    return { success: true as const };
+  } catch (err: unknown) {
+    console.error('Server action — deleteTop5000Player:', err);
+    const isAuthError = err instanceof Error && (err.message.startsWith('Unauthenticated') || err.message.startsWith('Unauthorized'));
+    return {
+      success: false as const,
+      error: isAuthError ? (err as Error).message : 'Wystąpił błąd podczas usuwania gracza z listy.',
+    };
+  }
+}
+
 export async function addStreamer(formData: {
   nick: string;
   motto: string;

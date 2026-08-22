@@ -10,7 +10,7 @@ import Navbar from '@/components/Navbar';
 import {
   Trash2, Edit2, Plus, Save, X, Newspaper, ChevronDown,
   Settings, Upload, Trophy, BookOpen, Check, Users, Radio, MessageSquare, Star, FileText, GripVertical,
-  Swords, Eye, EyeOff, Gamepad2, ChevronRight, HelpCircle,
+  Swords, Eye, EyeOff, Gamepad2, ChevronRight, HelpCircle, ListOrdered,
 } from 'lucide-react';
 import RichTextEditor from '@/components/RichTextEditor';
 import { CONTENT_PAGES, type ContentSlug } from '@/lib/content-pages';
@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import {
   addStreamer, updateStreamer, deleteStreamer, updateStreamerPositions,
   getRankPlayers, deleteRankPlayer,
+  getTop5000Players, setTop5000SteamId, deleteTop5000Player,
   getContentPage, upsertContentPage, deleteContentPage,
   uploadNewsImage, saveNews, deleteNews, publishNews,
   saveGlobalSettings,
@@ -28,7 +29,7 @@ import {
 } from './actions';
 
 
-type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'streamers' | 'testimonials' | 'tournaments' | 'pages' | null;
+type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'top5000' | 'streamers' | 'testimonials' | 'tournaments' | 'pages' | null;
 
 const TOURNAMENT_TAGS = ['Zapisy otwarte', 'Trwający', 'Zakończony'] as const;
 
@@ -226,6 +227,16 @@ export default function AdminPage() {
   const [rankDeleting, setRankDeleting] = useState<string | null>(null);
   const [rankSuccess, setRankSuccess] = useState<string | null>(null);
   const [rankError, setRankError] = useState<string | null>(null);
+
+  // ── Top-5000 SteamID assignment state ──
+  const [top5000Players, setTop5000Players] = useState<{ id: string; name: string; source_name: string | null; leaderboard_rank: number | null; steam_id: string | null }[]>([]);
+  const [top5000Loading, setTop5000Loading] = useState(false);
+  const [top5000Search, setTop5000Search] = useState('');
+  const [top5000Edits, setTop5000Edits] = useState<Record<string, string>>({});
+  const [top5000Saving, setTop5000Saving] = useState<string | null>(null);
+  const [top5000Deleting, setTop5000Deleting] = useState<string | null>(null);
+  const [top5000Success, setTop5000Success] = useState<string | null>(null);
+  const [top5000Error, setTop5000Error] = useState<string | null>(null);
 
   // ── Streamers state ──
   const [streamerNick, setStreamerNick] = useState('');
@@ -597,6 +608,66 @@ export default function AdminPage() {
     setRankDeleting(null);
   };
 
+  const fetchTop5000Players = async () => {
+    setTop5000Loading(true);
+    const result = await getTop5000Players();
+    if (result.success) {
+      setTop5000Players(result.data);
+      setTop5000Edits(Object.fromEntries(result.data.map((p) => [p.id, p.steam_id ?? ''])));
+    }
+    setTop5000Loading(false);
+  };
+
+  const handleSaveTop5000SteamId = async (id: string) => {
+    const raw = (top5000Edits[id] ?? '').trim();
+    setTop5000Saving(id);
+    setTop5000Error(null);
+    setTop5000Success(null);
+    try {
+      const result = await setTop5000SteamId(id, raw === '' ? null : raw);
+      if (!result.success) throw new Error(result.error);
+      const savedValue = raw === '' ? null : raw;
+      setTop5000Players((prev) => prev.map((p) => (p.id === id ? { ...p, steam_id: savedValue } : p)));
+      setTop5000Success('SteamID zapisany.');
+      toast.success('SteamID zapisany.');
+      setTimeout(() => setTop5000Success(null), 3000);
+    } catch (err: unknown) {
+      console.error('Błąd zapisu SteamID:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd podczas zapisu SteamID.';
+      setTop5000Error(errorMsg);
+      toast.error(errorMsg);
+      setTimeout(() => setTop5000Error(null), 4000);
+    }
+    setTop5000Saving(null);
+  };
+
+  const handleDeleteTop5000Player = async (id: string, name: string) => {
+    if (!window.confirm(`Usunąć "${name}" z listy top 5000? Może wrócić przy kolejnym wygenerowaniu pliku JSON — to nic, po prostu zniknie z bieżącej listy.`)) return;
+    setTop5000Deleting(id);
+    setTop5000Error(null);
+    setTop5000Success(null);
+    try {
+      const result = await deleteTop5000Player(id);
+      if (!result.success) throw new Error(result.error);
+      setTop5000Players((prev) => prev.filter((p) => p.id !== id));
+      setTop5000Edits((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      setTop5000Success('Gracz usunięty z listy.');
+      toast.success('Gracz usunięty z listy.');
+      setTimeout(() => setTop5000Success(null), 3000);
+    } catch (err: unknown) {
+      console.error('Błąd usuwania gracza z top 5000:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Wystąpił błąd podczas usuwania gracza.';
+      setTop5000Error(errorMsg);
+      toast.error(errorMsg);
+      setTimeout(() => setTop5000Error(null), 4000);
+    }
+    setTop5000Deleting(null);
+  };
+
   // ── Streamers CRUD ──
 
   const fetchStreamers = async () => {
@@ -727,6 +798,7 @@ export default function AdminPage() {
       await fetchHofTournaments();
       await fetchBasherIssues();
       await fetchRankPlayers();
+      await fetchTop5000Players();
       await fetchStreamers();
       await fetchTestimonials();
       await fetchTournaments();
@@ -1134,6 +1206,7 @@ export default function AdminPage() {
     { tab: 'tournaments', icon: Swords, label: 'Co jest grane?' },
     { tab: 'basher', icon: BookOpen, label: 'Basher' },
     { tab: 'ranking', icon: Users, label: 'Ranking' },
+    { tab: 'top5000', icon: ListOrdered, label: 'Ranking 5k' },
     { tab: 'streamers', icon: Radio, label: 'Streamerzy' },
     { tab: 'testimonials', icon: MessageSquare, label: 'Opinie' },
     { tab: 'pages', icon: FileText, label: 'Strony' },
@@ -2238,6 +2311,151 @@ export default function AdminPage() {
             )}
             <p className="text-xs text-slate-500 mt-4">
               Łącznie zarejestrowanych graczy: {rankPlayers.length}
+            </p>
+          </div>
+        )}
+
+        {activeTab === 'top5000' && (
+          <div className="mb-10 bg-slate-900/40 border border-slate-700 rounded-3xl p-6 lg:p-8 backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-2 text-slate-200">
+                <ListOrdered className="w-5 h-5 text-red-500" /> Ranking 5k
+              </h2>
+              <button
+                type="button"
+                onClick={() => switchTab(null)}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-6 max-w-2xl leading-relaxed">
+              Lista z oficjalnego top 5000 (bez SteamID — tego pola nie ma w źródłowym pliku). Wpisz ręcznie
+              32-bitowe Account ID (ten sam numer co w linku do profilu Dotabuff/OpenDota), żeby gracz zaczął
+              zbierać realne statystyki — dociągnie je najbliższa nocna synchronizacja, tak samo jak przy
+              samodzielnym połączeniu konta.
+            </p>
+
+            {top5000Success && (
+              <div className="mb-4 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm px-4 py-3 rounded-xl">
+                {top5000Success}
+              </div>
+            )}
+            {top5000Error && (
+              <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-400 text-sm p-4 rounded-xl">
+                <p className="font-bold">Błąd: {top5000Error}</p>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <input
+                type="text"
+                value={top5000Search}
+                onChange={(e) => setTop5000Search(e.target.value)}
+                placeholder="Szukaj gracza po nicku..."
+                className="w-full max-w-md bg-[#181a20] border border-white/10 rounded-xl px-4 py-3 text-slate-200 placeholder-slate-600 focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            {top5000Loading ? (
+              <div className="flex items-center gap-3 text-slate-500 py-6">
+                <div className="w-5 h-5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
+                Ładowanie listy...
+              </div>
+            ) : top5000Players.length === 0 ? (
+              <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-8 text-center text-slate-500">
+                Brak graczy z top 5000 w bazie.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+                {top5000Players
+                  .filter((p) =>
+                    top5000Search === '' || p.name.toLowerCase().includes(top5000Search.toLowerCase())
+                  )
+                  .map((player) => {
+                    const edited = top5000Edits[player.id] ?? '';
+                    const rowDirty = edited.trim() !== (player.steam_id ?? '');
+                    return (
+                      <div
+                        key={player.id}
+                        className="bg-slate-900/20 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center hover:bg-slate-800/30 transition-all"
+                      >
+                        <div className="flex-1 min-w-0 flex items-center gap-3">
+                          <span className="text-xs font-black text-slate-500 w-12 shrink-0">
+                            {player.leaderboard_rank ? `#${player.leaderboard_rank}` : '—'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-base font-bold text-slate-200 truncate">
+                              {player.name}
+                              {player.source_name && player.source_name !== player.name && (
+                                <span className="ml-2 text-xs font-normal text-amber-500/80" title="Nick z listy top 5000 — zmienił się od czasu przypisania SteamID">
+                                  (top5000: {player.source_name})
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs mt-0.5 font-mono">
+                              {player.steam_id ? (
+                                <span className="text-emerald-500">Połączony: {player.steam_id}</span>
+                              ) : (
+                                <span className="text-slate-600">Brak SteamID</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={edited}
+                            onChange={(e) =>
+                              setTop5000Edits((prev) => ({ ...prev, [player.id]: e.target.value }))
+                            }
+                            placeholder="SteamID (Account ID)"
+                            className="flex-1 sm:w-48 bg-[#181a20] border border-white/10 rounded-xl px-3 py-2 text-sm text-slate-200 placeholder-slate-600 font-mono focus:ring-2 focus:ring-red-600 focus:border-transparent outline-none transition-all"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleSaveTop5000SteamId(player.id)}
+                            disabled={!rowDirty || top5000Saving === player.id}
+                            className="flex items-center gap-1.5 bg-slate-800 hover:bg-emerald-600/20 text-emerald-400 px-4 py-2 rounded-xl transition-all border border-transparent hover:border-emerald-500/30 text-xs font-bold disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                          >
+                            {top5000Saving === player.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Save className="w-3.5 h-3.5" />
+                            )}
+                            Zapisz
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTop5000Player(player.id, player.name)}
+                            disabled={top5000Deleting === player.id}
+                            className="flex items-center gap-1.5 bg-slate-800 hover:bg-red-600/20 text-red-400 p-2.5 rounded-xl transition-all border border-transparent hover:border-red-500/30 disabled:opacity-50 shrink-0"
+                            title="Usuń z listy"
+                          >
+                            {top5000Deleting === player.id ? (
+                              <div className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                {top5000Players.filter((p) =>
+                  top5000Search === '' || p.name.toLowerCase().includes(top5000Search.toLowerCase())
+                ).length === 0 && (
+                  <div className="bg-slate-900/20 border border-white/5 rounded-2xl p-6 text-center text-slate-500">
+                    Brak graczy spełniających kryteria wyszukiwania.
+                  </div>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-slate-500 mt-4">
+              Łącznie graczy z top 5000: {top5000Players.length} · z przypisanym SteamID:{' '}
+              {top5000Players.filter((p) => p.steam_id).length}
             </p>
           </div>
         )}
