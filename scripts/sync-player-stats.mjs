@@ -93,8 +93,73 @@ async function syncPlayer(steamId, fallbackName, fallbackAvatar) {
   };
 }
 
+// The top-5000 scraper (a separate repo, woocash88/dota2-pl-leaderboard)
+// matches its JSON entries against ranking_leaderboard by exact `name`, and
+// deletes any is_official_leaderboard row whose name no longer appears in
+// that JSON — unless the row has a steam_id, which it leaves alone. But once
+// this script renames such a row (line ~126, `name: stats.name`, refreshed
+// from the player's live OpenDota persona), the scraper's next run no longer
+// recognizes it by its old name, still finds that old name in the JSON, and
+// inserts a brand-new steam_id-less "ghost" row for it — the row we already
+// track survives (protected by its steam_id), but a stale duplicate now sits
+// next to it on /ranking.
+//
+// source_name (set once, by src/app/admin/actions.ts#setTop5000SteamId, at
+// the moment a steam_id is first attached) is the exact name the scraper
+// still expects, so it's an exact key for recognizing these ghosts — no
+// fuzzy name/rank matching needed, unlike the general "is this the same
+// person" problem this deliberately avoids solving.
+async function cleanupRenameGhosts() {
+  const { data: sourceNameRows, error: sourceErr } = await supabaseAdmin
+    .from('ranking_leaderboard')
+    .select('source_name')
+    .not('source_name', 'is', null);
+
+  if (sourceErr) {
+    console.error('Ghost cleanup: failed to read source_name rows:', sourceErr.message);
+    return { deleted: 0, failed: 0 };
+  }
+
+  const claimedNames = new Set((sourceNameRows ?? []).map((r) => r.source_name));
+  if (claimedNames.size === 0) return { deleted: 0, failed: 0 };
+
+  const { data: candidates, error: candidateErr } = await supabaseAdmin
+    .from('ranking_leaderboard')
+    .select('id, name')
+    .eq('is_official_leaderboard', true)
+    .is('steam_id', null);
+
+  if (candidateErr) {
+    console.error('Ghost cleanup: failed to read official rows:', candidateErr.message);
+    return { deleted: 0, failed: 0 };
+  }
+
+  let deleted = 0;
+  let failed = 0;
+  for (const candidate of candidates ?? []) {
+    if (!claimedNames.has(candidate.name)) continue;
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('ranking_leaderboard')
+      .delete()
+      .eq('id', candidate.id);
+
+    if (deleteError) {
+      failed++;
+      console.error(`Ghost cleanup: failed to delete '${candidate.name}':`, deleteError.message);
+    } else {
+      deleted++;
+      console.log(`Ghost cleanup: deleted duplicate '${candidate.name}' (already tracked under a renamed row).`);
+    }
+  }
+
+  return { deleted, failed };
+}
+
 async function main() {
   const startedAt = Date.now();
+
+  const ghostCleanup = await cleanupRenameGhosts();
 
   const { data: registeredPlayers, error } = await supabaseAdmin
     .from('ranking_leaderboard')
@@ -156,6 +221,8 @@ async function main() {
     processed,
     failed,
     failed_steam_ids: failedSteamIds,
+    ghosts_deleted: ghostCleanup.deleted,
+    ghost_cleanup_failed: ghostCleanup.failed,
     opendota_requests_made: requestsMade,
     duration_ms: Date.now() - startedAt,
   };
