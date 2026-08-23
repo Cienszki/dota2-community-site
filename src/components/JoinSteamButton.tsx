@@ -31,7 +31,7 @@ export default function JoinSteamButton() {
         <span className="flex items-center gap-2.5 h-12 px-7 bg-transparent border-[1.5px] border-[#E7000B] text-white font-extrabold text-sm uppercase tracking-wide -skew-x-[12deg] transition-colors duration-300 hover:bg-[#E7000B]/15">
           <span className="flex items-center gap-2 skew-x-[12deg] whitespace-nowrap">
             <LogIn className="w-[18px] h-[18px]" />
-            Połącz ze Steam
+            Dołącz do rankingu
           </span>
         </span>
       </a>
