@@ -148,6 +148,23 @@ export default function RankingControls({ players }: RankingControlsProps) {
   const getBaseRank = (p: PlayerData) =>
     p.isOfficial || (p.leaderboardRank !== null && p.leaderboardRank > 0) ? 8 : Math.floor(p.rankTier / 10);
 
+  // Which badge to show. Immortal-tier players split into two icons by how
+  // deep into the official numbered leaderboard they are — immortal2 for the
+  // very top (rank < 500), plain immortal for the rest — rather than on
+  // whether the row happens to carry live OpenDota stats (isOfficial), which
+  // was just an accident of how the two ranking sources merge and had
+  // nothing to do with actual rank (e.g. a #4 who hasn't linked Steam yet
+  // showed immortal2, while a linked #227 showed the plain badge).
+  const getRankIconSrc = (p: PlayerData) => {
+    if (p.leaderboardRank !== null && p.leaderboardRank > 0) {
+      return p.leaderboardRank < 500 ? '/ranks/immortal2.png' : '/ranks/immortal.png';
+    }
+    if (p.rankTier === 0) return '/ranks/unranked.png';
+    const badges = ['herald', 'guardian', 'crusader', 'archon', 'legend', 'ancient', 'divine', 'immortal'];
+    const idx = Math.floor(p.rankTier / 10) - 1;
+    return `/ranks/${badges[idx] || 'unranked'}.png`;
+  };
+
   // Global position must reflect each player's rank in the FULL leaderboard,
   // not their index within whatever subset the filters currently show —
   // filtering (e.g. down to just Ancient players) must not renumber #1..#N.
@@ -287,12 +304,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   <td className="py-1.5 pl-6 pr-3 text-left">
                     <div className="flex items-center justify-start gap-3">
                       <img
-                        src={player.isOfficial ? '/ranks/immortal2.png' : `/ranks/${(() => {
-                          if (player.rankTier === 0) return 'unranked';
-                          const badges = ['herald','guardian','crusader','archon','legend','ancient','divine','immortal'];
-                          const idx = Math.floor(player.rankTier / 10) - 1;
-                          return badges[idx] || 'unranked';
-                        })()}.png`}
+                        src={getRankIconSrc(player)}
                         alt=""
                         className="w-8 h-8 object-contain shrink-0"
                       />
@@ -396,12 +408,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   )}
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <img
-                      src={player.isOfficial ? '/ranks/immortal2.png' : `/ranks/${(() => {
-                        if (player.rankTier === 0) return 'unranked';
-                        const badges = ['herald','guardian','crusader','archon','legend','ancient','divine','immortal'];
-                        const idx = Math.floor(player.rankTier / 10) - 1;
-                        return badges[idx] || 'unranked';
-                      })()}.png`}
+                      src={getRankIconSrc(player)}
                       alt=""
                       className="w-4 h-4 object-contain shrink-0"
                     />
