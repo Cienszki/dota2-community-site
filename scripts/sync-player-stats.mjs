@@ -163,7 +163,7 @@ async function main() {
 
   const { data: registeredPlayers, error } = await supabaseAdmin
     .from('ranking_leaderboard')
-    .select('id, steam_id, name, avatar, leaderboard_rank')
+    .select('id, steam_id, name, source_name, avatar, leaderboard_rank')
     .not('steam_id', 'is', null);
 
   if (error) {
@@ -185,10 +185,20 @@ async function main() {
         const stats = await syncPlayer(player.steam_id, player.name, player.avatar);
         requestsMade += 2;
 
+        // A top-5000 player picks the nick they're listed under the moment
+        // an admin (or they themselves) attaches a SteamID — source_name
+        // pins it. Overwriting `name` with the live OpenDota persona after
+        // that isn't just a cosmetic surprise: the scraper matches its JSON
+        // rows against ours by exact name, so a rename breaks that match and
+        // recreates this same player as a fresh steam_id-less ghost on the
+        // scraper's next run (see cleanupRenameGhosts above, which mops up
+        // ghosts that slip through before this landed). Players who never
+        // came from the top-5000 list have no source_name and keep tracking
+        // their live nickname as before.
         const { error: updateError } = await supabaseAdmin
           .from('ranking_leaderboard')
           .update({
-            name: stats.name,
+            name: player.source_name || stats.name,
             avatar: stats.avatar,
             mmr: stats.mmr,
             rank_tier: stats.rank_tier,
