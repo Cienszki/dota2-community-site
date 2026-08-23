@@ -32,11 +32,12 @@ interface HomeClientProps {
   tournaments: TournamentCard[];
   testimonials: TestimonialCard[];
   partnerLink: string;
+  discordLink: string;
 }
 
 const discordCount = 2500;
 
-export default function HomeClient({ tournaments, testimonials, partnerLink }: HomeClientProps) {
+export default function HomeClient({ tournaments, testimonials, partnerLink, discordLink }: HomeClientProps) {
   // Parallax on the side hero art — direct style writes on scroll instead of
   // React state, so this doesn't trigger a re-render on every scroll pixel.
   const elderTitanRef = useRef<HTMLImageElement>(null);
@@ -167,7 +168,7 @@ export default function HomeClient({ tournaments, testimonials, partnerLink }: H
           {/* ─── CALL-TO-ACTION BUTTONS ─── */}
           <div className="flex flex-wrap justify-center gap-6 mt-6">
             <div className="glow-container">
-              <a href="https://discord.com/invite/ZxgmF7Kr4t" target="_blank" rel="noopener noreferrer" className="btn-hero h-12 flex items-center px-8 gap-3 text-xl">
+              <a href={discordLink} target="_blank" rel="noopener noreferrer" className="btn-hero h-12 flex items-center px-8 gap-3 text-xl">
                 <span>DOŁĄCZ DO NAS <Image src="/images/discord_logo.png" alt="Discord" width={619} height={469} className="w-7 h-7 object-contain shrink-0" /></span>
               </a>
             </div>

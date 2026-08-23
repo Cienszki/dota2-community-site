@@ -16,6 +16,8 @@ const MOCK_TESTIMONIALS: TestimonialCard[] = [
 ];
 
 const DEFAULT_PARTNER_LINK = 'https://dreammachines.pl/pl/?utm_content=dota2';
+// Same fallback Footer.tsx uses when the admin hasn't set one yet.
+const DEFAULT_DISCORD_LINK = 'https://discord.gg/ZxgmF7Kr4t';
 
 export default async function Home() {
   const [testimonialsResult, tournamentsResult, settings] = await Promise.all([
@@ -46,6 +48,14 @@ export default async function Home() {
       : MOCK_TOURNAMENTS;
 
   const partnerLink = settings.partner_link || DEFAULT_PARTNER_LINK;
+  const discordLink = settings.discord_link || DEFAULT_DISCORD_LINK;
 
-  return <HomeClient tournaments={tournaments} testimonials={testimonials} partnerLink={partnerLink} />;
+  return (
+    <HomeClient
+      tournaments={tournaments}
+      testimonials={testimonials}
+      partnerLink={partnerLink}
+      discordLink={discordLink}
+    />
+  );
 }
