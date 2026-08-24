@@ -2,10 +2,16 @@ name: Sync Player Stats
 
 on:
   schedule:
-    # 06:00 UTC ≈ 07:00 Poland time (CET, winter). During CEST (summer,
-    # UTC+2) this effectively runs at 08:00 local time — GitHub Actions cron
-    # has no timezone support, so a ~1h seasonal drift is expected.
-    - cron: '0 6 * * *'
+    # Offset 20 minutes after the top-5000 scraper's own 00:00/06:00/12:00/18:00
+    # UTC runs (woocash88/dota2-pl-leaderboard). That scraper matches its JSON
+    # rows against ours by exact name, and only skips deleting a stale
+    # official-only entry when it has a steam_id — so a player renamed since
+    # the scraper's last pass (see cleanupRenameGhosts in sync-player-stats.mjs)
+    # is briefly a name the scraper won't recognize, and it inserts a fresh
+    # ghost duplicate for the old one. Running once a day left that duplicate
+    # visible on /ranking for up to ~24h; running shortly after each of the
+    # scraper's four passes shrinks that window to well under an hour.
+    - cron: '20 0,6,12,18 * * *'
   workflow_dispatch: {}
 
 jobs:
