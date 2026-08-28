@@ -31,7 +31,18 @@ const LightPillar = ({
   noiseIntensity = 0.5,
   mixBlendMode = 'screen',
   pillarRotation = 0,
-  quality = 'high'
+  // `medium`, not `high`. Nothing on the site ever passed this prop, so all 14
+  // pages that mount a pillar were silently running the most expensive tier:
+  // 80 raymarch iterations x 4 noise octaves = 320 shader steps per pixel, at
+  // highp, over a two-megapixel buffer, thirty times a second. That is roughly
+  // nineteen billion shader steps per second to draw a soft glow that sits
+  // behind a gradient at 60% opacity.
+  //
+  // `medium` is 40 x 2 = 80 steps: a quarter of the work. What it costs is
+  // slightly coarser banding in a blur nobody is looking at directly. `high`
+  // remains available for anything that genuinely wants it — a hero on a page
+  // with nothing else running — it just stops being what you get by accident.
+  quality = 'medium'
 }: LightPillarProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
@@ -159,6 +170,13 @@ const LightPillar = ({
     // melted. Quality now starts where asked and is *measured* down below —
     // frame time is the only signal that reflects the machine actually running
     // the page. Mobile still starts low, where the answer is never in doubt.
+    // `prefers-reduced-motion` means what it says: draw the pillar once and
+    // leave it there. The frame still renders, so the page looks identical on
+    // arrival — it simply stops costing anything a moment later.
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
     const effectiveQuality = isMobile ? 'low' : quality;
 
     const qualitySettings = {
@@ -184,8 +202,14 @@ const LightPillar = ({
      * no detail in it to lose by rendering fewer pixels and letting the GPU
      * upscale — which is why this is the one lever with real impact and no
      * visible cost.
+     *
+     * Lowered from 2.0M after a player on a healthy Windows box reported the
+     * whole site stuttering in Firefox, with about:processes showing 7.2% CPU
+     * and 4.5% GPU while sitting perfectly still. Every page except the
+     * separately-hosted tournament app was affected, which is the shape of a
+     * cost paid by the one component they all share.
      */
-    const PIXEL_BUDGET = 2_000_000;
+    const PIXEL_BUDGET = 1_200_000;
     const budgetRatio = (w: number, h: number) =>
       Math.max(0.35, Math.min(1, Math.sqrt(PIXEL_BUDGET / Math.max(1, w * h))));
 
@@ -383,6 +407,14 @@ const LightPillar = ({
 
     const animate = (currentTime: number) => {
       if (!materialRef.current || !rendererRef.current || !sceneRef.current || !cameraRef.current) return;
+
+      // One frame, then stop entirely — no rAF rescheduled, so the loop costs
+      // nothing at all rather than merely less.
+      if (reducedMotion) {
+        materialRef.current.uniforms.uTime.value = timeRef.current;
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+        return;
+      }
 
       if (!visible || !onScreen) {
         rafRef.current = requestAnimationFrame(animate);
