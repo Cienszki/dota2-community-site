@@ -110,12 +110,14 @@ export default function SettingsForm({ initial }: { initial: ResolvedSettings })
           <Check name="immortalDraft" label="Immortal Draft" checked={initial.immortalDraft} />
         </div>
         <p className="text-slate-600 text-xs mt-3">
-          <b className="text-amber-400/90">Immortal Draft nie działa</b> — ustawienie zapisuje się,
-          ale bot go nie wysyła do Game Coordinatora (stan na 2026-08-13, potwierdzone przez zespół
-          bota). Brakuje trzech rzeczy: mapowania pola{' '}
-          <code className="text-slate-400">do_player_draft</code>, wpisu na białej liście opcji w
-          node-dota2 i samego pola w schemacie protobuf. Zaznaczenie tego pola nie zepsuje lobby —
-          po prostu nic nie zrobi, a drużyny nadal ustawiacie sami.
+          <b className="text-emerald-400/90">Immortal Draft działa</b> — bot wysyła{' '}
+          <code className="text-slate-400">do_player_draft</code> do Game Coordinatora. Wszystkie
+          trzy brakujące wcześniej elementy są na miejscu (stan na 2026-08-18): mapowanie pola, wpis
+          na białej liście opcji w node-dota2 i pole 53 w schemacie protobuf — bez niego build
+          workera się nie powiedzie, więc nie da się tego po cichu zgubić.
+          {' '}Przy włączonym Immortal Drafcie gracze <b>zostają w puli nieprzypisanych</b>, a składy
+          dobiera GC przy starcie — dlatego bot nie wymaga wtedy ustawienia się 5-5 przed{' '}
+          <code className="text-slate-400">!start</code>. Przy wyłączonym nadal wymaga.
         </p>
       </Section>
 
