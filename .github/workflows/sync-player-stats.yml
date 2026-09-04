@@ -14,6 +14,31 @@ on:
     - cron: '20 0,6,12,18 * * *'
   workflow_dispatch: {}
 
+  # The version of the above that does not rely on a guess, inert until the
+  # scraper calls it.
+  #
+  # Twenty minutes is an estimate about a best-effort scheduler, and :00 is its
+  # most congested slot — GitHub makes no promise about when a scheduled run
+  # starts, so a badly delayed scraper can still finish after our pass and
+  # re-open the window the offset exists to close. A dispatch sent when the
+  # scraper *has finished* replaces "probably long enough" with "afterwards".
+  #
+  # The scraper repo already accepts repository_dispatch from us, so only the
+  # reverse call is missing. Add a final step to
+  # woocash88/dota2-pl-leaderboard/.github/workflows/update.yml:
+  #
+  #   - name: Tell the site to re-sync
+  #     run: |
+  #       curl -X POST -H "Accept: application/vnd.github+json" \
+  #         -H "Authorization: Bearer ${{ secrets.SITE_REPO_DISPATCH_TOKEN }}" \
+  #         https://api.github.com/repos/Cienszki/dota2-community-site/dispatches \
+  #         -d '{"event_type":"leaderboard-updated"}'
+  #
+  # The token needs only `repo` scope on this repository. The cron above stays
+  # as the safety net for a scraper run that fails before reaching that step.
+  repository_dispatch:
+    types: [leaderboard-updated]
+
 jobs:
   sync:
     runs-on: ubuntu-latest
