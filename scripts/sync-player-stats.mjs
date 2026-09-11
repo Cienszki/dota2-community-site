@@ -202,7 +202,7 @@ async function main() {
             avatar: stats.avatar,
             mmr: stats.mmr,
             rank_tier: stats.rank_tier,
-            leaderboard_rank: player.leaderboard_rank ?? stats.leaderboard_rank,
+            leaderboard_rank: stats.leaderboard_rank,
             win_rate: stats.win_rate,
             form: stats.form,
             has_public_matches: stats.has_public_matches,
