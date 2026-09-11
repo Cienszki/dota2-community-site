@@ -195,19 +195,38 @@ async function main() {
         // ghosts that slip through before this landed). Players who never
         // came from the top-5000 list have no source_name and keep tracking
         // their live nickname as before.
+        //
+        // leaderboard_rank gets the same source_name-gated treatment, for a
+        // related but distinct reason: OpenDota's own leaderboard_rank can
+        // lag behind Valve's actual official leaderboard by a meaningful
+        // margin (observed case: a player already dropped to a plain
+        // Immortal per Valve/Stratz, but OpenDota still reported their old
+        // numbered rank). The top-5000 scraper hits Valve's leaderboard
+        // directly, so for players it manages (source_name set), it is the
+        // sole source of truth for leaderboard_rank — this script must not
+        // overwrite that with OpenDota's laggier copy, in either direction:
+        // neither keeping a stale old value (the original bug) nor applying
+        // OpenDota's own stale "still ranked" value (this one). The
+        // scraper's own sync (sync_to_supabase.py) is responsible for
+        // clearing leaderboard_rank to null once a source_name-tracked
+        // player actually falls out of its fetched list.
+        const isScraperManaged = !!player.source_name;
+
+        const updatePayload = {
+          name: player.source_name || stats.name,
+          avatar: stats.avatar,
+          mmr: stats.mmr,
+          rank_tier: stats.rank_tier,
+          win_rate: stats.win_rate,
+          form: stats.form,
+          has_public_matches: stats.has_public_matches,
+          last_synced_at: new Date().toISOString(),
+          ...(isScraperManaged ? {} : { leaderboard_rank: stats.leaderboard_rank }),
+        };
+
         const { error: updateError } = await supabaseAdmin
           .from('ranking_leaderboard')
-          .update({
-            name: player.source_name || stats.name,
-            avatar: stats.avatar,
-            mmr: stats.mmr,
-            rank_tier: stats.rank_tier,
-            leaderboard_rank: stats.leaderboard_rank,
-            win_rate: stats.win_rate,
-            form: stats.form,
-            has_public_matches: stats.has_public_matches,
-            last_synced_at: new Date().toISOString(),
-          })
+          .update(updatePayload)
           .eq('id', player.id);
 
         if (updateError) throw updateError;
