@@ -86,7 +86,13 @@ async function syncPlayer(steamId, fallbackName, fallbackAvatar) {
     avatar: profile.profile?.avatarfull || fallbackAvatar || FALLBACK_AVATAR,
     mmr: profile.mmr_estimate?.estimate ?? null,
     rank_tier: profile.rank_tier ?? null,
-    leaderboard_rank: profile.leaderboard_rank ?? null,
+    // NOTE: profile.leaderboard_rank is intentionally NOT used anywhere
+    // below. OpenDota's own copy of this field has been observed to lag
+    // behind Valve's actual official leaderboard by a meaningful margin
+    // (a player can already show as a plain Immortal on Stratz/Valve while
+    // OpenDota still reports their old numbered rank). See the
+    // officialRankByName cross-check in main() for the field this script
+    // actually trusts instead.
     win_rate: winRate,
     form,
     has_public_matches: hasPublicMatches,
@@ -156,10 +162,41 @@ async function cleanupRenameGhosts() {
   return { deleted, failed };
 }
 
+// Valve's public leaderboard API (which the top-5000 scraper reads) exposes
+// only `name` + `rank` — no account_id — so there is no stable ID to match
+// "is this player currently on the official leaderboard?" against. Instead
+// of trusting OpenDota's own (laggy) profile.leaderboard_rank, cross-check
+// against the SAME ranking_leaderboard table: any row the scraper currently
+// considers official (is_official_leaderboard = true) is refreshed straight
+// from Valve up to 4x/day, making it the freshest source available for this
+// specific field, constraints and all.
+//
+// This is fetched once, up front, as a name -> leaderboard_rank map, rather
+// than one query per player — same "fetch once, look up locally" pattern as
+// cleanupRenameGhosts above.
+async function loadOfficialRankByName() {
+  const { data, error } = await supabaseAdmin
+    .from('ranking_leaderboard')
+    .select('name, leaderboard_rank')
+    .eq('is_official_leaderboard', true);
+
+  if (error) {
+    console.error('Failed to load official leaderboard rows for cross-check:', error.message);
+    return new Map();
+  }
+
+  return new Map(
+    (data ?? [])
+      .filter((row) => row.name)
+      .map((row) => [row.name.trim().toLowerCase(), row.leaderboard_rank])
+  );
+}
+
 async function main() {
   const startedAt = Date.now();
 
   const ghostCleanup = await cleanupRenameGhosts();
+  const officialRankByName = await loadOfficialRankByName();
 
   const { data: registeredPlayers, error } = await supabaseAdmin
     .from('ranking_leaderboard')
@@ -195,38 +232,32 @@ async function main() {
         // ghosts that slip through before this landed). Players who never
         // came from the top-5000 list have no source_name and keep tracking
         // their live nickname as before.
-        //
-        // leaderboard_rank gets the same source_name-gated treatment, for a
-        // related but distinct reason: OpenDota's own leaderboard_rank can
-        // lag behind Valve's actual official leaderboard by a meaningful
-        // margin (observed case: a player already dropped to a plain
-        // Immortal per Valve/Stratz, but OpenDota still reported their old
-        // numbered rank). The top-5000 scraper hits Valve's leaderboard
-        // directly, so for players it manages (source_name set), it is the
-        // sole source of truth for leaderboard_rank — this script must not
-        // overwrite that with OpenDota's laggier copy, in either direction:
-        // neither keeping a stale old value (the original bug) nor applying
-        // OpenDota's own stale "still ranked" value (this one). The
-        // scraper's own sync (sync_to_supabase.py) is responsible for
-        // clearing leaderboard_rank to null once a source_name-tracked
-        // player actually falls out of its fetched list.
-        const isScraperManaged = !!player.source_name;
+        const resolvedName = player.source_name || stats.name;
 
-        const updatePayload = {
-          name: player.source_name || stats.name,
-          avatar: stats.avatar,
-          mmr: stats.mmr,
-          rank_tier: stats.rank_tier,
-          win_rate: stats.win_rate,
-          form: stats.form,
-          has_public_matches: stats.has_public_matches,
-          last_synced_at: new Date().toISOString(),
-          ...(isScraperManaged ? {} : { leaderboard_rank: stats.leaderboard_rank }),
-        };
+        // leaderboard_rank now comes exclusively from the officialRankByName
+        // cross-check (keyed on whichever name the scraper would currently
+        // recognize this player under — source_name if pinned, else their
+        // live OpenDota persona). No row match there means this player is
+        // not on the scraper's current, Valve-sourced Top 5000 fetch, so
+        // leaderboard_rank is cleared to null and the frontend falls back
+        // to displaying rank_tier instead (e.g. plain "Immortal"/"Divine")
+        // — see getRankName in RankingControls.tsx.
+        const leaderboardRank =
+          officialRankByName.get(resolvedName.trim().toLowerCase()) ?? null;
 
         const { error: updateError } = await supabaseAdmin
           .from('ranking_leaderboard')
-          .update(updatePayload)
+          .update({
+            name: resolvedName,
+            avatar: stats.avatar,
+            mmr: stats.mmr,
+            rank_tier: stats.rank_tier,
+            leaderboard_rank: leaderboardRank,
+            win_rate: stats.win_rate,
+            form: stats.form,
+            has_public_matches: stats.has_public_matches,
+            last_synced_at: new Date().toISOString(),
+          })
           .eq('id', player.id);
 
         if (updateError) throw updateError;
