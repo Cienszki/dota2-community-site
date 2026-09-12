@@ -1,14 +1,4 @@
 #!/usr/bin/env node
-// Daily OpenDota -> Supabase sync for registered ranking players.
-//
-// Runs standalone (no Next.js dependency) so it can be triggered directly by
-// GitHub Actions (.github/workflows/sync-player-stats.yml) without the site
-// needing to be deployed anywhere — this script talks straight to Supabase's
-// and OpenDota's public APIs.
-//
-// Usage: node scripts/sync-player-stats.mjs
-// Required env vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
-
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
