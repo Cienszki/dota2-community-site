@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown, Lock } from 'lucide-react';
+import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown, Lock, ArrowUp } from 'lucide-react';
 
 interface PlayerData {
   id: number;
@@ -120,6 +120,31 @@ function RankCell({ position }: { position: number }) {
     <span className="font-black text-base text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">
       #{position}
     </span>
+  );
+}
+
+// ── Scroll to top ──
+
+function ScrollToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setVisible(window.scrollY > 400);
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Powrót do góry"
+      className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
+    >
+      <ArrowUp className="w-5 h-5" />
+    </button>
   );
 }
 
@@ -465,6 +490,8 @@ export default function RankingControls({ players }: RankingControlsProps) {
           </div>
         )}
       </div>
+
+      <ScrollToTopButton />
 
     </div>
   );
