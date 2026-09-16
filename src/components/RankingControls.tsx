@@ -137,14 +137,22 @@ function ScrollToTopButton() {
 
   if (!visible) return null;
 
+  // A full-width fixed strip (so it still tracks the viewport while
+  // scrolling) with the button positioned inside a max-w-5xl column matching
+  // the table above — keeps it near the table's right edge instead of glued
+  // to the screen's corner on wide viewports.
   return (
-    <button
-      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-      aria-label="Powrót do góry"
-      className="fixed bottom-6 right-6 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
-    >
-      <ArrowUp className="w-5 h-5" />
-    </button>
+    <div className="fixed inset-x-0 bottom-6 z-40 pointer-events-none">
+      <div className="max-w-5xl mx-auto relative px-6">
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Powrót do góry"
+          className="pointer-events-auto absolute right-6 bottom-0 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
   );
 }
 
