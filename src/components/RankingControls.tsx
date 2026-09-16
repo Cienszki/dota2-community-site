@@ -126,7 +126,7 @@ function RankCell({ position }: { position: number }) {
 // ── Scroll to top ──
 
 const SCROLL_TOP_BUTTON_WIDTH = 48;
-const SCROLL_TOP_GAP_FROM_TABLE = 16;
+const SCROLL_TOP_GAP_FROM_TABLE = 100;
 // The table's own right-hand gutter (from its max-w-5xl vs. the section's
 // max-w-7xl/px-6) only exceeds a full button-plus-gap width once the
 // viewport is roughly 1200px+ — comfortably true at ordinary laptop/desktop
@@ -153,10 +153,14 @@ function ScrollToTopButton() {
       frame = null;
       setVisible(window.scrollY > 400);
 
+      // On mobile this node exists in the DOM but is `hidden md:block` —
+      // still findable by querySelector, but getBoundingClientRect on a
+      // display:none element returns an all-zero rect rather than null, so
+      // presence alone isn't enough; check it's actually laid out.
       const table = document.querySelector('[data-ranking-table]');
-      if (table) {
-        const { right } = table.getBoundingClientRect();
-        const desired = window.innerWidth - SCROLL_TOP_BUTTON_WIDTH - SCROLL_TOP_GAP_FROM_TABLE - right;
+      const rect = table?.getBoundingClientRect();
+      if (rect && rect.width > 0) {
+        const desired = window.innerWidth - SCROLL_TOP_BUTTON_WIDTH - SCROLL_TOP_GAP_FROM_TABLE - rect.right;
         setRightOffset(Math.max(desired, SCROLL_TOP_MIN_MARGIN));
       } else {
         // Mobile: no desktop table to sit beside — the usual floating corner.
@@ -180,7 +184,14 @@ function ScrollToTopButton() {
 
   if (!visible) return null;
 
-  return (
+  // Portalled straight to <body>: nested inside the ranking page's own
+  // `relative z-10` section, this button's z-40 only out-ranks its siblings
+  // *within* that section — it can't out-rank the footer (a separate
+  // `relative z-10` sibling rendered after `{children}` in layout.tsx), so
+  // near the bottom of the page the footer was silently eating its clicks
+  // despite sitting visually "under" it. Escaping to `document.body` makes
+  // it a true sibling of the footer, where z-40 actually wins.
+  return createPortal(
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
       aria-label="Powrót do góry"
@@ -188,7 +199,8 @@ function ScrollToTopButton() {
       className="fixed bottom-6 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
     >
       <ArrowUp className="w-5 h-5" />
-    </button>
+    </button>,
+    document.body
   );
 }
 
