@@ -125,34 +125,70 @@ function RankCell({ position }: { position: number }) {
 
 // ── Scroll to top ──
 
+const SCROLL_TOP_BUTTON_WIDTH = 48;
+const SCROLL_TOP_GAP_FROM_TABLE = 16;
+// The table's own right-hand gutter (from its max-w-5xl vs. the section's
+// max-w-7xl/px-6) only exceeds a full button-plus-gap width once the
+// viewport is roughly 1200px+ — comfortably true at ordinary laptop/desktop
+// resolutions, but not at some narrower "still desktop-table" widths. There
+// the table has less than 48+16px of room beside it inside the viewport at
+// all, so some overlap with its last column is geometrically unavoidable —
+// this floor only keeps the button off the literal edge of the screen.
+const SCROLL_TOP_MIN_MARGIN = 8;
+
 function ScrollToTopButton() {
   const [visible, setVisible] = useState(false);
+  // CSS `right` value, in px. Measured off the actual table element rather
+  // than assumed from a matching max-w wrapper — the table's own max-w-5xl
+  // only leaves room beside it once the viewport is well past that width;
+  // below that (a very common laptop width) a CSS-only gutter collapses to
+  // zero and the button lands back on top of the table. Recomputed on
+  // scroll/resize since that gutter's width depends on both.
+  const [rightOffset, setRightOffset] = useState(SCROLL_TOP_MIN_MARGIN);
 
   useEffect(() => {
-    const handleScroll = () => setVisible(window.scrollY > 400);
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    let frame: number | null = null;
+
+    const update = () => {
+      frame = null;
+      setVisible(window.scrollY > 400);
+
+      const table = document.querySelector('[data-ranking-table]');
+      if (table) {
+        const { right } = table.getBoundingClientRect();
+        const desired = window.innerWidth - SCROLL_TOP_BUTTON_WIDTH - SCROLL_TOP_GAP_FROM_TABLE - right;
+        setRightOffset(Math.max(desired, SCROLL_TOP_MIN_MARGIN));
+      } else {
+        // Mobile: no desktop table to sit beside — the usual floating corner.
+        setRightOffset(SCROLL_TOP_MIN_MARGIN);
+      }
+    };
+
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
   }, []);
 
   if (!visible) return null;
 
-  // A full-width fixed strip (so it still tracks the viewport while
-  // scrolling) with the button positioned inside a max-w-5xl column matching
-  // the table above — keeps it near the table's right edge instead of glued
-  // to the screen's corner on wide viewports.
   return (
-    <div className="fixed inset-x-0 bottom-6 z-40 pointer-events-none">
-      <div className="max-w-5xl mx-auto relative px-6">
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          aria-label="Powrót do góry"
-          className="pointer-events-auto absolute right-6 bottom-0 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
-        >
-          <ArrowUp className="w-5 h-5" />
-        </button>
-      </div>
-    </div>
+    <button
+      onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+      aria-label="Powrót do góry"
+      style={{ right: rightOffset }}
+      className="fixed bottom-6 z-40 flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-red-600 to-orange-500 text-white shadow-[0_4px_20px_rgba(239,68,68,0.4)] hover:scale-110 transition-transform"
+    >
+      <ArrowUp className="w-5 h-5" />
+    </button>
   );
 }
 
@@ -277,7 +313,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block max-w-5xl mx-auto bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
+      <div data-ranking-table className="hidden md:block max-w-5xl mx-auto bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl backdrop-blur-md shadow-2xl overflow-x-auto">
         <table className="w-full text-left border-collapse table-fixed text-sm">
           <thead>
             <tr className="border-b border-white/[0.08] text-slate-400 text-sm font-bold uppercase tracking-wider bg-white/5">
