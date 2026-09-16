@@ -2,26 +2,32 @@ name: Sync Player Stats
 
 on:
   schedule:
-    # Offset 20 minutes after the top-5000 scraper's own 00:00/06:00/12:00/18:00
-    # UTC runs (woocash88/dota2-pl-leaderboard). That scraper matches its JSON
-    # rows against ours by exact name, and only skips deleting a stale
+    # Offset 10 minutes after the top-5000 scraper's own 00:18/06:18/12:18/18:18
+    # Europe/Warsaw runs (woocash88/dota2-pl-leaderboard). That scraper matches
+    # its JSON rows against ours by exact name, and only skips deleting a stale
     # official-only entry when it has a steam_id — so a player renamed since
     # the scraper's last pass (see cleanupRenameGhosts in sync-player-stats.mjs)
     # is briefly a name the scraper won't recognize, and it inserts a fresh
-    # ghost duplicate for the old one. Running once a day left that duplicate
-    # visible on /ranking for up to ~24h; running shortly after each of the
-    # scraper's four passes shrinks that window to well under an hour.
-    - cron: '20 0,6,12,18 * * *'
+    # ghost duplicate for the old one. Running shortly after each of the
+    # scraper's four passes keeps that window well under an hour.
+    #
+    # GitHub Actions cron is UTC-only, and Warsaw alternates CEST (UTC+2) /
+    # CET (UTC+1), so two entries are needed to keep 00:28/06:28/12:28/18:28
+    # Warsaw time year-round. The Apr-Oct / Nov-Mar split approximates the
+    # actual last-Sunday-of-March/October DST switch — off by up to an hour
+    # only in the transition week itself, which doesn't matter here.
+    - cron: '28 4,10,16,22 * 4-10 *'      # Apr-Oct (CEST, UTC+2)
+    - cron: '28 5,11,17,23 * 11,12,1,2,3 *' # Nov-Mar (CET, UTC+1)
   workflow_dispatch: {}
 
   # The version of the above that does not rely on a guess, inert until the
   # scraper calls it.
   #
-  # Twenty minutes is an estimate about a best-effort scheduler, and :00 is its
-  # most congested slot — GitHub makes no promise about when a scheduled run
-  # starts, so a badly delayed scraper can still finish after our pass and
-  # re-open the window the offset exists to close. A dispatch sent when the
-  # scraper *has finished* replaces "probably long enough" with "afterwards".
+  # Ten minutes is an estimate about a best-effort scheduler — GitHub makes no
+  # promise about when a scheduled run actually starts, so a badly delayed
+  # scraper can still finish after our pass and re-open the window the offset
+  # exists to close. A dispatch sent when the scraper *has finished* replaces
+  # "probably long enough" with "afterwards".
   #
   # The scraper repo already accepts repository_dispatch from us, so only the
   # reverse call is missing. Add a final step to
