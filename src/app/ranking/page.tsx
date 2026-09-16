@@ -17,7 +17,13 @@ export const metadata: Metadata = {
 };
 
 
-export const revalidate = 0;
+// Data changes only when the daily sync-player-stats cron writes to Supabase
+// (4x/day, see .github/workflows/sync-player-stats.yml) — that same run also
+// calls /api/cron/revalidate-ranking right after, which invalidates this page
+// on-demand within seconds. 6h is just the safety net for if that call ever
+// fails to fire; visitors between syncs are served the cached render instead
+// of hitting Supabase on every request.
+export const revalidate = 21600;
 
 interface PlayerData {
   id: number;

@@ -64,3 +64,33 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/sync-player-stats.mjs
+
+      - name: Revalidate /ranking
+        # /ranking is cached (see `revalidate` export in src/app/ranking/page.tsx)
+        # so visitors don't hit Supabase on every request — this makes the new
+        # data visible within seconds instead of waiting for that cache's own
+        # 6h fallback. INHOUSE_SITE_URL is the same secret inhouse-ingest.yml
+        # already uses; it's just the site's base URL despite the name.
+        env:
+          SITE_URL: ${{ secrets.INHOUSE_SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::warning::INHOUSE_SITE_URL or CRON_SECRET not set — skipping /ranking revalidation (6h cache fallback still applies)"
+            exit 0
+          fi
+
+          code=$(curl -sS -o /tmp/revalidate.json -w '%{http_code}' --max-time 30 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/cron/revalidate-ranking")
+
+          echo "HTTP $code"
+          cat /tmp/revalidate.json || true
+          echo ""
+
+          # Best-effort: the stats sync above already succeeded, so a failed
+          # revalidation call shouldn't fail the whole run — the 6h fallback
+          # covers it either way.
+          if [ "$code" != "200" ]; then
+            echo "::warning::Revalidation call returned HTTP $code"
+          fi
