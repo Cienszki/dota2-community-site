@@ -232,7 +232,7 @@ async function main() {
         // ghosts that slip through before this landed). Players who never
         // came from the top-5000 list have no source_name and keep tracking
         // their live nickname as before.
-        const resolvedName = player.source_name || stats.name;
+        const resolvedName = stats.name;
 
         // leaderboard_rank now comes exclusively from the officialRankByName
         // cross-check (keyed on whichever name the scraper would currently
