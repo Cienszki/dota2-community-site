@@ -421,7 +421,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                         {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                       </span>
                     ) : player.trend >= 5 ? (
-                      <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-sm" title="ON FIRE! Niesamowity winstreak!">
+                      <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-sm" title="ON FIRE! Niesamowity bilans!">
                         <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
                         <span>+{player.trend}</span>
                       </div>
@@ -520,7 +520,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                       {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                     </span>
                   ) : player.trend >= 5 ? (
-                    <span className="flex items-center gap-1 text-orange-400 font-black" title="ON FIRE! Niesamowity winstreak!">
+                    <span className="flex items-center gap-1 text-orange-400 font-black" title="ON FIRE! Niesamowity bilans!">
                       <Flame className="w-3.5 h-3.5 fill-orange-500" />+{player.trend}
                     </span>
                   ) : player.trend > 0 ? (
