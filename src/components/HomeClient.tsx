@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
@@ -37,11 +37,32 @@ interface HomeClientProps {
 
 const discordCount = 2500;
 
+// Fisher-Yates shuffle — used only client-side (see the useEffect below) so
+// the server-rendered order and the first client render still match exactly,
+// avoiding a hydration mismatch. The marquee then starts from a different
+// testimonial on every page load instead of always the same first one.
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
 export default function HomeClient({ tournaments, testimonials, partnerLink, discordLink }: HomeClientProps) {
   // Parallax on the side hero art — direct style writes on scroll instead of
   // React state, so this doesn't trigger a re-render on every scroll pixel.
   const elderTitanRef = useRef<HTMLImageElement>(null);
   const zeusRef = useRef<HTMLImageElement>(null);
+
+  // Starts equal to the server-rendered order (no hydration mismatch), then
+  // shuffles once the component has mounted in the browser.
+  const [shuffledTestimonials, setShuffledTestimonials] = useState(testimonials);
+
+  useEffect(() => {
+    setShuffledTestimonials(shuffleArray(testimonials));
+  }, [testimonials]);
 
   useEffect(() => {
     const PARALLAX_SPEED = 0.4;
@@ -314,7 +335,7 @@ export default function HomeClient({ tournaments, testimonials, partnerLink, dis
           }}
         >
           <div className="animate-marquee gap-6 px-3 hover:[animation-play-state:paused]">
-            {[...testimonials, ...testimonials].map((review, idx) => (
+            {[...shuffledTestimonials, ...shuffledTestimonials].map((review, idx) => (
               <BorderGlow
                 key={`${review.id}-${idx}`}
                 className="w-[280px] md:w-[400px] shrink-0"
