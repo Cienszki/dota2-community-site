@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Star } from 'lucide-react';
-import ClientLightPillar from '@/components/ClientLightPillar';
+import SiteBackground from '@/components/SiteBackground';
 import Navbar from '@/components/Navbar';
 import SplitText from '@/components/SplitText';
 import WardClicker from '@/components/WardClicker';
@@ -85,23 +85,7 @@ export default function HomeClient({ tournaments, testimonials, partnerLink, dis
       {/* ─── RED RADIAL GLOW ─── */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-red-600/15 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* ─── LIGHT PILLAR BACKGROUND ─── */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-        <ClientLightPillar
-          topColor="#ff0000"
-          bottomColor="#ff5500"
-          intensity={0.7}
-          rotationSpeed={0.2}
-          glowAmount={0.002}
-          pillarWidth={2.5}
-          pillarHeight={0.3}
-          noiseIntensity={0.5}
-          pillarRotation={90}
-          interactive={false}
-          mixBlendMode="screen"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
-      </div>
+      <SiteBackground />
 
       <Navbar />
 

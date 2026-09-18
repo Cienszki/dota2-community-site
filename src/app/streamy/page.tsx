@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import ClientLightPillar from '@/components/ClientLightPillar';
+import SiteBackground from '@/components/SiteBackground';
 import BorderGlow from '@/components/ui/BorderGlow';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
@@ -202,22 +202,7 @@ export default async function StreamyPage() {
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
       <SmoothScroll />
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-50">
-        <ClientLightPillar
-          topColor="#8b5cf6"
-          bottomColor="#ef4444"
-          intensity={0.5}
-          rotationSpeed={0.15}
-          glowAmount={0.003}
-          pillarWidth={3}
-          pillarHeight={0.2}
-          noiseIntensity={0.6}
-          pillarRotation={90}
-          interactive={false}
-          mixBlendMode="screen"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
-      </div>
+      <SiteBackground />
 
       <Navbar />
 

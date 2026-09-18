@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
-import ClientLightPillar from '@/components/ClientLightPillar';
+import SiteBackground from '@/components/SiteBackground';
 
 export default function Error({
   error,
@@ -20,23 +20,7 @@ export default function Error({
     <>
       <Navbar />
       <div className="relative min-h-[calc(100vh-64px)] overflow-hidden">
-        {/* Background */}
-        <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-          <ClientLightPillar
-            topColor="#ff0000"
-            bottomColor="#ff5500"
-            intensity={0.7}
-            rotationSpeed={0.2}
-            glowAmount={0.002}
-            pillarWidth={2.5}
-            pillarHeight={0.3}
-            noiseIntensity={0.5}
-            pillarRotation={90}
-            interactive={false}
-            mixBlendMode="screen"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
-        </div>
+        <SiteBackground />
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4 pb-16 text-center">
           <span className="text-[4.8rem] sm:text-[6rem] font-black text-red-500 mb-6 tracking-wider drop-shadow-[0_0_15px_rgba(239,68,68,0.4)]">

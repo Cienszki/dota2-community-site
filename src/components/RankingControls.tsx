@@ -366,7 +366,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                 <InfoTooltip text="Ostatnie 50 meczów. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
               <th className="py-1.5 px-3 w-[18%] text-center whitespace-nowrap">
-                Forma ({formDays}d)
+                Forma
                 <InfoTooltip text="Bilans wygranych i przegranych meczy w wybranym okresie (patrz przełącznik nad tabelą). Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
             </tr>

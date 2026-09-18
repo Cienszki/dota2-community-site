@@ -1,5 +1,5 @@
 import Navbar from '@/components/Navbar';
-import ClientLightPillar from '@/components/ClientLightPillar';
+import SiteBackground from '@/components/SiteBackground';
 import SmoothScroll from '@/components/SmoothScroll';
 
 // Shared page shell for every inhouse surface, so they sit inside the exact
@@ -25,22 +25,7 @@ export default function InhouseShell({
       <SmoothScroll />
 
       {/* BACKGROUND — identical settings to the rest of the site */}
-      <div className="absolute inset-0 z-0 pointer-events-none opacity-60">
-        <ClientLightPillar
-          topColor="#ff0000"
-          bottomColor="#ff5500"
-          intensity={0.7}
-          rotationSpeed={0.2}
-          glowAmount={0.002}
-          pillarWidth={2.5}
-          pillarHeight={0.3}
-          noiseIntensity={0.5}
-          pillarRotation={90}
-          interactive={false}
-          mixBlendMode="screen"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/50 to-[#050505]" />
-      </div>
+      <SiteBackground />
 
       <Navbar />
 
