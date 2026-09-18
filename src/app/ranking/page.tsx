@@ -160,7 +160,7 @@ export default async function RankingPage() {
                 <Info className="w-3.5 h-3.5" /> Lista top 5000 graczy z Polski pobierana jest z oficjalnego rankingu Dota 2 (narodowość: Polska). Z listy usunięto graczy, którzy ustawili polską flagę &bdquo;dla beki&rdquo;.
               </p>
               <p className="text-slate-500 text-sm mt-1.5 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" /> Ranking Top5000 aktualizowany jest 2 razy, a pozostali gracze 1 raz dziennie.
+                <Info className="w-3.5 h-3.5" /> Ranking jest aktualizowany 4 razy dziennie.
               </p>
             </div>
           </div>
