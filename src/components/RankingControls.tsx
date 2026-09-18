@@ -4,6 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, TrendingUp, TrendingDown, Minus, Flame, Info, ExternalLink, Trophy, ChevronDown, Lock, ArrowUp } from 'lucide-react';
 
+// Kept in sync with FORM_WINDOWS_DAYS in scripts/sync-player-stats.mjs and
+// FORM_WINDOW_DAYS in ranking/page.tsx — those decide which form_<days>
+// columns exist and get fetched; this decides which of them the user can
+// switch between.
+const FORM_DAY_OPTIONS = [1, 3, 7, 14, 30] as const;
+const DEFAULT_FORM_DAYS: (typeof FORM_DAY_OPTIONS)[number] = 14;
+
 interface PlayerData {
   id: number;
   steam_id: string;
@@ -12,7 +19,7 @@ interface PlayerData {
   rankTier: number;
   leaderboardRank: number | null;
   winRate: string | null;
-  trend: number | null;
+  form: Record<number, number | null>;
   hasPublicMatches: boolean;
   isOfficial: boolean;
 }
@@ -208,6 +215,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
   const [search, setSearch] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [rankFilter, setRankFilter] = useState('all');
+  const [formDays, setFormDays] = useState<number>(DEFAULT_FORM_DAYS);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
@@ -322,6 +330,27 @@ export default function RankingControls({ players }: RankingControlsProps) {
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
+
+        <div className="flex items-center gap-2 bg-slate-900/40 border border-white/10 rounded-xl px-3 py-2">
+          <span className="text-slate-400 text-sm font-medium whitespace-nowrap">Forma:</span>
+          <div className="flex items-center gap-1">
+            {FORM_DAY_OPTIONS.map((days) => (
+              <button
+                key={days}
+                type="button"
+                onClick={() => setFormDays(days)}
+                aria-pressed={formDays === days}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                  formDays === days
+                    ? 'bg-red-600 text-white'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                }`}
+              >
+                {days}d
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Desktop table */}
@@ -337,14 +366,16 @@ export default function RankingControls({ players }: RankingControlsProps) {
                 <InfoTooltip text="Ostatnie 50 meczów. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
               <th className="py-1.5 px-3 w-[18%] text-center whitespace-nowrap">
-                Forma
-                <InfoTooltip text="Bilans gier wyników meczy z ostatnich 14 dni. Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
+                Forma ({formDays}d)
+                <InfoTooltip text="Bilans wygranych i przegranych meczy w wybranym okresie (patrz przełącznik nad tabelą). Widoczne tylko dla graczy, którzy połączyli swój profil Steam." />
               </th>
             </tr>
           </thead>
           <tbody>
             {filteredPlayers.length > 0 ? (
-              filteredPlayers.map((player) => (
+              filteredPlayers.map((player) => {
+                const trend = player.form[formDays] ?? null;
+                return (
                 <tr
                   key={player.id}
                   className="border-b border-white/[0.08] hover:bg-white/[0.03] transition-colors"
@@ -413,27 +444,27 @@ export default function RankingControls({ players }: RankingControlsProps) {
                   <td className="py-1.5 px-3 text-center font-mono">
                     {player.isOfficial ? (
                       <span className="text-slate-500 text-lg">—</span>
-                    ) : player.trend === null ? (
+                    ) : trend === null ? (
                       <span
                         className="inline-flex items-center justify-center gap-1 text-slate-500 text-xs font-normal"
                         title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}
                       >
                         {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                       </span>
-                    ) : player.trend >= 5 ? (
-                      <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-sm" title="ON FIRE! Niesamowity bilans!">
+                    ) : trend >= 5 ? (
+                      <div className="flex items-center justify-center gap-1.5 text-orange-400 drop-shadow-[0_0_12px_rgba(251,146,60,0.8)] font-black text-lg" title="ON FIRE! Niesamowity bilans!">
                         <Flame className="w-4 h-4 fill-orange-500 animate-pulse" />
-                        <span>+{player.trend}</span>
+                        <span>+{trend}</span>
                       </div>
-                    ) : player.trend > 0 ? (
+                    ) : trend > 0 ? (
                       <div className="flex items-center justify-center gap-1 text-emerald-400 font-bold text-lg" title="Więcej wygranych niż przegranych">
                         <TrendingUp className="w-4 h-4" />
-                        <span>+{player.trend}</span>
+                        <span>+{trend}</span>
                       </div>
-                    ) : player.trend < 0 ? (
+                    ) : trend < 0 ? (
                       <div className="flex items-center justify-center gap-1 text-red-500 font-bold text-lg" title="Więcej przegranych niż wygranych">
                         <TrendingDown className="w-4 h-4" />
-                        <span>{player.trend}</span>
+                        <span>{trend}</span>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-1 text-slate-500 font-bold text-lg" title="Brak zmian / Równy bilans">
@@ -442,7 +473,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                     )}
                   </td>
                 </tr>
-              ))
+              );})
             ) : (
               <tr>
                 <td colSpan={5} className="py-10 text-center text-slate-400 font-medium">
@@ -457,7 +488,9 @@ export default function RankingControls({ players }: RankingControlsProps) {
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {filteredPlayers.length > 0 ? (
-          filteredPlayers.map((player) => (
+          filteredPlayers.map((player) => {
+            const trend = player.form[formDays] ?? null;
+            return (
             <div
               key={player.id}
               className="bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl p-3"
@@ -515,21 +548,21 @@ export default function RankingControls({ players }: RankingControlsProps) {
                 <span className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-white/5 border border-white/[0.08] py-1.5 font-mono text-xs">
                   {player.isOfficial ? (
                     <span className="text-slate-500">Forma: —</span>
-                  ) : player.trend === null ? (
+                  ) : trend === null ? (
                     <span className="inline-flex items-center gap-1 text-slate-500" title={player.hasPublicMatches ? undefined : 'Profil gracza jest ustawiony jako prywatny'}>
                       {player.hasPublicMatches ? 'Brak danych' : (<>Profil prywatny <Lock className="w-3 h-3 shrink-0" /></>)}
                     </span>
-                  ) : player.trend >= 5 ? (
+                  ) : trend >= 5 ? (
                     <span className="flex items-center gap-1 text-orange-400 font-black" title="ON FIRE! Niesamowity bilans!">
-                      <Flame className="w-3.5 h-3.5 fill-orange-500" />+{player.trend}
+                      <Flame className="w-3.5 h-3.5 fill-orange-500" />+{trend}
                     </span>
-                  ) : player.trend > 0 ? (
+                  ) : trend > 0 ? (
                     <span className="flex items-center gap-1 text-emerald-400 font-bold" title="Więcej wygranych niż przegranych">
-                      <TrendingUp className="w-3.5 h-3.5" />+{player.trend}
+                      <TrendingUp className="w-3.5 h-3.5" />+{trend}
                     </span>
-                  ) : player.trend < 0 ? (
+                  ) : trend < 0 ? (
                     <span className="flex items-center gap-1 text-red-500 font-bold" title="Więcej przegranych niż wygranych">
-                      <TrendingDown className="w-3.5 h-3.5" />{player.trend}
+                      <TrendingDown className="w-3.5 h-3.5" />{trend}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 text-slate-500 font-bold" title="Brak zmian / Równy bilans">
@@ -539,7 +572,7 @@ export default function RankingControls({ players }: RankingControlsProps) {
                 </span>
               </div>
             </div>
-          ))
+          );})
         ) : (
           <div className="bg-[linear-gradient(135deg,rgba(43,43,43,0.8)_0%,rgba(5,5,5,0.8)_100%)] border border-white/[0.08] rounded-2xl py-10 text-center text-slate-400 font-medium text-sm">
             Brak graczy spełniających kryteria wyszukiwania.

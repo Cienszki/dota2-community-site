@@ -25,6 +25,11 @@ export const metadata: Metadata = {
 // of hitting Supabase on every request.
 export const revalidate = 21600;
 
+// Kept in sync with FORM_WINDOWS_DAYS in scripts/sync-player-stats.mjs (which
+// column names to select) and the selector in RankingControls.tsx (which
+// options the user can switch between).
+const FORM_WINDOW_DAYS = [1, 3, 7, 14, 30] as const;
+
 interface PlayerData {
   id: number;
   steam_id: string;
@@ -33,7 +38,7 @@ interface PlayerData {
   rankTier: number;
   leaderboardRank: number | null;
   winRate: string | null;
-  trend: number | null;
+  form: Record<number, number | null>;
   hasPublicMatches: boolean;
   isOfficial: boolean;
 }
@@ -57,18 +62,28 @@ export default async function RankingPage() {
   let players: PlayerData[] = [];
 
   try {
+    // Column list is a literal (not built from FORM_WINDOW_DAYS via .map/.join)
+    // because supabase-js parses the .select() string at the type level —
+    // a dynamically-assembled string loses that and every field below
+    // resolves to `any`. Keep this in sync with FORM_WINDOW_DAYS by hand.
     const { data: leaderboardEntries, error } = await supabase
       .from('ranking_leaderboard')
-      .select('steam_id, name, avatar, rank_tier, leaderboard_rank, win_rate, form, has_public_matches');
+      .select('steam_id, name, avatar, rank_tier, leaderboard_rank, win_rate, form_1, form_3, form_7, form_14, form_30, has_public_matches');
 
     if (!error && leaderboardEntries && leaderboardEntries.length > 0) {
       let officialIndex = 0;
 
-      // All stats below (mmr/rank_tier/win_rate/form) are pre-computed by the
-      // daily sync-player-stats cron job — no OpenDota calls at request time.
+      const emptyForm: Record<number, number | null> = Object.fromEntries(FORM_WINDOW_DAYS.map((days) => [days, null]));
+
+      // All stats below (mmr/rank_tier/win_rate/form_*) are pre-computed by
+      // the daily sync-player-stats cron job — no OpenDota calls at request
+      // time.
       const results = leaderboardEntries.map((entry) => {
         if (entry.steam_id) {
           const hasPublicMatches = entry.has_public_matches ?? true;
+          const form: Record<number, number | null> = hasPublicMatches
+            ? { 1: entry.form_1, 3: entry.form_3, 7: entry.form_7, 14: entry.form_14, 30: entry.form_30 }
+            : emptyForm;
           return {
             id: parseInt(entry.steam_id, 10),
             steam_id: entry.steam_id,
@@ -77,7 +92,7 @@ export default async function RankingPage() {
             rankTier: entry.rank_tier ?? 0,
             leaderboardRank: entry.leaderboard_rank ?? null,
             winRate: hasPublicMatches && entry.win_rate !== null ? `${entry.win_rate}%` : null,
-            trend: hasPublicMatches ? (entry.form ?? null) : null,
+            form,
             hasPublicMatches,
             isOfficial: false,
           };
@@ -93,7 +108,7 @@ export default async function RankingPage() {
           rankTier: 0,
           leaderboardRank: entry.leaderboard_rank ?? null,
           winRate: null,
-          trend: null,
+          form: emptyForm,
           hasPublicMatches: false,
           isOfficial: true,
         };

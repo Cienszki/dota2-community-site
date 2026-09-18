@@ -22,8 +22,14 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 const OPENDOTA_BASE = 'https://api.opendota.com/api';
-const MATCHES_LIMIT = 50;
-const FORM_WINDOW_DAYS = 14;
+// Raised from 50 so the Forma windows below (up to 30 days) have enough
+// history to be accurate for active players — a single OpenDota request
+// regardless of the limit value, so this doesn't cost extra requests (see
+// PLAYERS_PER_BATCH comment). win_rate deliberately still only looks at the
+// most recent WIN_RATE_MATCHES of these, unchanged from before.
+const MATCHES_LIMIT = 150;
+const WIN_RATE_MATCHES = 50;
+const FORM_WINDOWS_DAYS = [1, 3, 7, 14, 30];
 
 // 30 players x 2 requests each (profile + matches) = 60 requests per
 // window, comfortably under OpenDota's 60 req/min free-tier limit.
@@ -69,16 +75,25 @@ async function syncPlayer(steamId, fallbackName, fallbackAvatar) {
   const hasPublicMatches = Array.isArray(matches) && matches.length > 0;
 
   let winRate = null;
-  let form = null;
+  const form = Object.fromEntries(FORM_WINDOWS_DAYS.map((days) => [days, null]));
 
   if (hasPublicMatches) {
-    const wins = matches.filter(isWin).length;
-    winRate = Math.round((wins / matches.length) * 1000) / 10; // e.g. 68.2
+    // Defensive, not strictly required — OpenDota's /matches already returns
+    // newest-first — but matches src/lib/inhouse/opendota.ts's own habit of
+    // never trusting API order for something a slice() depends on.
+    const sorted = [...matches].sort((a, b) => b.start_time - a.start_time);
 
-    const cutoffSeconds = Date.now() / 1000 - FORM_WINDOW_DAYS * 24 * 60 * 60;
-    const recentMatches = matches.filter((m) => m.start_time >= cutoffSeconds);
-    const recentWins = recentMatches.filter(isWin).length;
-    form = recentWins - (recentMatches.length - recentWins);
+    const winRateMatches = sorted.slice(0, WIN_RATE_MATCHES);
+    const wins = winRateMatches.filter(isWin).length;
+    winRate = Math.round((wins / winRateMatches.length) * 1000) / 10; // e.g. 68.2
+
+    const nowSeconds = Date.now() / 1000;
+    for (const days of FORM_WINDOWS_DAYS) {
+      const cutoffSeconds = nowSeconds - days * 24 * 60 * 60;
+      const recentMatches = sorted.filter((m) => m.start_time >= cutoffSeconds);
+      const recentWins = recentMatches.filter(isWin).length;
+      form[days] = recentWins - (recentMatches.length - recentWins);
+    }
   }
 
   return {
@@ -254,7 +269,11 @@ async function main() {
             rank_tier: stats.rank_tier,
             leaderboard_rank: leaderboardRank,
             win_rate: stats.win_rate,
-            form: stats.form,
+            form_1: stats.form[1],
+            form_3: stats.form[3],
+            form_7: stats.form[7],
+            form_14: stats.form[14],
+            form_30: stats.form[30],
             has_public_matches: stats.has_public_matches,
             last_synced_at: new Date().toISOString(),
           })
