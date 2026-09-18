@@ -317,16 +317,16 @@ export default function RankingControls({ players }: RankingControlsProps) {
             value={rankFilter}
             onChange={(e) => setRankFilter(e.target.value)}
           >
-            <option value="all">Wszystkie rangi</option>
-            <option value="0">Brak rangi / Nieznana</option>
-            <option value="1">Herald</option>
-            <option value="2">Guardian</option>
-            <option value="3">Crusader</option>
-            <option value="4">Archon</option>
-            <option value="5">Legend</option>
-            <option value="6">Ancient</option>
-            <option value="7">Divine</option>
-            <option value="8">Immortal</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="all">Wszystkie rangi</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="0">Brak rangi / Nieznana</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="1">Herald</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="2">Guardian</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="3">Crusader</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="4">Archon</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="5">Legend</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="6">Ancient</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="7">Divine</option>
+            <option className="bg-[#0a0a0a] text-slate-200" value="8">Immortal</option>
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
