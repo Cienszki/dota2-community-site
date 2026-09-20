@@ -1,4 +1,5 @@
 import { after, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { sign } from '@/lib/session';
 
@@ -250,6 +251,15 @@ export async function GET(request: Request) {
     console.error('Błąd upsertu do ranking_leaderboard:', upsertError.message);
     return NextResponse.json({ error: 'Nie udało się zapisać gracza w bazie danych.' }, { status: 500 });
   }
+
+  // /ranking is ISR-cached (see revalidate export there) and otherwise only
+  // invalidated by the sync-player-stats cron's own post-run call — without
+  // this, a player who just linked their Steam account would keep seeing the
+  // stale cached page (their old rank, or no row at all) for up to 6h despite
+  // the fresh row already sitting in the DB above. Called before the
+  // redirect below, not in `after()`, so the very next request already gets
+  // the regenerated page instead of racing it.
+  revalidatePath('/ranking');
 
   // --- Trigger scrapera GitHub dla graczy z top 5000 (nieblokujące) ---
   if (openDotaRank !== null) {

@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { validateImageFile } from '@/lib/validate-image';
@@ -62,6 +63,7 @@ export async function deleteRankPlayer(steamId: string) {
 
     if (error) throw error;
 
+    revalidatePath('/ranking');
     return { success: true as const };
   } catch (err: unknown) {
     console.error('Server action — deleteRankPlayer:', err);
@@ -153,6 +155,7 @@ export async function setTop5000SteamId(id: string, steamId: string | null) {
       throw error;
     }
 
+    revalidatePath('/ranking');
     return { success: true as const };
   } catch (err: unknown) {
     console.error('Server action — setTop5000SteamId:', err);
@@ -180,6 +183,7 @@ export async function deleteTop5000Player(id: string) {
 
     if (error) throw error;
 
+    revalidatePath('/ranking');
     return { success: true as const };
   } catch (err: unknown) {
     console.error('Server action — deleteTop5000Player:', err);
