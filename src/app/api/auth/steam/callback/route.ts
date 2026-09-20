@@ -6,12 +6,13 @@ const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_ID_PREFIX = 'https://steamcommunity.com/openid/id/';
 const STEAM_ID64_OFFSET = BigInt('76561197960265728');
 
-// Same 50-match / 14-day window as scripts/sync-player-stats.mjs (the daily
+// Same match fetch / window logic as scripts/sync-player-stats.mjs (the
 // cron that refreshes everyone else) — duplicated here rather than imported
 // since that script is intentionally standalone (runs outside the Next.js
 // app via GitHub Actions). Keep the two in sync if this logic ever changes.
-const OPENDOTA_MATCHES_LIMIT = 50;
-const FORM_WINDOW_DAYS = 14;
+const OPENDOTA_MATCHES_LIMIT = 150;
+const WIN_RATE_MATCHES = 50;
+const FORM_WINDOWS_DAYS = [1, 3, 7, 14, 30] as const;
 
 interface OpenDotaProfileResponse {
   profile?: { personaname?: string; avatarfull?: string };
@@ -156,7 +157,7 @@ export async function GET(request: Request) {
   let mmr: number | null = null;
   let rankTier: number | null = null;
   let winRate: number | null = null;
-  let form: number | null = null;
+  const form: Record<number, number | null> = Object.fromEntries(FORM_WINDOWS_DAYS.map((d) => [d, null]));
   let hasPublicMatches = true;
 
   // Fetched independently (allSettled, not Promise.all) so a failure on one
@@ -201,13 +202,19 @@ export async function GET(request: Request) {
     hasPublicMatches = Array.isArray(matches) && matches.length > 0;
 
     if (hasPublicMatches) {
-      const wins = matches.filter(isWin).length;
-      winRate = Math.round((wins / matches.length) * 1000) / 10; // e.g. 68.2
+      const sorted = [...matches].sort((a, b) => b.start_time - a.start_time);
 
-      const cutoffSeconds = Date.now() / 1000 - FORM_WINDOW_DAYS * 24 * 60 * 60;
-      const recentMatches = matches.filter((m) => m.start_time >= cutoffSeconds);
-      const recentWins = recentMatches.filter(isWin).length;
-      form = recentWins - (recentMatches.length - recentWins);
+      const winRateMatches = sorted.slice(0, WIN_RATE_MATCHES);
+      const wins = winRateMatches.filter(isWin).length;
+      winRate = Math.round((wins / winRateMatches.length) * 1000) / 10; // e.g. 68.2
+
+      const nowSeconds = Date.now() / 1000;
+      for (const days of FORM_WINDOWS_DAYS) {
+        const cutoffSeconds = nowSeconds - days * 24 * 60 * 60;
+        const recentMatches = sorted.filter((m) => m.start_time >= cutoffSeconds);
+        const recentWins = recentMatches.filter(isWin).length;
+        form[days] = recentWins - (recentMatches.length - recentWins);
+      }
     }
   } else {
     console.warn('OpenDota matches fetch failed:', matchesResult.reason);
@@ -226,7 +233,11 @@ export async function GET(request: Request) {
         mmr,
         rank_tier: rankTier,
         win_rate: winRate,
-        form,
+        form_1: form[1],
+        form_3: form[3],
+        form_7: form[7],
+        form_14: form[14],
+        form_30: form[30],
         has_public_matches: hasPublicMatches,
         is_registered: true,
         last_synced_at: new Date().toISOString(),
