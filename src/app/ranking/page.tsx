@@ -53,6 +53,21 @@ function getRankingIconVersion(): number {
   }
 }
 
+// Explicit Europe/Warsaw rather than the server's own timezone (typically
+// UTC on the host) — this is shown to Polish visitors, who'd otherwise read
+// a UTC hour as their own local time.
+function formatLastSynced(iso: string | null): string | null {
+  if (!iso) return null;
+  return new Date(iso).toLocaleString('pl-PL', {
+    timeZone: 'Europe/Warsaw',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default async function RankingPage() {
   // Cache-busting query param so replacing this file on disk is reflected
   // immediately — Next's image optimizer otherwise caches by URL alone and
@@ -60,6 +75,12 @@ export default async function RankingPage() {
   const rankingIconSrc = `/images/ranking.png?v=${getRankingIconVersion()}`;
 
   let players: PlayerData[] = [];
+  // Most recent last_synced_at across every row — the honest "last updated"
+  // timestamp: it reflects the scheduled 4x/day sync, but also ticks forward
+  // immediately when a player links their Steam account (see
+  // src/app/api/auth/steam/callback/route.ts), which is correct — that row
+  // genuinely was just refreshed.
+  let lastSyncedAt: string | null = null;
 
   try {
     // Column list is a literal (not built from FORM_WINDOW_DAYS via .map/.join)
@@ -68,10 +89,16 @@ export default async function RankingPage() {
     // resolves to `any`. Keep this in sync with FORM_WINDOW_DAYS by hand.
     const { data: leaderboardEntries, error } = await supabase
       .from('ranking_leaderboard')
-      .select('steam_id, name, avatar, rank_tier, leaderboard_rank, win_rate, form_1, form_3, form_7, form_14, form_30, has_public_matches');
+      .select('steam_id, name, avatar, rank_tier, leaderboard_rank, win_rate, form_1, form_3, form_7, form_14, form_30, has_public_matches, last_synced_at');
 
     if (!error && leaderboardEntries && leaderboardEntries.length > 0) {
       let officialIndex = 0;
+
+      for (const entry of leaderboardEntries) {
+        if (entry.last_synced_at && (!lastSyncedAt || entry.last_synced_at > lastSyncedAt)) {
+          lastSyncedAt = entry.last_synced_at;
+        }
+      }
 
       const emptyForm: Record<number, number | null> = Object.fromEntries(FORM_WINDOW_DAYS.map((days) => [days, null]));
 
@@ -128,6 +155,8 @@ export default async function RankingPage() {
     console.error("Błąd ładowania danych na serwerze:", error);
   }
 
+  const lastSyncedText = formatLastSynced(lastSyncedAt);
+
   return (
     <main className="relative bg-[#050505] text-slate-100 overflow-x-hidden">
       <SmoothScroll />
@@ -154,13 +183,10 @@ export default async function RankingPage() {
               <h1 className="text-4xl font-extrabold tracking-tight">Ranking</h1>
               <p className="text-slate-400 text-xl">dla polskich graczy Dota 2. Każdy może dołączyć do rankingu.</p>
               <p className="text-slate-500 text-sm mt-2 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" /> Profil gracza musi być ustawiony jako publiczny w ustawieniach gry Dota 2.
+                <Info className="w-3.5 h-3.5" /> Profil gracza musi być ustawiony jako publiczny w opcjach gry -&gt;Social-&gt;Options-&gt;Expose Public Match Data.
               </p>
               <p className="text-slate-500 text-sm mt-1.5 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" /> Lista top 5000 graczy z Polski pobierana jest z oficjalnego rankingu Dota 2 (narodowość: Polska). Z listy usunięto graczy, którzy ustawili polską flagę &bdquo;dla beki&rdquo;.
-              </p>
-              <p className="text-slate-500 text-sm mt-1.5 flex items-center gap-1.5">
-                <Info className="w-3.5 h-3.5" /> Ranking jest aktualizowany 4 razy dziennie.
+                <Info className="w-3.5 h-3.5" /> Ranking aktualizowany jest 4 razy dziennie.{lastSyncedText ? ` Ostatnia aktualizacja: ${lastSyncedText}.` : ''}
               </p>
             </div>
           </div>
