@@ -277,13 +277,15 @@ export default function HomeClient({ tournaments, testimonials, partnerLink, dis
               glowRadius={40}
               glowIntensity={1.2}
             >
-              <div className="relative z-10 p-7 flex flex-col gap-3 h-full">
-                {t.image && (
-                  <img src={t.image} alt={t.name} className="max-w-full w-[210px] h-[130px] object-contain object-right-top sm:absolute sm:top-[15px] sm:right-5 -z-10" />
-                )}
-                <div className={`flex flex-col gap-3 ${t.image ? 'sm:min-h-[117px]' : ''}`}>
-                  <span className={`self-start px-2.5 py-1 ${tagColor(t.tag)} text-[11px] font-extrabold uppercase tracking-wider rounded-sm`}>{t.tag}</span>
-                  <h3 className="text-xl font-extrabold text-white max-w-[65%]">{t.name}</h3>
+              <div className="p-7 flex flex-col gap-3 h-full">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                  <div className="flex flex-col gap-3 min-w-0">
+                    <span className={`self-start px-2.5 py-1 ${tagColor(t.tag)} text-[11px] font-extrabold uppercase tracking-wider rounded-sm`}>{t.tag}</span>
+                    <h3 className="text-xl font-extrabold text-white">{t.name}</h3>
+                  </div>
+                  {t.image && (
+                    <img src={t.image} alt={t.name} className="w-auto h-auto max-w-[210px] max-h-[130px] shrink-0 sm:-mt-[13px] sm:-mr-2" />
+                  )}
                 </div>
                 <p className="text-slate-400 text-sm leading-relaxed">{t.desc}</p>
                 <a href={t.href} target="_blank" rel="noopener noreferrer" className="self-start text-white font-bold text-sm uppercase tracking-wide border-b-2 border-red-600 pb-0.5">

@@ -56,13 +56,13 @@ export default function Navbar() {
                   </button>
                   <div className="absolute top-full left-0 flex flex-col bg-[#1A181A]/95 backdrop-blur-md border border-white/10 rounded-b-lg py-2 min-w-[200px] z-50 shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-150">
                     <a href="https://dota2inhouse.pl/pdl" className="px-4 py-2 text-base text-white hover:bg-white/10 hover:text-red-500 font-bold transition-colors">
-                      PDL #2 (Trwający)
+                      PDL #2 <span className="text-xs font-normal text-slate-400">(trwający)</span>
                     </a>
                     <a href="https://dota2inhouse.pl/wiosenna" className="px-4 py-2 text-base text-white hover:bg-white/10 hover:text-red-500 font-bold transition-colors">
-                      Wiosenna Furia (Zakończony)
+                      Wiosenna Furia <span className="text-xs font-normal text-slate-400">(zakończony)</span>
                     </a>
                     <span className="px-4 py-2 text-base text-slate-500 font-bold cursor-default">
-                      PDL #1 (Zakończony)
+                      PDL #1 <span className="text-xs font-normal text-slate-400">(zakończony)</span>
                     </span>
                   </div>
                 </div>
@@ -120,17 +120,17 @@ export default function Navbar() {
                         className="px-4 py-2.5 text-base text-slate-300 hover:text-red-400 font-bold transition-colors"
                         onClick={() => setMobileOpen(false)}
                       >
-                        PDL #2 (Trwający)
+                        PDL #2 <span className="text-xs font-normal text-slate-400">(trwający)</span>
                       </a>
                       <a
                         href="https://dota2inhouse.pl/wiosenna"
                         className="px-4 py-2.5 text-base text-slate-300 hover:text-red-400 font-bold transition-colors"
                         onClick={() => setMobileOpen(false)}
                       >
-                        Wiosenna Furia (Zakończony)
+                        Wiosenna Furia <span className="text-xs font-normal text-slate-400">(zakończony)</span>
                       </a>
                       <span className="px-4 py-2.5 text-base text-slate-500 font-bold cursor-default">
-                        PDL #1 (Zakończony)
+                        PDL #1 <span className="text-xs font-normal text-slate-400">(zakończony)</span>
                       </span>
                     </div>
                   </div>
