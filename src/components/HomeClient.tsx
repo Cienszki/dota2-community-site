@@ -41,6 +41,11 @@ const discordCount = 2500;
 // the server-rendered order and the first client render still match exactly,
 // avoiding a hydration mismatch. The marquee then starts from a different
 // testimonial on every page load instead of always the same first one.
+const tagColor = (tag: string) =>
+  tag === 'Zapisy otwarte' ? 'bg-green-500/15 text-green-400'
+  : tag === 'Trwający' ? 'bg-yellow-500/15 text-yellow-400'
+  : 'bg-red-600/15 text-red-400';
+
 function shuffleArray<T>(array: T[]): T[] {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -274,9 +279,9 @@ export default function HomeClient({ tournaments, testimonials, partnerLink, dis
             >
               <div className="p-7 flex flex-col gap-3 h-full">
                 {t.image && (
-                  <img src={t.image} alt={t.name} className="absolute top-4 right-4 w-[210px] h-[70px] object-cover rounded-lg" />
+                  <img src={t.image} alt={t.name} className="absolute top-5 right-5 w-[210px] h-[130px] object-cover rounded-lg" />
                 )}
-                <span className="self-start px-2.5 py-1 bg-red-600/15 text-red-400 text-[11px] font-extrabold uppercase tracking-wider rounded-sm">{t.tag}</span>
+                <span className={`self-start px-2.5 py-1 ${tagColor(t.tag)} text-[11px] font-extrabold uppercase tracking-wider rounded-sm`}>{t.tag}</span>
                 <h3 className="text-xl font-extrabold text-white max-w-[65%]">{t.name}</h3>
                 <p className="text-slate-400 text-sm leading-relaxed">{t.desc}</p>
                 <a href={t.href} target="_blank" rel="noopener noreferrer" className="self-start text-white font-bold text-sm uppercase tracking-wide border-b-2 border-red-600 pb-0.5">

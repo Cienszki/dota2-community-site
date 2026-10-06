@@ -33,6 +33,11 @@ type ActiveTab = 'news' | 'settings' | 'hof' | 'basher' | 'ranking' | 'top5000' 
 
 const TOURNAMENT_TAGS = ['Zapisy otwarte', 'Trwający', 'Zakończony'] as const;
 
+const tagColor = (tag: string) =>
+  tag === 'Zapisy otwarte' ? 'bg-green-500/15 text-green-400'
+  : tag === 'Trwający' ? 'bg-yellow-500/15 text-yellow-400'
+  : 'bg-red-600/15 text-red-400';
+
 interface NewsItem {
   id: number;
   title: string;
@@ -1817,7 +1822,7 @@ export default function AdminPage() {
 
               <div className="bg-slate-950/30 border border-white/[0.05] rounded-2xl p-4 max-w-lg">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Baner turnieju (opcjonalny, ok. 210×70)
+                  Grafika turnieju (opcjonalna, zalecane 210×130)
                 </label>
                 <div className="relative flex items-center justify-center border border-dashed border-white/10 hover:border-red-500/50 rounded-xl py-6 bg-[#181a20] transition-colors cursor-pointer">
                   <input
@@ -1837,8 +1842,8 @@ export default function AdminPage() {
                 {tournamentImagePreview && (
                   <img
                     src={tournamentImagePreview}
-                    alt="Podgląd banera"
-                    className="mt-3 h-16 w-auto rounded-lg object-cover border border-white/10"
+                    alt="Podgląd grafiki"
+                    className="mt-3 h-[130px] w-[210px] rounded-lg object-cover border border-white/10"
                   />
                 )}
               </div>
@@ -1903,7 +1908,7 @@ export default function AdminPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-slate-200">{t.name}</span>
-                          <span className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-sm bg-red-600/15 text-red-400">
+                          <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-sm ${tagColor(t.tag)}`}>
                             {t.tag}
                           </span>
                           {!t.is_visible && (

@@ -58,8 +58,11 @@ export default function Navbar() {
                     <a href="https://dota2inhouse.pl/wiosenna" className="px-4 py-2 text-base text-white hover:bg-white/10 hover:text-red-500 font-bold transition-colors">
                       Wiosenna Furia
                     </a>
+                    <span className="px-4 py-2 text-base text-slate-500 font-bold cursor-default">
+                      PDL #1 (zakończony)
+                    </span>
                     <a href="https://dota2inhouse.pl/pdl" className="px-4 py-2 text-base text-white hover:bg-white/10 hover:text-red-500 font-bold transition-colors">
-                      PDL #1
+                      PDL #2
                     </a>
                   </div>
                 </div>
@@ -119,12 +122,15 @@ export default function Navbar() {
                       >
                         Wiosenna Furia
                       </a>
+                      <span className="px-4 py-2.5 text-base text-slate-500 font-bold cursor-default">
+                        PDL #1 (zakończony)
+                      </span>
                       <a
                         href="https://dota2inhouse.pl/pdl"
                         className="px-4 py-2.5 text-base text-slate-300 hover:text-red-400 font-bold transition-colors"
                         onClick={() => setMobileOpen(false)}
                       >
-                        PDL #1
+                        PDL #2
                       </a>
                     </div>
                   </div>
