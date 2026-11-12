@@ -3,6 +3,7 @@ import { Oxanium, Exo_2 } from "next/font/google";
 import "./globals.css"; // Tutaj ładują się nasze nowe style z globals.css
 import { getGlobalSettings } from "@/lib/global-settings";
 import Footer from "@/components/Footer";
+import { Analytics } from '@vercel/analytics/next';
 
 // Both fonts are always loaded together so rich-text content authored with
 // either font (via the news editor's per-paragraph font picker) always
@@ -123,6 +124,7 @@ export default async function RootLayout({
       <body className="antialiased bg-[#050505]">
         {children}
         <Footer settings={settings} />
+        <Analytics />
       </body>
     </html>
   );
